@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>morphatar — deterministic geometric avatars</title>
+    <meta
+      name="description"
+      content="Deterministic geometric avatars from any string. No dependencies, about 3.3 KB."
+    />
+    <!--
+      @font-face lives here, inline, rather than in styles.css.
+
+      Bun's CSS bundler resolves and base64-inlines every url() it can reach —
+      ~188 KB of font buried in the stylesheet, render-blocking and re-fetched
+      on any class change. Marking them external fixes `bun build` but the dev
+      server takes no such option, so the two environments disagreed. An inline
+      <style> is left alone by both, and the files are served straight from
+      /fonts in dev and copied there at build time.
+    -->
+    <style>
+      @font-face {
+        font-family: "Geist";
+        src: url("/fonts/geist-variable.woff2") format("woff2");
+        font-weight: 100 900;
+        font-display: swap;
+      }
+
+      @font-face {
+        font-family: "Geist Mono";
+        src: url("/fonts/geist-mono-variable.woff2") format("woff2");
+        font-weight: 100 900;
+        font-display: swap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./frontend.tsx"></script>
+  </body>
+</html>

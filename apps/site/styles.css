@@ -1,0 +1,115 @@
+/*
+ * `source(none)` turns off Tailwind's automatic content detection and the
+ * `@source` lines below opt directories back in explicitly.
+ *
+ * Automatic detection walks up from this file, and in a workspace that means it
+ * finds the hoisted `node_modules` at the repo root. The result still compiles
+ * correctly — it just emits every utility those packages appear to mention,
+ * which took this stylesheet from ~30 KB to ~208 KB of mostly-unused rules.
+ */
+@import "tailwindcss" source(none);
+
+@source "./src";
+@source "./frontend.tsx";
+@source "./index.html";
+
+/*
+ * Self-hosted rather than pulled from a CDN: the page is meant to be genuinely
+ * static, and a third-party font host is both a network dependency and a FOUT
+ * we do not control. One variable file per family covers every weight the page
+ * uses, which is cheaper than the six static cuts it would otherwise take.
+ *
+ * Absolute `/fonts/...` rather than a relative path, deliberately. Bun's CSS
+ * bundler inlines any `url()` it can resolve on disk as a base64 data URI —
+ * ~188 KB of font buried inside the stylesheet, render-blocking and re-fetched
+ * whenever a single class changes. The `loader` option does not override that.
+ * An absolute URL is not resolvable as a module, so it passes through untouched
+ * and the files are copied as static assets instead.
+ */
+@theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /*
+   * Near-black rather than #000. Blob avatars have a transparent backdrop by
+   * default — the body *is* the avatar — so they sit directly on this color.
+   * Against true black the silhouettes read as cut out; against #0A0A0B they
+   * read as placed.
+   */
+  --color-ground: #0a0a0b;
+  --color-raised: #131315;
+  --color-ink: #fafaf8;
+  --color-muted: #8a8a93;
+  --color-line: #232327;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    /*
+     * The wall's parallax is scroll-driven, and smooth scrolling on top of a
+     * scroll-linked animation makes the columns overshoot and settle.
+     */
+    scroll-behavior: auto;
+    background-color: var(--color-ground);
+  }
+
+  body {
+    @apply bg-ground text-ink font-sans antialiased;
+  }
+
+  ::selection {
+    background: var(--color-ink);
+    color: var(--color-ground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+}
+
+/*
+ * The wall.
+ *
+ * Columns translate at differing rates as the section passes through the
+ * viewport. This is scroll-linked, not time-linked: `animation-timeline` ties
+ * progress to scroll position, so it runs off the main thread and cannot drift
+ * out of sync with the page the way a scroll listener does.
+ */
+@layer components {
+  .wall-col {
+    --wall-shift: 0px;
+  }
+
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .wall-col {
+        animation-name: wall-drift;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: view();
+        animation-range: cover 0% cover 100%;
+        /*
+         * Required, and the reason not to use the `animation` shorthand here:
+         * the shorthand resets duration to 0s, and a scroll-driven animation
+         * with a 0s duration attaches, reports its timeline correctly, and
+         * renders a flat identity transform. It fails silently.
+         */
+        animation-duration: auto;
+      }
+    }
+  }
+
+  @keyframes wall-drift {
+    from {
+      transform: translate3d(0, var(--wall-shift), 0);
+    }
+    to {
+      transform: translate3d(0, calc(var(--wall-shift) * -1), 0);
+    }
+  }
+}

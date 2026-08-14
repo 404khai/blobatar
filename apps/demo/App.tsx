@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { avatar, type Animate, type AvatarOptions, type Variant } from "../src/avatar";
-import { Avatar } from "../src/react";
-import { traits } from "../src/traits";
-import * as blob from "../src/styles/blob";
+import { avatar, traits, type Animate, type AvatarOptions, type Variant } from "morphatar";
+import { layout } from "morphatar/blob";
+import { Avatar } from "morphatar/react";
 
 /**
  * The tuning harness.
@@ -49,7 +48,7 @@ export function App() {
     const wanted = variant === "blob" && shape !== "all" ? shape : null;
     for (let i = page * count; out.length < count && i < page * count + count * 200; i++) {
       const seed = `${prefix}${i}`;
-      if (!wanted || blob.layout(traits(seed)).shape === wanted) out.push(seed);
+      if (!wanted || layout(traits(seed)).shape === wanted) out.push(seed);
     }
     return out;
   }, [prefix, page, shape, variant, count]);
@@ -197,7 +196,7 @@ export function App() {
               <strong>{focus}</strong>
               <span>
                 {avatar(focus, opts).length} bytes
-                {variant === "blob" && ` · ${blob.layout(traits(focus)).shape}`}
+                {variant === "blob" && ` · ${layout(traits(focus)).shape}`}
               </span>
               <div className="swatches">
                 {[...new Set(avatar(focus, opts).match(/#[0-9a-f]{6}/g) ?? [])].map(c => (

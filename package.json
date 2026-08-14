@@ -1,39 +1,17 @@
 {
-  "name": "morphatar",
-  "version": "0.1.0",
-  "description": "Deterministic geometric avatars from any string. No dependencies.",
+  "name": "morphatar-workspace",
+  "private": true,
   "type": "module",
-  "//sideEffects": "Not `false`. That would license bundlers to drop `import \"morphatar/motion.css\"` as dead weight, and animated avatars would silently render static for everyone shipping through a bundler.",
-  "sideEffects": ["*.css"],
-  "files": ["dist", "src"],
-  "exports": {
-    ".": "./src/index.ts",
-    "./blob": "./src/blob.ts",
-    "./character": "./src/character.ts",
-    "./uri": "./src/uri.ts",
-    "./react": "./src/react.tsx",
-    "./motion.css": "./src/motion.css"
-  },
+  "workspaces": ["packages/*", "apps/*"],
   "scripts": {
-    "dev": "bun --hot server.ts",
-    "test": "bun test",
-    "size": "bun scripts/size.ts",
-    "build": "bun build ./src/index.ts ./src/uri.ts ./src/react.tsx --outdir=dist --target=browser --minify --external=react",
-    "check": "bun test && bun run size"
-  },
-  "peerDependencies": {
-    "react": ">=18"
-  },
-  "peerDependenciesMeta": {
-    "react": { "optional": true }
+    "dev": "bun --filter demo dev",
+    "site": "bun --filter site dev",
+    "build:site": "bun --filter site build",
+    "test": "bun --filter morphatar test",
+    "size": "bun --filter morphatar size",
+    "check": "bun --filter '*' check"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "react": "^19",
-    "react-dom": "^19"
-  },
-  "keywords": ["avatar", "identicon", "svg", "deterministic", "no-dependencies"],
-  "license": "MIT"
+    "@types/bun": "latest"
+  }
 }
