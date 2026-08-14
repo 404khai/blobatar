@@ -1,0 +1,119 @@
+/**
+ * The single primitive.
+ *
+ * |x/a|^n + |y/b|^n = 1 covers the whole part vocabulary: n=2 is an ellipse
+ * (eyes, pupils), n≈4 a squircle (head, background), n→large a rectangle
+ * (brows, mouth lines). One shape function, one continuous knob, so "head
+ * shape" is a numeric trait rather than a set of hand-drawn alternatives.
+ */
+
+export interface Superellipse {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  /** Squareness. Useful range is roughly 1.6 (soft diamond) to 8 (near-rect). */
+  n?: number;
+  /** Degrees, clockwise. Baked into the coordinates so the SVG needs no transform. */
+  rot?: number;
+}
+
+const r2 = (v: number) => {
+  const s = Math.round(v * 100) / 100;
+  return Object.is(s, -0) ? "0" : String(s);
+};
+
+/**
+ * Approximates each quadrant with one cubic Bézier.
+ *
+ * The control offset is chosen so the curve passes exactly through the
+ * superellipse's 45° point: B(0.5) = a(4+3k)/8 must equal a·2^(-1/n).
+ * At n=2 this yields 0.5523 — the standard circle constant — which is a good
+ * sign the derivation is right. Four segments instead of a 24-point sampled
+ * polyline keeps each shape at ~130 bytes of path data.
+ */
+export function superellipse({ cx, cy, rx, ry, n = 4, rot = 0 }: Superellipse): string {
+  // Above n≈5.55 the control offset exceeds the radius, and the curve bulges
+  // outside the bounding box instead of squaring off — an inflated-looking
+  // corner rather than a sharper one. Clamping k trades exactness at the 45°
+  // point for a shape that always stays within its stated bounds; past that
+  // point a superellipse is visually a rounded rect anyway.
+  const k = Math.min(1, (8 * Math.pow(2, -1 / n) - 4) / 3);
+  const a = rx;
+  const b = ry;
+  const ak = a * k;
+  const bk = b * k;
+
+  // Anchor, control, control — walking the four quadrants.
+  const pts: [number, number][] = [
+    [a, 0],
+    [a, bk], [ak, b], [0, b],
+    [-ak, b], [-a, bk], [-a, 0],
+    [-a, -bk], [-ak, -b], [0, -b],
+    [ak, -b], [a, -bk], [a, 0],
+  ];
+
+  const t = (rot * Math.PI) / 180;
+  const cos = Math.cos(t);
+  const sin = Math.sin(t);
+  const at = (i: number) => {
+    const [x, y] = pts[i]!;
+    return `${r2(cx + x * cos - y * sin)} ${r2(cy + x * sin + y * cos)}`;
+  };
+
+  let d = `M${at(0)}`;
+  for (let i = 1; i < 13; i += 3) d += `C${at(i)} ${at(i + 1)} ${at(i + 2)}`;
+  return d + "Z";
+}
+
+/**
+ * A quadratic arc, stroked — used only for smiles and frowns, where a closed
+ * superellipse would need a boolean subtraction to get the same read.
+ */
+export function arc(cx: number, cy: number, w: number, depth: number): string {
+  return `M${r2(cx - w)} ${r2(cy)}Q${r2(cx)} ${r2(cy + depth)} ${r2(cx + w)} ${r2(cy)}`;
+}
+
+/**
+ * An organic closed curve: radii sampled around a circle, joined by a closed
+ * Catmull-Rom spline converted to cubic Béziers.
+ *
+ * The superellipse handles everything symmetric; this handles everything that
+ * needs to look hand-drawn. `radii` are multipliers of the base radius, one per
+ * vertex, so a seed perturbing them by ±15% produces the lopsided pebble shapes
+ * without any noise function — the vertex count alone controls how lumpy it is.
+ *
+ * Catmull-Rom rather than a Bézier fit because it interpolates its points
+ * exactly, so the radii mean what they say and containment stays predictable.
+ */
+export function blobPath(
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  radii: number[],
+  rot = 0,
+): string {
+  const n = radii.length;
+  const t0 = (rot * Math.PI) / 180;
+  const p: [number, number][] = radii.map((m, i) => {
+    const a = t0 + (2 * Math.PI * i) / n;
+    return [cx + rx * m * Math.cos(a), cy + ry * m * Math.sin(a)];
+  });
+
+  const at = (i: number) => p[((i % n) + n) % n]!;
+  let d = `M${r2(at(0)[0])} ${r2(at(0)[1])}`;
+
+  for (let i = 0; i < n; i++) {
+    const [x0, y0] = at(i - 1);
+    const [x1, y1] = at(i);
+    const [x2, y2] = at(i + 1);
+    const [x3, y3] = at(i + 2);
+    d +=
+      `C${r2(x1 + (x2 - x0) / 6)} ${r2(y1 + (y2 - y0) / 6)}` +
+      ` ${r2(x2 - (x3 - x1) / 6)} ${r2(y2 - (y3 - y1) / 6)}` +
+      ` ${r2(x2)} ${r2(y2)}`;
+  }
+
+  return d + "Z";
+}
