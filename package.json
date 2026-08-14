@@ -3,14 +3,16 @@
   "version": "0.1.0",
   "description": "Deterministic geometric avatars from any string. No dependencies.",
   "type": "module",
-  "sideEffects": false,
+  "//sideEffects": "Not `false`. That would license bundlers to drop `import \"morphatar/motion.css\"` as dead weight, and animated avatars would silently render static for everyone shipping through a bundler.",
+  "sideEffects": ["*.css"],
   "files": ["dist", "src"],
   "exports": {
     ".": "./src/index.ts",
     "./blob": "./src/blob.ts",
     "./character": "./src/character.ts",
     "./uri": "./src/uri.ts",
-    "./react": "./src/react.tsx"
+    "./react": "./src/react.tsx",
+    "./motion.css": "./src/motion.css"
   },
   "scripts": {
     "dev": "bun --hot server.ts",

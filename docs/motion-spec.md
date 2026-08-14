@@ -1,6 +1,11 @@
 # Motion spec
 
-Status: **planned, not implemented.** Written for a future session to execute.
+Status: **all five CSS layers built, none reviewed by eye.** Steps 1–7 of §11
+are done — packaging, seeded timing, the inline-SVG adapter, blink, breathe,
+bob, the hover reaction, and idle saccades. `docs/motion-probe.html` covers the mechanics;
+nobody has yet watched the thing move and judged whether it reads well, which is
+the next step and the one that decides the numbers. §3's loop model has been
+settled against real browsers; see the note there.
 
 Adds an optional idle animation to the `blob` variant: a soft breathe, a bob, a
 blink, and an optional gaze-follow. Off by default, hover-triggered when on.
@@ -159,10 +164,15 @@ apart from each other. Every amplitude below is the value at `--mo-amp: 1`.
 where `transform-box` defaults to `view-box` — so percentages resolve against
 the `0 0 100 100` viewport, not against the element, and `transform-origin:
 50% 50%` means the viewport center (50, 50). That is *close to* but not exactly
-the body center, which `layout()` jitters by ±1.5 units. The difference is
-invisible at these amplitudes, so keep the default box on the motion groups —
-but write the translations in user units (`translateY(-1.5)`) rather than
-percentages, so nobody later has to rediscover which box they resolved against.
+the body center, which `layout()` jitters by ±1.5 units — so a 2.2% scale about
+the wrong center displaces the body by 0.03 units. Invisible. Keep the default
+box on the motion groups.
+
+Write translations as `px`, not percentages: a bare number is invalid in a CSS
+transform, and on an SVG element `1px` resolves to one unit of the local user
+coordinate system — so `translateY(-1.5px)` is 1.5 viewBox units, at any
+rendered size. Percentages would work too but resolve against a different box
+depending on `transform-box`, which is exactly the ambiguity worth avoiding.
 
 The eyes are the exception: blink needs `transform-box: fill-box` (§4.4), and
 that flips percentage resolution on those elements to the eye's own bounding
@@ -174,7 +184,7 @@ The element the pointer arrives at should respond immediately.
 
 ```
 scale: 1 → 1.04
-translateY: 0 → -1.5    (user units, see above)
+translateY: 0 → -1.5px  (= 1.5 viewBox units, see above)
 enter: 220ms cubic-bezier(0.23, 1, 0.32, 1)
 exit:  160ms cubic-bezier(0.23, 1, 0.32, 1)
 ```
@@ -200,7 +210,7 @@ to get the "soft" quality without touching path data (see §8).
 ### 4.3 Bob
 
 ```
-translateY: 0 ↔ -1.1  (user units)
+translateY: 0 ↔ -1.1px
 duration: 3400ms      (deliberately not a multiple of the breathe period)
 easing:   ease-in-out
 iteration: infinite alternate
@@ -273,6 +283,69 @@ momentum. This is the one layer that needs JavaScript, so it ships as
 `morphatar/motion` rather than being folded into the CSS.
 
 Ship it last. The first four layers are pure CSS and carry most of the effect.
+
+### 4.6 Saccades — idle glances
+
+Added after the first five layers, and worth more than §4.5: a face that looks
+around reads as *thinking*, where blink only reads as *alive*. It is also pure
+CSS, which gaze-follow is not.
+
+```
+fixations: six around the compass + center, per cycle
+offsets:   fractions of seeded --mo-look-x (1.0–2.2) / --mo-look-y (0.8–1.7)
+period:    4.2s–7.6s, seeded, independent of the blink period
+holds:     ~15% of the cycle each
+jumps:     1.5% windows (~90ms at 6s), linear
+```
+
+**Eyes jump; they do not drift.** Real saccades are ballistic — under a tenth of
+a second between fixations, then a long hold. Easing this the way breathe is
+eased produces floating eyeballs, which is unsettling in a way that is hard to
+name and immediate to feel. This is the single decision the layer lives or dies
+on.
+
+**Both eyes move as one.** Independent movement is a lazy eye instantly. The
+transform goes on the existing `<g fill={eye}>` group — which already existed to
+share a fill — so blink stays on the individual paths underneath it and the
+markup gains one class, not one element.
+
+**Each fixation is its own direction, not a scaled copy of one vector.** The
+first cut multiplied a single seeded `(x, y)` by different fractions, which
+meant every avatar slid back and forth along one axis — technically animated,
+visibly on a rail. Six independent compass offsets is what makes the eyes read
+as roving.
+
+**The order is not a clock sweep.** center → up-left → right → down → up-right →
+left. Walking the compass in order reads as a mechanism rather than as
+attention.
+
+**Direction has to be seeded, not just phase.** One shared `@keyframes` walks one
+*sequence*, so without per-avatar direction the whole grid looks left, then up,
+then right together. That is worse than the unison problem in §5, because a
+sequence is more legible than a phase. `--mo-look-x/y` carry magnitude and sign
+drawn separately, so no seed lands near zero, the pattern mirrors into four
+orientations, and all four quadrants appear across a grid.
+
+The mirroring is the honest limit of the pure-CSS approach: four orientations of
+one order, varied by period and phase. More would mean several `@keyframes` sets
+selected by a seeded class, at roughly 200 B each. Revisit only if a real grid
+reads as choreographed.
+
+**Uses the `translate` property, not `transform`**, leaving `transform` free on
+that element for §4.5 to claim later. The two layers target the same group and
+would otherwise fight over one property.
+
+**Eyes may cross outside the body silhouette**, and nothing clips them. That is
+deliberate: an eye riding past the edge reads as a face turning on a round head.
+Clipping to the body would read as 3D too — arguably better — but it needs a
+`clipPath` with an id per avatar, and "emits no ids, so many avatars on one page
+cannot collide" is a guarantee with a test behind it. Not worth trading.
+
+**It is close to invisible at 40px.** Even a 2 unit glance is under a pixel at
+grid size; translation has no relative-change advantage the way a collapsing eyelid
+does. This layer earns its keep on the `always` / profile-header case. Do not
+inflate the amplitude to make it show up in a grid — that trades the one place
+it works for the one place it cannot.
 
 ---
 
@@ -471,7 +544,7 @@ removing it costs the user nothing.
 
 | Entry | Budget (gz) |
 | ----- | ----------- |
-| `morphatar/motion.css` | 700 B |
+| `morphatar/motion.css` | 700 B — **at 592 B with five layers in.** The saccade layer will not fit; raise to 800 B rather than shaving comments out of the stylesheet. |
 | `morphatar/motion` (gaze JS) | 900 B |
 | Static output byte count | **unchanged** |
 | `blob only` JS | **unchanged** |
@@ -523,18 +596,76 @@ Acceptance criteria:
    `amp-probe.html` on Safari before shipping; it is the one engine with no
    result yet, and it has historically been the weakest of the three at
    `@property`.
-1. **Packaging first, before any motion at all** (§6.1): `sideEffects`,
-   `exports`, `files`, and an empty `motion.css` that the demo imports. Ten
-   minutes, and it means every step below is testing the real delivery path
-   rather than a stylesheet that happens to be in scope.
-2. **Blink alone**, hover-triggered. Highest ratio of aliveness to effort, and
-   it settles both the per-eye `transform-origin` question and the interval
-   mechanism in §4.4.
-3. The inline-SVG adapter branch (§7.1) — unavoidable to see step 2 at all, so
-   do not let it arrive as a surprise between steps.
-4. Breathe + bob, with seeded phase and amplitude gating.
-5. Hover reaction transition.
-6. Gaze follow (`morphatar/motion`, JS).
+1. ~~Packaging (§6.1).~~ **Done.** `sideEffects: ["*.css"]`, the `./motion.css`
+   export, `src/motion.css` carrying the amplitude machinery and the a11y rules,
+   demo imports it.
+2. ~~Seeded timing (§5).~~ **Done.** `src/animate.ts`, negated at the source,
+   with `test/motion.test.ts` asserting sign, spread and independence.
+3. ~~The inline-SVG adapter and markup (§7, §7.1).~~ **Done.** Prop union,
+   `makeParts`, the nested `<g>` wrapper, `mo-eye` on each eye. Demo has an
+   animate selector that routes the grid through the real adapter.
+4. ~~Blink (§4.4).~~ **Built, unreviewed.** `.mo-eye` with `transform-box:
+   fill-box`, the 2.8% window, amplitude folded into the closed pose. Slow-motion
+   toggle in the demo.
+5. ~~Breathe + bob (§4.2, §4.3).~~ **Built, unreviewed.** Both on the phases
+   already emitted, both scaled by `--mo-rate`.
+   **Nobody has watched any of it move yet.** `docs/motion-probe.html` asserts
+   the mechanics in six legs — eyes close about their own centers, the body
+   moves at full amplitude, and nothing moves at all at `--mo-amp: 0` — but a
+   probe cannot tell you whether it *reads* as a creature breathing. That
+   judgement is the next step, at 5× in the demo, and preferably twice on
+   different days.
+6. ~~Hover reaction (§4.1).~~ **Built, unreviewed.** Transform transition on
+   `.mo-root`, 220ms in / 160ms out, both scaled by `--mo-rate`. `mo-always`
+   keeps it — a pinned avatar is usually the large single one, which is exactly
+   where a pointer response is wanted. Neutralized on touch, where it would
+   latch at 1.04× on tap.
+
+   **No probe covers this one.** `:hover` cannot be triggered from script, so
+   the enter/exit asymmetry and the retarget behavior across a grid are
+   hand-checks. Sweep the pointer fast across several rows: nothing should jump,
+   restart, or lag behind the cursor.
+7. ~~Idle saccades (§4.6).~~ **Built, unreviewed.** On `.mo-eyes`, four seeded
+   fixations, jump-and-hold. Eyes are allowed to cross the body silhouette.
+   Demo's focus modal now animates at `always`, so the layer can be judged at a
+   size where it is actually visible.
+8. Gaze follow (`morphatar/motion`, JS). It targets the same group as saccades;
+   they now coexist by using different properties (`transform` vs `translate`),
+   but a pointer-driven gaze and an idle glance still fight for meaning, so
+   gaze should probably suppress saccades while the pointer is over the avatar.
+
+**Where steps 1–3 landed on size**, against the pre-motion baseline:
+
+| Entry | Before | After | Δ |
+| ----- | ------ | ----- | - |
+| `blob only` | 3382 | 3449 | **+67** |
+| `character` | 3320 | 3330 | +10 |
+| `both` | 4474 | 4557 | +83 |
+| `uri` | 4569 | 4652 | +83 |
+| `react` | 4745 | 5239 | +494 |
+| `motion.css` | — | 230 | — |
+
+Static markup is byte-identical across 4000 renders (8 option sets × 500 seeds),
+so that criterion held exactly. The **byte count did not** — "unchanged" in §10
+was optimistic. The +67 B on `blob only` is the `mo` parameter threaded through
+`blob.render`, which cannot be tree-shaken because it is a runtime branch inside
+a function every consumer calls. Getting it to literally zero means a second
+renderer module and a duplicated `render()`, which costs more in maintenance
+than 67 B is worth — but it is a real deviation from the spec, not a rounding
+error, and the number is here rather than quietly absorbed.
+
+The `react` entry pays +494 B because it now carries both rendering modes. That
+one is the feature, not overhead.
+
+Two things kept the static path cheap and are worth not undoing:
+
+- `makeParts` takes a **motion factory as an argument** instead of importing
+  `src/animate.ts`. A direct import puts the motion module in every bundle,
+  animating or not (+189 B measured).
+- `_parts` builds its style table **per call** rather than hoisting it to module
+  scope like `AVATARS`. A hoisted table is a top-level function call, which
+  bundlers cannot prove is side-effect-free, so it survives tree-shaking and
+  charges every static consumer (+145 B measured).
 
 Add a **slow-motion toggle to the demo** in step 2 — a class that multiplies
 every duration by 5. Timing problems in ambient motion are close to invisible at

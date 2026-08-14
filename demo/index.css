@@ -169,3 +169,9 @@ textarea {
   font-size: 10px;
   resize: vertical;
 }
+
+/* The library brings its own hover reaction when animating; two stacked scales
+   on two different clocks is not a thing worth looking at. */
+.grid[data-animate] .cell:hover {
+  transform: none;
+}

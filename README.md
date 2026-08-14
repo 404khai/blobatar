@@ -80,6 +80,45 @@ several hundred avatars on one page cannot produce id collisions.
 | `normalize`  | `true`     | NFC + trim + lowercase.                                  |
 | `contrast`   | `true`     | Enforce the contrast floors.                             |
 | `title`      | —          | Adds a `<title>` for screen readers.                     |
+| `animate`    | —          | `"hover"` or `"always"`. See below — it changes how the avatar renders. |
+
+## Animation
+
+Off by default. When on, the avatar idles: a soft breathe, a bob, a blink, and
+the occasional glance to one side. Every timing and direction is drawn from the
+seed, so a grid reads as a crowd rather than a drill team.
+
+```tsx
+import { Avatar } from "morphatar/react";
+import "morphatar/motion.css";        // required — nothing animates without it
+
+<Avatar seed={user.email} animate="hover" size={48} />;
+```
+
+**Turning this on changes the rendering mode, and that is not free.** A static
+avatar is a single `<img>`; an animated one is inline SVG, roughly a dozen DOM
+nodes. Content inside an `<img>` is an isolated document that `:hover` cannot
+reach and host-page CSS cannot style, so there is no way to have both. A list of
+400 avatars is exactly the case the `<img>` default was chosen for.
+
+`"hover"` animates one avatar at a time — the right default for a grid, where
+continuous ambient motion is both visual noise and 400 live animations.
+`"always"` is for the single-avatar case: a profile header, an onboarding
+screen.
+
+Motion respects `prefers-reduced-motion` by going fully static, and does not
+trigger on touch, where a tap would otherwise latch hover on.
+
+The glance is a large-size effect — at 40px it moves the eyes about half a
+pixel. It is worth the most on a profile header, which is what `"always"` is
+for. Eyes may cross outside the body outline on a hard glance; that is intended,
+and reads as a face turning rather than as a bug.
+
+Currently `morphatar/react` only. The string API still returns static markup:
+supporting `animate` there means every consumer of `avatar()` carries the motion
+code whether they animate or not, which is a real cost for a feature most
+callers will never use. If you need animated markup without React, open an issue
+— it wants its own entry point rather than a branch inside `avatar()`.
 
 ## How it works
 
@@ -113,7 +152,7 @@ Whole avatars land at 590–1060 bytes of markup.
 
 ```sh
 bun dev      # tuning grid at localhost:3000
-bun test     # 65 tests
+bun test     # 80 tests
 bun run size # per-entry gzip budgets
 bun run check
 ```

@@ -14,7 +14,14 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 
 const DIR = "scripts/.fixtures";
 
-const ENTRIES = [
+const ENTRIES: {
+  name: string;
+  budget: number;
+  external: string[];
+  source: string;
+  /** Entry file extension. Defaults to a TSX consumer. */
+  ext?: string;
+}[] = [
   {
     name: "blob only",
     budget: 3600,
@@ -44,8 +51,11 @@ const ENTRIES = [
              globalThis.x = avatarUri(String(globalThis.seed));`,
   },
   {
+    // Carries both rendering modes: the <img> path and the inline-SVG path that
+    // `animate` needs. The inline path is ~490 B of that — the motion traits,
+    // the parts builder, and the second branch of the component.
     name: "react",
-    budget: 5100,
+    budget: 5600,
     external: ["react"],
     source: `import { Avatar } from "../../src/react";
              globalThis.x = Avatar;`,
@@ -57,6 +67,16 @@ const ENTRIES = [
     source: `import { traits } from "../../src/traits";
              globalThis.x = traits(String(globalThis.seed))("hue");`,
   },
+  {
+    // Bundled rather than gzipped straight off disk, so a syntax error here
+    // fails the gate instead of shipping. Paid once per app, not per avatar,
+    // which is the whole reason the keyframes are not inlined into each SVG.
+    name: "motion css",
+    budget: 800,
+    external: [],
+    ext: "css",
+    source: `@import "../../src/motion.css";`,
+  },
 ];
 
 rmSync(DIR, { recursive: true, force: true });
@@ -65,7 +85,7 @@ mkdirSync(DIR, { recursive: true });
 let failed = false;
 
 for (const entry of ENTRIES) {
-  const file = `${DIR}/${entry.name.replace(/\W+/g, "-")}.tsx`;
+  const file = `${DIR}/${entry.name.replace(/\W+/g, "-")}.${entry.ext ?? "tsx"}`;
   writeFileSync(file, entry.source);
 
   const build = await Bun.build({

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { avatar, type AvatarOptions, type Variant } from "../src/avatar";
+import { avatar, type Animate, type AvatarOptions, type Variant } from "../src/avatar";
+import { Avatar } from "../src/react";
 import { traits } from "../src/traits";
 import * as blob from "../src/styles/blob";
 
@@ -27,6 +28,8 @@ export function App() {
   const [shape, setShape] = useState<(typeof SHAPES)[number]>("all");
   const [hue, setHue] = useState<number | "">("");
   const [focus, setFocus] = useState<string | null>(null);
+  const [animate, setAnimate] = useState<Animate | "">("");
+  const [slow, setSlow] = useState(false);
 
   const opts: AvatarOptions = useMemo(
     () => ({
@@ -61,7 +64,10 @@ export function App() {
   }, [seeds, opts]);
 
   return (
-    <main>
+    // `mo-slow` sits here rather than on the grid so it also reaches the focus
+    // sheet, which renders outside it — reviewing timing at a legible size is
+    // most of what slow motion is for.
+    <main className={slow ? "mo-slow" : undefined}>
       <header>
         <h1>morphatar</h1>
         <div className="controls">
@@ -114,6 +120,23 @@ export function App() {
               disabled={hue === ""}
             />
           </label>
+          <label>
+            animate
+            <select value={animate} onChange={e => setAnimate(e.target.value as Animate | "")}>
+              <option value="">off</option>
+              <option value="hover">hover</option>
+              <option value="always">always</option>
+            </select>
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={slow}
+              onChange={e => setSlow(e.target.checked)}
+              disabled={!animate}
+            />
+            5× slower
+          </label>
           <div className="spacer" />
           <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>
             ←
@@ -127,22 +150,49 @@ export function App() {
         </p>
       </header>
 
-      <div className="grid" style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)` }}>
-        {seeds.map(seed => (
-          <button
-            key={seed}
-            className="cell"
-            title={seed}
-            onClick={() => setFocus(seed)}
-            dangerouslySetInnerHTML={{ __html: avatar(seed, opts) }}
-          />
-        ))}
+      <div
+        className="grid"
+        // Turns off the demo's own cell hover-scale, which would otherwise
+        // compound with the library's hover reaction (1.12 × 1.04) on a
+        // different clock, and make it impossible to judge.
+        data-animate={animate || undefined}
+        style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)` }}
+      >
+        {seeds.map(seed =>
+          animate ? (
+            // Goes through the real adapter rather than the string API, because
+            // the inline-SVG branch is the thing worth exercising here.
+            <button key={seed} className="cell" title={seed} onClick={() => setFocus(seed)}>
+              <Avatar seed={seed} animate={animate} {...opts} />
+            </button>
+          ) : (
+            <button
+              key={seed}
+              className="cell"
+              title={seed}
+              onClick={() => setFocus(seed)}
+              dangerouslySetInnerHTML={{ __html: avatar(seed, opts) }}
+            />
+          ),
+        )}
       </div>
 
       {focus && (
         <div className="sheet" onClick={() => setFocus(null)}>
           <div className="card" onClick={e => e.stopPropagation()}>
-            <div className="big" dangerouslySetInnerHTML={{ __html: avatar(focus, opts) }} />
+            {/*
+              Animated at "always" whenever animation is on at all. A modal has
+              no grid to sweep, so "hover" would mean the avatar you opened to
+              look at sits perfectly still — and the whole point of opening it
+              is to watch the motion at a size where it is legible.
+            */}
+            {animate ? (
+              <div className="big">
+                <Avatar seed={focus} animate="always" {...opts} />
+              </div>
+            ) : (
+              <div className="big" dangerouslySetInnerHTML={{ __html: avatar(focus, opts) }} />
+            )}
             <div className="meta">
               <strong>{focus}</strong>
               <span>

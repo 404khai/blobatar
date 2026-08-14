@@ -160,7 +160,17 @@ export function layout(t: Traits) {
 
 export type Layout = ReturnType<typeof layout>;
 
-export function render(l: Layout, p: Palette): string {
+/**
+ * `mo` carries the root class when animating, and is absent otherwise — so the
+ * static path emits byte-identical markup to what it always has.
+ *
+ * The nesting is not decoration. An element has one `transform` property, so
+ * hover-lift, breathe and bob have to live on separate elements or they
+ * overwrite each other. Eyes get their own class because blink scales each one
+ * about its own center; applied to the shared group, they slide toward the
+ * group center instead of closing.
+ */
+export function render(l: Layout, p: Palette, mo?: string): string {
   const b = l.body;
   const core =
     l.shape === "organic" || l.shape === "cloud"
@@ -169,7 +179,9 @@ export function render(l: Layout, p: Palette): string {
 
   const r2 = (v: number) => Math.round(v * 100) / 100;
 
-  return (
+  const eye = mo ? `<path class="mo-eye" d=` : `<path d=`;
+
+  const body =
     `<g fill="${p.head}">` +
     // Decoration first so the core sits on top and the eyes always land on it.
     // Petals are true circles, so <circle> costs about a quarter of what the
@@ -179,10 +191,17 @@ export function render(l: Layout, p: Palette): string {
       .join("") +
     `<path d="${core}"/>` +
     `</g>` +
-    `<g fill="${p.eye}">` +
-    l.eyes.map(e => `<path d="${superellipse(e)}"/>`).join("") +
-    `</g>`
-  );
+    // The eye group already existed to share a fill, and it is exactly the
+    // element the saccade layer needs: both eyes must move as one, because
+    // independent movement reads as a lazy eye instantly. Blink stays on the
+    // individual paths underneath it.
+    `<g fill="${p.eye}"${mo ? ` class="mo-eyes"` : ""}>` +
+    l.eyes.map(e => `${eye}"${superellipse(e)}"/>`).join("") +
+    `</g>`;
+
+  return mo
+    ? `<g class="${mo}"><g class="mo-breathe"><g class="mo-bob">${body}</g></g></g>`
+    : body;
 }
 
 /**

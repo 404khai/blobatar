@@ -1,0 +1,296 @@
+/**
+ * morphatar — motion layer. See docs/motion-spec.md.
+ *
+ * Import once, anywhere:
+ *
+ *   import "morphatar/motion.css";
+ *
+ * Only avatars rendered with `animate` set carry these classes, so importing
+ * this without using `animate` costs the stylesheet and nothing else.
+ *
+ * Layers: hover reaction, breathe, bob, blink, saccades.
+ */
+
+@property --mo-amp {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+/**
+ * Hover controls amplitude, not playback. Every keyframe below resolves to the
+ * identity transform at `--mo-amp: 0`, so an unhovered avatar oscillates
+ * between two poses that are the same pose — the loop never starts or stops,
+ * and therefore never restarts from zero or freezes mid-squash.
+ *
+ * The animations run continuously rather than pausing when idle. Firefox
+ * re-resolves a paused effect but will not interpolate one, so a paused idle
+ * layer jump-cuts there on hover-out. One code path, running everywhere, beats
+ * two behaviors split on `@supports`.
+ *
+ * Two things transition here, on deliberately different clocks.
+ *
+ * `--mo-amp` eases over 400ms: that is the idle layers fading up, and it should
+ * feel like the creature waking rather than switching on.
+ *
+ * `transform` is the hover reaction (§4.1) — the element the pointer arrives at
+ * responding immediately. It is a transition and not a keyframe animation
+ * because a pointer sweeping across a grid retargets constantly, and keyframes
+ * restart from zero on every re-entry.
+ *
+ * Exit is faster than enter, which is the usual asymmetry: on the way in the
+ * user is deciding, on the way out the system is just getting out of the way.
+ * The enter duration lives in the `:hover` rule and the exit duration in the
+ * base rule, which is what makes the two directions differ at all.
+ */
+.mo-root {
+  --mo-amp: 0;
+  transition-property: --mo-amp, transform;
+  transition-duration: calc(400ms * var(--mo-rate, 1)), calc(160ms * var(--mo-rate, 1));
+  transition-timing-function: ease-out, cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.mo-root:hover {
+  --mo-amp: 1;
+  transform: translateY(-1.5px) scale(1.04);
+  transition-duration: calc(400ms * var(--mo-rate, 1)), calc(220ms * var(--mo-rate, 1));
+}
+
+/**
+ * `animate="always"` — pinned amplitude, hover ignored for the idle layers.
+ *
+ * It deliberately does *not* disable transitions: the hover reaction still
+ * applies, because an always-animating avatar is usually the single large one
+ * on a profile header, which is exactly where a pointer response is wanted.
+ * There is no start-up ramp to suppress either — transitions do not run on an
+ * element's first style resolution.
+ */
+.mo-root.mo-always {
+  --mo-amp: 1;
+}
+
+/**
+ * Breathe.
+ *
+ * Non-uniform on purpose. A uniform scale reads as a zoom; a slight
+ * squash-and-stretch reads as something soft holding air — the cheapest way to
+ * get that quality without touching path data, which would put path
+ * interpolation on the main thread every frame.
+ *
+ * Scales about the viewport center (50, 50) rather than the body's own center,
+ * which `layout()` jitters by up to 1.5 units. At a 2.2% scale that is a 0.03
+ * unit error. Not worth a `transform-box`.
+ */
+.mo-breathe {
+  animation-name: mo-breathe;
+  animation-duration: calc(2800ms * var(--mo-rate, 1));
+  animation-delay: calc(var(--mo-phase, 0ms) * var(--mo-rate, 1));
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-timing-function: ease-in-out;
+}
+
+@keyframes mo-breathe {
+  to {
+    transform: scaleX(calc(1 + 0.022 * var(--mo-amp))) scaleY(calc(1 - 0.018 * var(--mo-amp)));
+  }
+}
+
+/**
+ * Bob.
+ *
+ * 3400ms against breathe's 2800ms, deliberately not a multiple: the two drift
+ * in and out of phase instead of locking into one obvious pulse. Their own
+ * offsets are seeded independently, so no two avatars share a drift either.
+ *
+ * `px` on an SVG element is one unit of the local user coordinate system, so
+ * this is 1.1 viewBox units at any rendered size.
+ */
+.mo-bob {
+  animation-name: mo-bob;
+  animation-duration: calc(3400ms * var(--mo-rate, 1));
+  animation-delay: calc(var(--mo-bob-phase, 0ms) * var(--mo-rate, 1));
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-timing-function: ease-in-out;
+}
+
+@keyframes mo-bob {
+  to {
+    transform: translateY(calc(-1.1px * var(--mo-amp)));
+  }
+}
+
+/**
+ * Blink.
+ *
+ * A face that blinks reads as alive at a fraction of the cost of everything
+ * else here — it is the layer to keep if only one survives.
+ *
+ * `transform-box: fill-box` is not optional. Without it, `transform-origin`
+ * resolves against the SVG viewport, so both eyes scale about the middle of the
+ * avatar and slide toward each other instead of closing.
+ *
+ * There is no CSS mechanism for a short event on a long period: keyframe
+ * percentages are static and only the duration can read a custom property. So
+ * the animation runs for the whole seeded interval and the blink is a 2.8%
+ * window at the end of it. The consequence is that the blink's real duration
+ * scales with the interval — ~98ms at a 3.5s period, ~182ms at 6.5s. That drift
+ * is a feature: a slower blinker reads as slightly sleepier.
+ *
+ * `--mo-rate` is the demo's slow-motion multiplier. Timing problems in ambient
+ * motion are close to invisible at full speed.
+ */
+.mo-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: mo-blink;
+  animation-duration: calc(var(--mo-blink, 4800ms) * var(--mo-rate, 1));
+  animation-delay: calc(var(--mo-blink-phase, 0ms) * var(--mo-rate, 1));
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+
+/**
+ * The closed pose carries `--mo-amp` rather than being a constant, which is
+ * what lets a blink caught by hover-out re-open instead of leaving the avatar
+ * with its eyes shut — roughly a 3% chance per hover-out otherwise, rare enough
+ * to miss in testing and common enough to ship.
+ *
+ * At `--mo-amp: 0` the closed scale resolves to 1, so the whole animation
+ * flattens into "hold still" without ever stopping.
+ */
+@keyframes mo-blink {
+  0%,
+  97.2% {
+    transform: scaleY(1);
+    animation-timing-function: ease-in;
+  }
+  98.6% {
+    transform: scaleY(calc(1 - 0.92 * var(--mo-amp)));
+    animation-timing-function: ease-out;
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+/**
+ * Saccades — the eyes looking around.
+ *
+ * Real eyes do not drift. They snap between fixations in well under a tenth of
+ * a second and then hold for a second or more, so the keyframes are long holds
+ * separated by 1.5% jump windows (~90ms at a 6s period) with linear timing.
+ * Easing this like breathe would give floating eyeballs, which is unsettling in
+ * a way that is hard to name and easy to feel.
+ *
+ * Uses the `translate` property rather than `transform`, leaving `transform`
+ * free on this element for the pointer-driven gaze layer (§4.5) to claim later
+ * without the two fighting over one property.
+ *
+ * The eyes may cross outside the body silhouette on a hard glance. Nothing
+ * clips them, and that is deliberate: an eye riding past the edge reads as a
+ * face turning on a round head rather than as a mistake.
+ */
+.mo-eyes {
+  animation-name: mo-saccade;
+  animation-duration: calc(var(--mo-saccade, 5600ms) * var(--mo-rate, 1));
+  animation-delay: calc(var(--mo-saccade-phase, 0ms) * var(--mo-rate, 1));
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+
+/**
+ * Six fixations around the compass, returning to center.
+ *
+ * Each stop is an independent direction rather than a scaled copy of one
+ * vector — that is the difference between eyes that rove and eyes that slide
+ * back and forth on a rail. The order is deliberately not a clock sweep:
+ * center, up-left, right, down, up-right, left. A sequence that walks the
+ * compass in order reads as a mechanism.
+ *
+ * The fractions multiply this avatar's own `--mo-look-x/y`, whose signs are
+ * seeded, so the whole pattern mirrors horizontally, vertically, or both. One
+ * shared `@keyframes` therefore yields four orientations, each at its own
+ * period and phase.
+ */
+@keyframes mo-saccade {
+  0%,
+  15% {
+    translate: 0 0;
+  }
+  16.5%,
+  31% {
+    translate: calc(-0.8px * var(--mo-look-x, 1.4) * var(--mo-amp))
+      calc(-0.9px * var(--mo-look-y, 1.1) * var(--mo-amp));
+  }
+  32.5%,
+  47% {
+    translate: calc(1px * var(--mo-look-x, 1.4) * var(--mo-amp))
+      calc(0.1px * var(--mo-look-y, 1.1) * var(--mo-amp));
+  }
+  48.5%,
+  63% {
+    translate: calc(-0.15px * var(--mo-look-x, 1.4) * var(--mo-amp))
+      calc(0.85px * var(--mo-look-y, 1.1) * var(--mo-amp));
+  }
+  64.5%,
+  79% {
+    translate: calc(0.75px * var(--mo-look-x, 1.4) * var(--mo-amp))
+      calc(-0.8px * var(--mo-look-y, 1.1) * var(--mo-amp));
+  }
+  80.5%,
+  98.5% {
+    translate: calc(-1px * var(--mo-look-x, 1.4) * var(--mo-amp))
+      calc(-0.15px * var(--mo-look-y, 1.1) * var(--mo-amp));
+  }
+  100% {
+    translate: 0 0;
+  }
+}
+
+/**
+ * Touch devices latch hover on tap and hold it until the next tap elsewhere, so
+ * a tapped avatar would sit there breathing. Amplitude is the only gate, so
+ * defeating the hover rule is the whole fix — `animate="always"` is not
+ * hover-triggered and deliberately survives.
+ */
+@media not ((hover: hover) and (pointer: fine)) {
+  .mo-root:hover {
+    --mo-amp: 0;
+    /* The hover reaction latches too, and a tapped avatar left sitting at
+       1.04× is more obviously wrong than one left breathing. */
+    transform: none;
+  }
+  .mo-root.mo-always {
+    --mo-amp: 1;
+  }
+}
+
+/**
+ * Slow motion, for reviewing timing. Put it on any ancestor — it is read
+ * through `var(--mo-rate, 1)`, never declared on `.mo-root`, so an avatar's own
+ * rules cannot shadow it.
+ */
+.mo-slow {
+  --mo-rate: 5;
+}
+
+/**
+ * Fully static, not gentler. "Reduce, don't remove" applies to motion that aids
+ * comprehension; this motion is decorative, so removing it costs nothing.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .mo-root,
+  .mo-breathe,
+  .mo-bob,
+  .mo-eyes,
+  .mo-eye {
+    animation: none;
+    transition: none;
+    transform: none;
+    /* The saccade layer moves via `translate`, which `transform: none` does
+       not reset. */
+    translate: none;
+  }
+}

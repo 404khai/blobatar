@@ -1,0 +1,225 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>motion probe</title>
+<link rel="stylesheet" href="../src/motion.css">
+
+<!--
+  Mechanical checks on the idle layers — the things that are tedious to catch by
+  eye and easy to regress silently. It does NOT tell you whether the motion
+  reads well; only watching the demo at 5× does that.
+
+  Real markup from `_parts("alain", { animate: "always" })`, real motion.css:
+
+    1  closes    eye height drops below 20% of rest
+    2  centered  each eye's center stays put while it closes  <- the critical one
+    3  reopens   height returns to rest
+    4  amp gate  at --mo-amp: 0 the eyes never move at all
+    5  idle live breathe and bob actually move the body at full amplitude
+    6  idle gate  at --mo-amp: 0 the body is perfectly still, animations running
+    7  saccades   the eyes travel, and hold at fixations rather than drift
+    8  look gate  at --mo-amp: 0 the eyes do not wander
+
+  Leg 6 is the one that protects the design: the loop never stops, so every
+  keyframe has to fold --mo-amp in. A keyframe that forgets looks fine on a
+  hovered avatar and leaves 399 others twitching.
+
+  Open in each target browser.
+-->
+
+<style>
+  body { font: 14px/1.6 ui-monospace, monospace; margin: 2rem; max-width: 44rem; }
+  svg { width: 220px; height: 220px; }
+  .rig { display: flex; gap: 2rem; align-items: center; }
+  li { margin: .4rem 0; }
+  .pass { color: #0a7d33; }
+  .fail { color: #c02020; }
+  pre { background: #f4f4f4; padding: .75rem; overflow-x: auto; }
+  /* Fast cycles so the probe finishes quickly; ratios are what matter.
+     Breathe and bob have literal durations, so they are sped up through the
+     same --mo-rate multiplier the demo's slow-motion toggle uses. */
+  .quick { --mo-blink: 900ms; --mo-blink-phase: 0ms; }
+  .fast { --mo-rate: 0.1; }
+  .frozen { --mo-amp: 0 !important; }
+</style>
+
+<h1>motion probe</h1>
+
+<div class="rig">
+  <svg id="live" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="quick"></svg>
+  <div>
+    <div>left <code id="l">—</code></div>
+    <div>right <code id="r">—</code></div>
+    <div><label><input type="checkbox" id="slow"> 5× slower</label></div>
+  </div>
+</div>
+
+<ul id="out"></ul>
+<pre id="detail"></pre>
+
+<script>
+const MARKUP = `<g class="mo-root mo-always"><g class="mo-breathe"><g class="mo-bob"><g fill="#d0d897"><path d="M88.1 50.49C88.1 73.31 73.75 87.6 50.83 87.6C27.91 87.6 13.56 73.31 13.56 50.49C13.56 27.67 27.91 13.39 50.83 13.39C73.75 13.39 88.1 27.67 88.1 50.49Z"/></g><g fill="#0f1006" class="mo-eyes"><path class="mo-eye" d="M41.72 51.32C37.15 59.68 37.1 59.72 33.72 57.87C30.35 56.03 30.36 55.96 34.93 47.61C39.51 39.26 39.56 39.22 42.93 41.06C46.3 42.91 46.29 42.97 41.72 51.32Z"/><path class="mo-eye" d="M64.27 49.8C60.1 57.64 60.06 57.68 56.89 56C53.73 54.32 53.73 54.26 57.9 46.42C62.07 38.57 62.11 38.53 65.28 40.22C68.45 41.9 68.44 41.96 64.27 49.8Z"/></g></g></g></g>`;
+
+const out = document.getElementById("out");
+const log = [];
+function report(name, ok, msg) {
+  const li = document.createElement("li");
+  li.className = ok ? "pass" : "fail";
+  li.textContent = `${ok ? "PASS" : "FAIL"}  ${name} — ${msg}`;
+  out.appendChild(li);
+  log.push(`${ok ? "pass" : "fail"}\t${name}\t${msg}`);
+}
+
+const live = document.getElementById("live");
+live.innerHTML = MARKUP;
+document.getElementById("slow").onchange = e =>
+  live.classList.toggle("mo-slow", e.target.checked);
+
+const frame = () => new Promise(requestAnimationFrame);
+
+// Off-screen rig so the visible one keeps animating for the human.
+function rig(frozen, fast) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.classList.add("quick");
+  if (frozen) svg.classList.add("frozen");
+  if (fast) svg.classList.add("fast");
+  svg.style.cssText = "position:absolute;left:-9999px;width:200px;height:200px";
+  svg.innerHTML = MARKUP;
+  document.body.appendChild(svg);
+  return {
+    svg,
+    eyes: [...svg.querySelectorAll(".mo-eye")],
+    body: svg.querySelector(".mo-bob"),
+    done: () => svg.remove(),
+  };
+}
+
+(async function run() {
+  // Sample a bit over one 900ms cycle.
+  const sample = async (eyes, ms) => {
+    const frames = [];
+    const t0 = performance.now();
+    while (performance.now() - t0 < ms) {
+      await frame();
+      frames.push(eyes.map(e => e.getBoundingClientRect()));
+    }
+    return frames;
+  };
+
+  {
+    const { eyes, done } = rig(false);
+    await frame();
+    const f = await sample(eyes, 1100);
+
+    for (const [i, side] of ["left", "right"].entries()) {
+      const hs = f.map(r => r[i].height);
+      const rest = Math.max(...hs);
+      const shut = Math.min(...hs);
+
+      report(`1 closes (${side})`, shut < rest * 0.2,
+        `height ${rest.toFixed(1)} → ${shut.toFixed(1)} (${((shut / rest) * 100).toFixed(0)}% of rest)`);
+
+      // The failure mode: a shared transform-origin makes the eye travel while
+      // it shrinks. Its own center should not move at all.
+      const cys = f.map(r => r[i].top + r[i].height / 2);
+      const cxs = f.map(r => r[i].left + r[i].width / 2);
+      const dy = Math.max(...cys) - Math.min(...cys);
+      const dx = Math.max(...cxs) - Math.min(...cxs);
+
+      report(`2 centered (${side})`, dy < 1 && dx < 1,
+        dy < 1 && dx < 1
+          ? `center held within ${Math.max(dx, dy).toFixed(2)}px through the blink`
+          : `center drifted ${dx.toFixed(2)}px x / ${dy.toFixed(2)}px y — transform-box: fill-box is not applying`);
+
+      report(`3 reopens (${side})`, hs[hs.length - 1] > rest * 0.9,
+        `settled at ${((hs[hs.length - 1] / rest) * 100).toFixed(0)}% of rest`);
+    }
+    done();
+  }
+
+  {
+    // Amplitude gate: at --mo-amp: 0 the keyframes must flatten to "hold still",
+    // even though the animation is still running.
+    const { eyes, done } = rig(true);
+    await frame();
+    const f = await sample(eyes, 1100);
+    const hs = f.map(r => r[0].height);
+    const spread = Math.max(...hs) - Math.min(...hs);
+    report("4 amp gate", spread < 0.5,
+      `height varied ${spread.toFixed(2)}px across a full cycle at --mo-amp: 0`);
+    done();
+  }
+
+  // 5/6 — the continuous layers. At --mo-rate: 0.1 a breathe cycle is 280ms and
+  //       a bob cycle 340ms, so 800ms covers both comfortably.
+  const spans = async (frozen) => {
+    const { body, done } = rig(frozen, true);
+    await frame();
+    const r = [];
+    const t0 = performance.now();
+    while (performance.now() - t0 < 800) { await frame(); r.push(body.getBoundingClientRect()); }
+    done();
+    const range = (f) => Math.max(...r.map(f)) - Math.min(...r.map(f));
+    return { w: range(x => x.width), h: range(x => x.height), y: range(x => x.top) };
+  };
+
+  {
+    const moving = await spans(false);
+    report("5 idle live", moving.w > 1 && moving.y > 0.5,
+      `over 200px: width swings ${moving.w.toFixed(2)}px (breathe), top ${moving.y.toFixed(2)}px (bob)`);
+
+    const still = await spans(true);
+    report("6 idle gate", still.w < 0.25 && still.h < 0.25 && still.y < 0.25,
+      still.w < 0.25 && still.h < 0.25 && still.y < 0.25
+        ? `body held within ${Math.max(still.w, still.h, still.y).toFixed(2)}px across full cycles`
+        : `body moved ${still.w.toFixed(2)}px w / ${still.y.toFixed(2)}px y at --mo-amp: 0 — a keyframe is not folding in the amplitude`);
+  }
+
+  // 7/8 — saccades. Horizontal only: blink changes the eye group's height
+  //       every cycle, so `left` is the axis that isolates the glance.
+  const glance = async (frozen) => {
+    const { svg, done } = rig(frozen, true);
+    await frame();
+    const xs = [];
+    const t0 = performance.now();
+    const eyes = svg.querySelector(".mo-eyes");
+    while (performance.now() - t0 < 700) { await frame(); xs.push(eyes.getBoundingClientRect().left); }
+    done();
+    return xs;
+  };
+
+  {
+    const xs = await glance(false);
+    const travel = Math.max(...xs) - Math.min(...xs);
+
+    // Fixations, not drift: most frames should sit at one of a few held
+    // positions rather than spreading evenly across the range.
+    const rounded = xs.map(x => Math.round(x * 2) / 2);
+    const counts = {};
+    for (const x of rounded) counts[x] = (counts[x] ?? 0) + 1;
+    const held = Object.values(counts).sort((a, b) => b - a).slice(0, 6)
+      .reduce((a, b) => a + b, 0) / rounded.length;
+
+    report("7 saccades", travel > 1 && held > 0.7,
+      travel > 1 && held > 0.7
+        ? `eyes travel ${travel.toFixed(2)}px over 200px, ${(held * 100).toFixed(0)}% of frames held at six fixations`
+        : `travel ${travel.toFixed(2)}px, only ${(held * 100).toFixed(0)}% of frames held — ${held <= 0.7 ? "this is drifting, not glancing" : "no movement"}`);
+
+    const still = await glance(true);
+    const wander = Math.max(...still) - Math.min(...still);
+    report("8 look gate", wander < 0.25,
+      `eyes held within ${wander.toFixed(2)}px at --mo-amp: 0`);
+  }
+
+  document.getElementById("detail").textContent = log.join("\n") + "\n\n" + navigator.userAgent;
+})();
+
+// Live readout, so the numbers are watchable rather than just asserted.
+const [le, re] = live.querySelectorAll(".mo-eye");
+const el = { l: document.getElementById("l"), r: document.getElementById("r") };
+(function tick() {
+  el.l.textContent = le.getBoundingClientRect().height.toFixed(1) + "px";
+  el.r.textContent = re.getBoundingClientRect().height.toFixed(1) + "px";
+  requestAnimationFrame(tick);
+})();
+</script>
