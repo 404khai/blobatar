@@ -12,7 +12,7 @@ import type { Traits } from "../traits";
  * visually with no boolean geometry and no clip paths.
  *
  * Every eye dimension is expressed as a fraction of the body radius rather than
- * in absolute units. Bodies here range from 24 to 44 units depending on how much
+ * in absolute units. Bodies here range from 22 to 38 units depending on how much
  * room the decoration needs, and absolute eye sizes would drift off a small sun
  * while looking lost on a large round.
  */
@@ -63,24 +63,41 @@ export function layout(t: Traits) {
     ),
   };
 
-  // Where the eye pair sits as a unit. This is the gaze, and it does more work
-  // for recognizability than any individual eye parameter.
-  const gx = t.jitter("gaze.x", 0.16) * rx;
+  // Where the eye pair sits as a unit. Gaze is deliberately a small effect: at
+  // avatar sizes it reads as jitter rather than as direction, and the budget it
+  // used to spend is worth more in the gap below.
+  const gx = t.jitter("gaze.x", 0.09) * rx;
   const gy = t.num("gaze.y", -0.2, 0.08) * ry;
 
-  const gap = t.num("eye.gap", 0.18, 0.3) * rx;
-  const er = t.num("eye.rx", 0.075, 0.105) * rx;
+  const er0 = t.num("eye.rx", 0.075, 0.105) * rx;
   const ratio = t.num("eye.ratio", 1.9, 3.2);
   const scale = t.num("eye.scale", 0.9, 1.1);
+
+  // The gap is measured from the eye's own edge outward, not from the body
+  // center. Drawn independently, a large eye and a small gap co-occur and
+  // produce two capsules crammed together with no room left to tilt — and
+  // because the lean bound below is derived from that clearance, those same
+  // seeds also came out untilted. Deriving the gap fixes both at once.
+  const clearance = t.num("eye.gap", 0.1, 0.24) * rx;
+  const gap0 = er0 * scale + rx * 0.03 + clearance;
+
+  // Containment by construction rather than by hope. Each range is safe on its
+  // own, but their simultaneous extremes are not, and a 2000-seed test only
+  // samples that corner — it does not rule it out. Measuring the cluster against
+  // the tightest radius the body actually reaches and scaling it as a unit makes
+  // the guarantee hold across the whole space.
+  const tight = shape === "organic" || shape === "cloud" ? Math.min(...body.radii) * 0.95 : 1;
+  const need = (Math.abs(gx) + gap0 + Math.hypot(er0 * scale, er0 * ratio * scale)) / rx;
+  const fit = need > tight * 0.9 ? (tight * 0.9) / need : 1;
+
+  const er = er0 * fit;
+  const gap = gap0 * fit;
   const eyeRy = er * ratio;
 
-  // Lean is bounded by the gap rather than drawn freely. A tall capsule tilted
-  // hard sweeps sideways by ry·sin(lean), and two of them meeting in the middle
-  // of the face is the one failure this style cannot survive. Solving for the
-  // lean that still leaves a channel keeps the tilt as generous as each eye's
-  // own proportions allow, instead of capping every avatar at the angle the
-  // tallest one could tolerate.
-  const room = Math.max(0, Math.min(1, (gap - rx * 0.03 - er * scale) / (eyeRy * scale)));
+  // Lean is bounded by that clearance rather than drawn freely. A tall capsule
+  // tilted hard sweeps sideways by ry·sin(lean), and two of them meeting in the
+  // middle of the face is the one failure this style cannot survive.
+  const room = Math.max(0, Math.min(1, (clearance * fit) / (eyeRy * scale)));
   const lean = t.num("eye.lean", -1, 1) * Math.min(30, (Math.asin(room) * 180) / Math.PI);
 
   // Petals and lumps ride on a ring just outside the core, so they read as
@@ -88,9 +105,9 @@ export function layout(t: Traits) {
   const petals: { cx: number; cy: number; r: number }[] = [];
 
   if (shape === "sun") {
-    const count = t.int("sun.n", 8, 11);
-    const dist = r * t.num("sun.dist", 1.0, 1.1);
-    const pr = r * t.num("sun.r", 0.17, 0.23);
+    const count = t.int("sun.n", 6, 9);
+    const dist = r * t.num("sun.dist", 1.0, 1.08);
+    const pr = r * t.num("sun.r", 0.2, 0.26);
     const off = t.num("sun.rot", 0, 2 * Math.PI);
     for (let i = 0; i < count; i++) {
       const a = off + (2 * Math.PI * i) / count;
@@ -156,7 +173,7 @@ export function render(l: Layout, p: Palette): string {
     `<g fill="${p.head}">` +
     // Decoration first so the core sits on top and the eyes always land on it.
     // Petals are true circles, so <circle> costs about a quarter of what the
-    // equivalent four-segment path would — and a sun carries eleven of them.
+    // equivalent four-segment path would — and a sun carries up to nine of them.
     l.petals
       .map(d => `<circle cx="${r2(d.cx)}" cy="${r2(d.cy)}" r="${r2(d.r)}"/>`)
       .join("") +

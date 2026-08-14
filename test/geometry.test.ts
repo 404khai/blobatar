@@ -13,7 +13,7 @@ import { traits } from "../src/traits";
  * cheek, a body clipped by the frame, two capsules fused into one.
  */
 
-const SEEDS = Array.from({ length: 2000 }, (_, i) => `seed-${i}`);
+const SEEDS = Array.from({ length: 6000 }, (_, i) => `seed-${i}`);
 
 /** Signed containment: <= 1 is inside the superellipse. */
 const inside = (
