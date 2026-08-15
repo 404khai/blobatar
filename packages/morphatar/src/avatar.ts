@@ -1,17 +1,17 @@
 import { motionVars, rootClass, type Animate } from "./animate";
 import type { Palette, Variant } from "./color";
+import type { Expression } from "./expression";
 import { makeAvatar, makeParts, resolve, type AvatarOptions } from "./render";
 import type { Traits } from "./traits";
 import * as character from "./styles/character";
 import * as blob from "./styles/blob";
 
-export type { Variant, AvatarOptions, Animate };
+export type { Variant, AvatarOptions, Animate, Expression };
 
 const AVATARS = {
   blob: makeAvatar(blob, "blob"),
   character: makeAvatar(character, "character"),
 };
-
 
 /**
  * Renders a deterministic avatar as SVG markup.
@@ -28,11 +28,47 @@ export function avatar(seed: string, opts: AvatarOptions = {}): string {
   return AVATARS[opts.variant ?? "blob"](seed, opts);
 }
 
-/** Only constructed when someone actually animates, so it tree-shakes away. */
-const motion = (mode: Animate) => (t: Traits) => ({
-  cls: rootClass(mode),
-  vars: motionVars(t),
-});
+/**
+ * Only constructed when someone actually animates, so it tree-shakes away.
+ *
+ * The pose rides along here rather than in `makeParts` because this is already
+ * the seam that keeps the motion modules out of static bundles — and when
+ * animating, the pose is custom properties on the same element the timing goes
+ * on, not geometry. `poseVars` returns nothing at all for `"idle"`.
+ */
+const motion = (mode: Animate, e?: Expression) => (t: Traits, p: Palette) => {
+  // `vars` is also how we know whether to set `mo-expr`: an expression that
+  // moves nothing emits nothing, so an empty object *is* idle. That keeps the
+  // class in step with the pose without a second notion of "is this idle".
+  //
+  // The palette goes in because a tinting pose emits its colour endpoints from
+  // here — see `hotVars`. `poseVars` ignores it, which is what keeps the colour
+  // code out of every bundle that imports no hot expression.
+  const pose = e ? e.vars(e.p) : {};
+  const c = e?.tint ? e.tint(p, e.p) : p;
+  return {
+    // `vars` is one of the two things that can make a pose non-idle; a tint is
+    // the other. Checking only the first would leave a colour-only expression
+    // wearing idle's slower return clock while its geometry never moved.
+    cls: rootClass(mode, !!Object.keys(pose).length || !!e?.tint),
+    vars: {
+      ...motionVars(t),
+      // The fills, as custom properties, on every animated `blob` — tinted when
+      // the pose tints and identical to the markup's own attributes when it does
+      // not. Emitted unconditionally rather than only for hot poses, because the
+      // stylesheet's `fill` rules have to resolve to *something* correct on an
+      // avatar wearing no expression, and a `var()` that falls back to nothing
+      // makes `fill` inherit black. `p.eye` is the discriminator: it is the slot
+      // only `blob` fills, and `blob` is the only variant with a motion layer.
+      //
+      // Cost is ~30 B per animated avatar. It buys the tint being a plain
+      // `transition: fill` in both directions instead of a custom property that
+      // disappears mid-morph on the way out.
+      ...(p.eye ? { "--mo-head": c.head!, "--mo-eye": c.eye! } : {}),
+      ...pose,
+    },
+  };
+};
 
 /**
  * The `<svg>` contents and its motion custom properties, separately.
@@ -51,7 +87,7 @@ export function _parts(seed: string, opts: AvatarOptions = {}) {
   return makeParts(style as never, variant)(
     seed,
     opts,
-    opts.animate && motion(opts.animate),
+    opts.animate && motion(opts.animate, opts.expression),
   );
 }
 
@@ -67,5 +103,22 @@ export function _layout(seed: string, opts: AvatarOptions = {}) {
   const variant = opts.variant ?? "blob";
   const style = variant === "blob" ? blob : character;
   const { t, palette } = resolve(style as never, variant, seed, opts);
-  return { variant, palette: palette as Palette, ...style.layout(t) };
+  const l = style.layout(t);
+  // Posed here rather than by the caller, so the geometry tests assert against
+  // the same numbers the static renderer draws. Only the baked half comes back:
+  // the body-level `transform` is the renderer's business, and the test that
+  // cares about it (frame containment under a pose that scales the body) applies
+  // the pose itself rather than parsing a matrix back out.
+  const e = opts.expression;
+  const expressive = variant === "blob" && e;
+  const posed = expressive ? e.bake(l as never, e.p).l : l;
+  return {
+    variant,
+    // Tinted here too, so a colour assertion can read the same numbers the
+    // static renderer paints rather than the ramp they came from.
+    palette: (expressive && e.tint
+      ? e.tint(palette as Palette, e.p)
+      : palette) as Palette,
+    ...posed,
+  };
 }

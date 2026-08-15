@@ -11,14 +11,16 @@
     "./blob": "./src/blob.ts",
     "./character": "./src/character.ts",
     "./uri": "./src/uri.ts",
+    "./expression": "./src/expression.ts",
     "./react": "./src/react.tsx",
     "./motion.css": "./src/motion.css"
   },
   "scripts": {
     "test": "bun test",
     "size": "bun scripts/size.ts",
+    "probe": "bun scripts/probe-compose.ts",
     "build": "bun build ./src/index.ts ./src/uri.ts ./src/react.tsx --outdir=dist --target=browser --minify --external=react",
-    "check": "bun test && bun run size"
+    "check": "bun test && bun run size && bun run probe"
   },
   "peerDependencies": {
     "react": ">=18"

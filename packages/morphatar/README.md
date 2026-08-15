@@ -1,6 +1,6 @@
 # morphatar
 
-Deterministic geometric avatars from any string. No dependencies, ~3.3 KB gzipped.
+Deterministic geometric avatars from any string. No dependencies, ~3.7 KB gzipped.
 
 ```ts
 import { avatar } from "morphatar";
@@ -44,8 +44,8 @@ import { avatar } from "morphatar/blob";
 ## What it guarantees
 
 **Determinism.** The same seed always renders the same avatar within a major
-version. Numeric ranges, the shape thresholds and the tone set are all part of
-that contract.
+version. Numeric ranges, the shape thresholds, the tone set and the expression
+roster are all part of that contract.
 
 **Stability across versions.** Traits are addressed by string key rather than
 drawn from a sequential stream, so adding a trait in a later minor cannot
@@ -69,18 +69,19 @@ several hundred avatars on one page cannot produce id collisions.
 
 ## Options
 
-| Option       | Default    | Notes                                                   |
-| ------------ | ---------- | ------------------------------------------------------- |
-| `variant`    | `"blob"`   | `"blob"` or `"character"`.                              |
-| `size`       | —          | Emits `width`/`height`. Omit to let CSS size it.         |
-| `background` | per variant | `"squircle"`, `"circle"`, `"square"`, or `false`.       |
-| `hue`        | —          | Locks hue in degrees; the seed then drives shape only.   |
-| `tone`       | —          | Locks the `blob` swatch as a 0–1 position in the set.    |
-| `palette`    | —          | Per-key hex overrides. Bypasses the contrast guarantee.  |
-| `normalize`  | `true`     | NFC + trim + lowercase.                                  |
-| `contrast`   | `true`     | Enforce the contrast floors.                             |
-| `title`      | —          | Adds a `<title>` for screen readers.                     |
-| `animate`    | —          | `"hover"` or `"always"`. See below — it changes how the avatar renders. |
+| Option       | Default     | Notes                                                                   |
+| ------------ | ----------- | ----------------------------------------------------------------------- |
+| `variant`    | `"blob"`    | `"blob"` or `"character"`.                                              |
+| `size`       | —           | Emits `width`/`height`. Omit to let CSS size it.                        |
+| `background` | per variant | `"squircle"`, `"circle"`, `"square"`, or `false`.                       |
+| `hue`        | —           | Locks hue in degrees; the seed then drives shape only.                  |
+| `tone`       | —           | Locks the `blob` swatch as a 0–1 position in the set.                   |
+| `palette`    | —           | Per-key hex overrides. Bypasses the contrast guarantee.                 |
+| `normalize`  | `true`      | NFC + trim + lowercase.                                                 |
+| `contrast`   | `true`      | Enforce the contrast floors.                                            |
+| `title`      | —           | Adds a `<title>` for screen readers.                                    |
+| `animate`    | —           | `"hover"` or `"always"`. See below — it changes how the avatar renders. |
+| `expression` | `"idle"`    | `"happy"`, `"sad"` or `"mad"`. `blob` only. See below.                  |
 
 ## Animation
 
@@ -90,7 +91,7 @@ seed, so a grid reads as a crowd rather than a drill team.
 
 ```tsx
 import { Avatar } from "morphatar/react";
-import "morphatar/motion.css";        // required — nothing animates without it
+import "morphatar/motion.css"; // required — nothing animates without it
 
 <Avatar seed={user.email} animate="hover" size={48} />;
 ```
@@ -119,6 +120,61 @@ supporting `animate` there means every consumer of `avatar()` carries the motion
 code whether they animate or not, which is a real cost for a feature most
 callers will never use. If you need animated markup without React, open an issue
 — it wants its own entry point rather than a branch inside `avatar()`.
+
+## Expressions
+
+A pose the avatar holds until you change it — `idle` (the default), `happy`,
+`sad`, `mad`. Setting one morphs from whatever it was wearing.
+
+Expressions are **imported as values, not named as strings**, so you ship the
+ones you use and nothing else:
+
+```tsx
+import { happy, idle } from "morphatar/expression";
+
+<Avatar seed={user.email} animate="always" expression={happy} size={64} />;
+```
+
+The first expression you import costs about 340 bytes (the shared serializer,
+paid once) and each one after it about 36. A consumer who imports none carries
+no pose code at all — which is why `expression` is a value rather than a string.
+
+**A state, not an event.** Nothing returns to `idle` on its own and there are no
+timers. If you want a burst, schedule the clear yourself:
+
+```ts
+setMood(happy);
+setTimeout(() => setMood(idle), 1200);
+```
+
+**Independent of `animate`, in both directions.** Without `animate` you get the
+pose statically, which is why this works in the string API and under
+`prefers-reduced-motion`. The _morph_ needs `animate`, because that is what puts
+the avatar in inline SVG where CSS can reach it. Setting `expression` never
+turns `animate` on for you — that would silently flip a 400-avatar grid from 400
+`<img>` tags to 400 SVG trees.
+
+```ts
+avatar(seed, { expression: happy }); // static, posed, no morph
+```
+
+**`blob` only.** `character` ignores it.
+
+`idle` renders byte-identical markup to omitting the option, so adding this
+moved no existing avatar.
+
+The pose moves parts the avatar already has — eyes and body — and never adds a
+mark, so a blob grows no mouth when it is happy. That ceiling is real and worth
+knowing before you reach for it: `happy` reads unmistakably, while `sad` and
+`mad` read as clearly different from idle and from each other without announcing
+their emotion the way a mouth would. Two capsules and a soft body only go so
+far. See [docs/expression-spec.md](./docs/expression-spec.md) for what carries
+signal and what does not.
+
+Expressions are decorative and do not reach assistive technology: `title` names
+who the avatar is and does not change with the pose. Under reduced motion the
+pose is adopted instantly at full strength — the morph is removed, the
+expression is not.
 
 ## How it works
 
@@ -156,7 +212,7 @@ Run these from the repo root — this package lives in a Bun workspace alongside
 ```sh
 bun dev        # tuning grid at localhost:3001
 bun site       # landing page at localhost:3000
-bun test       # 80 tests
+bun test       # 94 tests
 bun run size   # per-entry gzip budgets
 bun run check
 ```

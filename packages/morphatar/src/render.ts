@@ -1,5 +1,6 @@
 import type { Animate } from "./animate";
 import { palette as buildPalette, type Palette, type Variant } from "./color";
+import type { Expression, Posable } from "./expression";
 import { superellipse } from "./shape";
 import { traits, type Traits } from "./traits";
 
@@ -37,19 +38,98 @@ export interface AvatarOptions {
    * wants its own entry point, not a branch here.
    */
   animate?: Animate;
+  /**
+   * Which pose the avatar holds. Import one from `morphatar/expression`.
+   *
+   * ```ts
+   * import { happy } from "morphatar/expression";
+   * avatar(seed, { expression: happy });
+   * ```
+   *
+   * Passed as a value rather than named as a string so that the expressions you
+   * do not import cost nothing — and so that the core carries no pose code at
+   * all. Omitting it is `idle`; `idle` is also exported, for when writing it
+   * reads better than `undefined`.
+   *
+   * Set by you and held until you change it — nothing here returns to idle on
+   * its own, and there are no timers. A burst is `setExpression(happy)` followed
+   * by your own `setTimeout`, which is four lines in your code and zero bytes in
+   * this bundle.
+   *
+   * **`blob` only.** `character` ignores it.
+   *
+   * Independent of `animate` in both directions. Without `animate` the avatar
+   * renders the pose statically, which is what makes this work in the string API
+   * and under `prefers-reduced-motion`; **the morph between poses requires
+   * `animate`**, because that is what puts the avatar in inline SVG where CSS
+   * can reach it. Setting `expression` never turns `animate` on for you: that
+   * would silently flip a 400-avatar grid from 400 `<img>`s to 400 SVG trees.
+   *
+   * `idle` emits byte-identical markup to omitting the option.
+   */
+  expression?: Expression;
 }
 
 export interface Style<L> {
   layout(t: Traits): L;
-  /** `mo` is the root class when animating, absent otherwise. */
-  render(l: L, p: Palette, mo?: string): string;
+  /**
+   * `mo` is set when animating, absent otherwise. It is a flag rather than the
+   * root class it used to be: the root `<g>` is the caller's now, because a
+   * class inside this string is a class inside `dangerouslySetInnerHTML`. See
+   * `makeParts`.
+   */
+  render(l: L, p: Palette, mo?: boolean): string;
+  /** Whether this variant accepts an `expression`. See `styles/blob.ts`. */
+  expressive?: true;
   background: boolean | "square" | "circle" | "squircle";
 }
 
-const escape = (s: string) =>
-  s.replace(/[&<>]/g, c => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"));
+/**
+ * Applies a static pose, if the variant has one and an expression was asked for.
+ *
+ * The animated path deliberately does not come through here: there, the pose is
+ * eight custom properties and the CSS composes it, so baking it into geometry as
+ * well would apply it twice.
+ */
+function posed<L>(
+  style: Style<L>,
+  l: L,
+  opts: AvatarOptions,
+  animate?: unknown,
+) {
+  const e = opts.expression;
+  if (animate || !e || !style.expressive) return { l, wrap: "" };
+  return e.bake(l as L & Posable, e.p);
+}
 
-export function resolve<L>(style: Style<L>, variant: Variant, seed: string, opts: AvatarOptions) {
+/**
+ * Applies a pose's tint, if it has one and the variant accepts expressions.
+ *
+ * Called on the static path only, for the mirror-image of the reason `posed`
+ * skips the animated one: when animating, the fills have to stay off the markup
+ * entirely — `parts.inner` may not vary with the expression — so the tinted
+ * colors go out as `--mo-head`/`--mo-eye` in `vars` instead and the stylesheet
+ * puts them on. Same two colors, resolved once, serialized into whichever half
+ * of the split can carry them.
+ */
+const tinted = <L>(style: Style<L>, p: Palette, e?: Expression) =>
+  e?.tint && style.expressive ? e.tint(p, e.p) : p;
+
+/** Wraps the body in the pose transform, when there is one. */
+const wrap = (body: string, t: string) =>
+  t ? `<g transform="${t}">${body}</g>` : body;
+
+const escape = (s: string) =>
+  s.replace(/[&<>]/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;",
+  );
+
+export function resolve<L>(
+  style: Style<L>,
+  variant: Variant,
+  seed: string,
+  opts: AvatarOptions,
+) {
   const t = traits(seed, opts.normalize ?? true);
   return {
     t,
@@ -69,17 +149,43 @@ export function resolve<L>(style: Style<L>, variant: Variant, seed: string, opts
 const label = (opts: AvatarOptions) =>
   opts.title ? `<title>${escape(opts.title)}</title>` : "";
 
+/** The plate behind the figure, as geometry rather than as markup. */
+export interface Backdrop {
+  d: string;
+  fill: string;
+}
+
 /**
  * The backdrop is a shared concern, so variants declare a default rather than
  * each drawing their own.
+ *
+ * Returns the path rather than a serialized `<path>` because the React adapter
+ * has to draw it as a real element: it sits *outside* the motion root, so it
+ * cannot ride along in the innerHTML string that the root `<g>` now owns.
  */
-function backdrop<L>(style: Style<L>, opts: AvatarOptions, p: Palette): string {
+function backdrop<L>(
+  style: Style<L>,
+  opts: AvatarOptions,
+  p: Palette,
+): Backdrop | undefined {
   const bg = opts.background ?? style.background;
-  if (bg === "square") return `<path d="M0 0H100V100H0Z" fill="${p.bg}"/>`;
-  if (bg === false) return "";
-  const d = superellipse({ cx: 50, cy: 50, rx: 50, ry: 50, n: bg === "circle" ? 2 : 6 });
-  return `<path d="${d}" fill="${p.bg}"/>`;
+  if (bg === false) return undefined;
+  return {
+    d:
+      bg === "square"
+        ? "M0 0H100V100H0Z"
+        : superellipse({
+            cx: 50,
+            cy: 50,
+            rx: 50,
+            ry: 50,
+            n: bg === "circle" ? 2 : 6,
+          }),
+    fill: p.bg,
+  };
 }
+
+const plate = (b?: Backdrop) => (b ? `<path d="${b.d}" fill="${b.fill}"/>` : "");
 
 /**
  * What a motion factory hands back: the root class, and the seeded timing to
@@ -97,6 +203,16 @@ export interface Motion {
 }
 
 /**
+ * The palette is handed to the factory because a tinting expression needs it:
+ * the hot pair it mixes toward is derived from the colors the avatar is actually
+ * wearing, overrides included. It arrives as an argument rather than being
+ * looked up so that `src/color.ts`'s `hot()` stays reachable only from an
+ * expression value — the same indirection that keeps `animate.ts` out of static
+ * bundles.
+ */
+export type MotionFactory = (t: Traits, p: Palette) => Motion;
+
+/**
  * Binds one style into an `avatar(seed, opts)` function.
  *
  * The wrapper exists so the per-variant entry points (`morphatar/blob`,
@@ -105,34 +221,59 @@ export interface Motion {
  */
 export function makeAvatar<L>(style: Style<L>, variant: Variant) {
   return (seed: string, opts: AvatarOptions = {}): string => {
-    const { t, palette: p } = resolve(style, variant, seed, opts);
+    const { t, palette } = resolve(style, variant, seed, opts);
+    const p = tinted(style, palette, opts.expression);
     const dim = opts.size ? ` width="${opts.size}" height="${opts.size}"` : "";
-    const body = label(opts) + backdrop(style, opts, p) + style.render(style.layout(t), p);
+    const pose = posed(style, style.layout(t), opts);
+    // The pose wraps the figure but not the backdrop, for the same reason the
+    // motion groups sit inside `style.render` — a plate that scales and leans
+    // with the creature stops being a plate.
+    const body =
+      label(opts) +
+      plate(backdrop(style, opts, p)) +
+      wrap(style.render(pose.l, p), pose.wrap);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"${dim}>${body}</svg>`;
   };
 }
 
 /**
- * Everything that goes *inside* the `<svg>`, plus the custom properties that
- * belong on it.
+ * The avatar in the pieces a renderer that owns the outer element needs.
  *
- * Split out from `makeAvatar` because the React adapter has to own the outer
- * element when animating — it needs real JSX props on it — and recovering the
- * inner markup by regex-stripping a serialized `<svg>` is the kind of thing
- * that works until someone passes a `title` containing a `>`.
+ * Split out from `makeAvatar` because the React adapter has to own the `<svg>`
+ * when animating — it needs real JSX props on it — and recovering the inner
+ * markup by regex-stripping a serialized `<svg>` is the kind of thing that
+ * works until someone passes a `title` containing a `>`.
+ *
+ * The split runs one level deeper than that, and this is the load-bearing part:
+ * **nothing that varies with `expression` may appear in `inner`.** `inner` is
+ * handed to `dangerouslySetInnerHTML`, so a single byte of drift makes React
+ * replace the whole subtree — and a brand-new element has no previous computed
+ * value, which is precisely the rule that stops transitions running on first
+ * style resolution. The morph would not be slow or wrong; it would not exist,
+ * and every idle animation underneath would restart from phase zero on top of
+ * it. So the root class lives in `cls` and the pose lives in `vars`, both of
+ * which land on real attributes that React can diff in place, and the backdrop
+ * comes back as geometry because it belongs outside the root `<g>` — a plate
+ * that hover-lifts with the creature stops being a plate.
+ *
+ * `test/expression.test.ts` pins the invariant directly.
  */
 export function makeParts<L>(style: Style<L>, variant: Variant) {
-  return (seed: string, opts: AvatarOptions = {}, motion?: (t: Traits) => Motion) => {
+  return (
+    seed: string,
+    opts: AvatarOptions = {},
+    motion?: MotionFactory,
+  ) => {
     const { t, palette: p } = resolve(style, variant, seed, opts);
-    const mo = motion?.(t);
+    const mo = motion?.(t, p);
+    const pose = posed(style, style.layout(t), opts, mo);
 
     return {
-      // The motion wrapper goes inside `style.render`, not around this whole
-      // string: the backdrop is drawn here, and wrapping at this level would
-      // breathe the plate along with the body. `blob` is transparent by
-      // default, so that mistake stays invisible until someone passes a
-      // background.
-      inner: label(opts) + backdrop(style, opts, p) + style.render(style.layout(t), p, mo?.cls),
+      /** Goes on the root `<g>`, which the caller renders. */
+      cls: mo?.cls,
+      bg: backdrop(style, opts, p),
+      /** Everything below the root `<g>`. Free of both of the above. */
+      inner: wrap(style.render(pose.l, p, !!mo), pose.wrap),
       vars: mo?.vars,
     };
   };

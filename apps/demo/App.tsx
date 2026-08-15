@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
-import { avatar, traits, type Animate, type AvatarOptions, type Variant } from "morphatar";
+import {
+  avatar,
+  traits,
+  type Animate,
+  type AvatarOptions,
+  type Variant,
+} from "morphatar";
 import { layout } from "morphatar/blob";
+import { happy, idle, mad, sad, type Expression } from "morphatar/expression";
 import { Avatar } from "morphatar/react";
 
 /**
@@ -15,7 +22,28 @@ import { Avatar } from "morphatar/react";
 
 const COLS = 20;
 const ROWS = 20;
-const SHAPES = ["all", "round", "organic", "boxy", "nub", "cloud", "sun"] as const;
+const SHAPES = [
+  "all",
+  "round",
+  "organic",
+  "boxy",
+  "nub",
+  "cloud",
+  "sun",
+] as const;
+
+/**
+ * `sad|mad` is not a fourth expression — it is the comparison the roster hangs
+ * on, rendered as a mode. See `.cell.pair` in index.css.
+ */
+const EXPRESSIONS: Record<string, Expression | null> = {
+  idle,
+  happy,
+  sad,
+  mad,
+  "sad|mad": null,
+};
+const PAIR: Expression[] = [sad, mad];
 
 type Bg = "default" | "squircle" | "circle" | "square" | "none";
 
@@ -29,24 +57,33 @@ export function App() {
   const [focus, setFocus] = useState<string | null>(null);
   const [animate, setAnimate] = useState<Animate | "">("");
   const [slow, setSlow] = useState(false);
+  const [expr, setExpr] = useState<keyof typeof EXPRESSIONS>("idle");
 
   const opts: AvatarOptions = useMemo(
     () => ({
       variant,
       background: bg === "default" ? undefined : bg === "none" ? false : bg,
       hue: hue === "" ? undefined : hue,
+      expression: EXPRESSIONS[expr] ?? undefined,
     }),
-    [variant, bg, hue],
+    [variant, bg, hue, expr],
   );
 
-  const count = COLS * ROWS;
+  // Paired cells are twice as wide, so half as many fit a row. Keeping the
+  // count tied to the columns means a page is still a full screen either way.
+  const cols = expr === "sad|mad" ? COLS / 2 : COLS;
+  const count = cols * ROWS;
 
   // Filtering by shape means scanning forward past the seeds that do not match,
   // so a rare silhouette still fills a whole page.
   const seeds = useMemo(() => {
     const out: string[] = [];
     const wanted = variant === "blob" && shape !== "all" ? shape : null;
-    for (let i = page * count; out.length < count && i < page * count + count * 200; i++) {
+    for (
+      let i = page * count;
+      out.length < count && i < page * count + count * 200;
+      i++
+    ) {
       const seed = `${prefix}${i}`;
       if (!wanted || layout(traits(seed)).shape === wanted) out.push(seed);
     }
@@ -54,7 +91,7 @@ export function App() {
   }, [prefix, page, shape, variant, count]);
 
   const stats = useMemo(() => {
-    const sizes = seeds.map(s => avatar(s, opts).length);
+    const sizes = seeds.map((s) => avatar(s, opts).length);
     return {
       min: Math.min(...sizes),
       max: Math.max(...sizes),
@@ -72,7 +109,10 @@ export function App() {
         <div className="controls">
           <label>
             variant
-            <select value={variant} onChange={e => setVariant(e.target.value as Variant)}>
+            <select
+              value={variant}
+              onChange={(e) => setVariant(e.target.value as Variant)}
+            >
               <option value="blob">blob</option>
               <option value="character">character</option>
             </select>
@@ -81,22 +121,30 @@ export function App() {
             shape
             <select
               value={shape}
-              onChange={e => (setShape(e.target.value as typeof shape), setPage(0))}
+              onChange={(e) => (
+                setShape(e.target.value as typeof shape),
+                setPage(0)
+              )}
               disabled={variant !== "blob"}
             >
-              {SHAPES.map(s => (
+              {SHAPES.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
           </label>
           <label>
             seed prefix
-            <input value={prefix} onChange={e => (setPrefix(e.target.value), setPage(0))} />
+            <input
+              value={prefix}
+              onChange={(e) => (setPrefix(e.target.value), setPage(0))}
+            />
           </label>
           <label>
             background
-            <select value={bg} onChange={e => setBg(e.target.value as Bg)}>
-              {(["default", "squircle", "circle", "square", "none"] as Bg[]).map(b => (
+            <select value={bg} onChange={(e) => setBg(e.target.value as Bg)}>
+              {(
+                ["default", "squircle", "circle", "square", "none"] as Bg[]
+              ).map((b) => (
                 <option key={b}>{b}</option>
               ))}
             </select>
@@ -105,7 +153,7 @@ export function App() {
             <input
               type="checkbox"
               checked={hue !== ""}
-              onChange={e => setHue(e.target.checked ? 200 : "")}
+              onChange={(e) => setHue(e.target.checked ? 200 : "")}
             />
             lock hue
           </label>
@@ -115,37 +163,55 @@ export function App() {
               min={0}
               max={360}
               value={hue === "" ? 0 : hue}
-              onChange={e => setHue(Number(e.target.value))}
+              onChange={(e) => setHue(Number(e.target.value))}
               disabled={hue === ""}
             />
           </label>
           <label>
             animate
-            <select value={animate} onChange={e => setAnimate(e.target.value as Animate | "")}>
+            <select
+              value={animate}
+              onChange={(e) => setAnimate(e.target.value as Animate | "")}
+            >
               <option value="">off</option>
               <option value="hover">hover</option>
               <option value="always">always</option>
+            </select>
+          </label>
+          <label>
+            expression
+            <select
+              value={expr}
+              onChange={(e) => setExpr(e.target.value as ExprMode)}
+              disabled={variant !== "blob"}
+            >
+              {EXPRESSIONS.map((e) => (
+                <option key={e}>{e}</option>
+              ))}
             </select>
           </label>
           <label className="check">
             <input
               type="checkbox"
               checked={slow}
-              onChange={e => setSlow(e.target.checked)}
+              onChange={(e) => setSlow(e.target.checked)}
               disabled={!animate}
             />
             5× slower
           </label>
           <div className="spacer" />
-          <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+          >
             ←
           </button>
           <code>page {page + 1}</code>
-          <button onClick={() => setPage(p => p + 1)}>→</button>
+          <button onClick={() => setPage((p) => p + 1)}>→</button>
         </div>
         <p className="stats">
-          {seeds.length} avatars · svg {stats.min}–{stats.max} bytes (avg {stats.avg})
-          {hue !== "" && ` · hue ${hue}°`}
+          {seeds.length} avatars · svg {stats.min}–{stats.max} bytes (avg{" "}
+          {stats.avg}){hue !== "" && ` · hue ${hue}°`}
         </p>
       </header>
 
@@ -155,13 +221,39 @@ export function App() {
         // compound with the library's hover reaction (1.12 × 1.04) on a
         // different clock, and make it impossible to judge.
         data-animate={animate || undefined}
-        style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)` }}
+        style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
       >
-        {seeds.map(seed =>
-          animate ? (
+        {seeds.map((seed) =>
+          expr === "sad|mad" ? (
+            // Both halves are the same seed, so every difference on screen is the
+            // expression and nothing else. Rendered through the string API even
+            // when animating: this mode is for judging the two *poses* against
+            // each other, and idle motion running underneath them is noise on
+            // exactly the comparison being made.
+            <button
+              key={seed}
+              className="cell pair"
+              title={seed}
+              onClick={() => setFocus(seed)}
+            >
+              {PAIR.map((e) => (
+                <span
+                  key={e}
+                  dangerouslySetInnerHTML={{
+                    __html: avatar(seed, { ...opts, expression: e }),
+                  }}
+                />
+              ))}
+            </button>
+          ) : animate ? (
             // Goes through the real adapter rather than the string API, because
             // the inline-SVG branch is the thing worth exercising here.
-            <button key={seed} className="cell" title={seed} onClick={() => setFocus(seed)}>
+            <button
+              key={seed}
+              className="cell"
+              title={seed}
+              onClick={() => setFocus(seed)}
+            >
               <Avatar seed={seed} animate={animate} {...opts} />
             </button>
           ) : (
@@ -178,19 +270,33 @@ export function App() {
 
       {focus && (
         <div className="sheet" onClick={() => setFocus(null)}>
-          <div className="card" onClick={e => e.stopPropagation()}>
+          <div className="card" onClick={(e) => e.stopPropagation()}>
             {/*
               Animated at "always" whenever animation is on at all. A modal has
               no grid to sweep, so "hover" would mean the avatar you opened to
               look at sits perfectly still — and the whole point of opening it
               is to watch the motion at a size where it is legible.
             */}
-            {animate ? (
+            {expr === "sad|mad" ? (
+              <div className="big pair">
+                {PAIR.map((e) => (
+                  <span
+                    key={e}
+                    dangerouslySetInnerHTML={{
+                      __html: avatar(focus, { ...opts, expression: e }),
+                    }}
+                  />
+                ))}
+              </div>
+            ) : animate ? (
               <div className="big">
                 <Avatar seed={focus} animate="always" {...opts} />
               </div>
             ) : (
-              <div className="big" dangerouslySetInnerHTML={{ __html: avatar(focus, opts) }} />
+              <div
+                className="big"
+                dangerouslySetInnerHTML={{ __html: avatar(focus, opts) }}
+              />
             )}
             <div className="meta">
               <strong>{focus}</strong>
@@ -199,7 +305,9 @@ export function App() {
                 {variant === "blob" && ` · ${layout(traits(focus)).shape}`}
               </span>
               <div className="swatches">
-                {[...new Set(avatar(focus, opts).match(/#[0-9a-f]{6}/g) ?? [])].map(c => (
+                {[
+                  ...new Set(avatar(focus, opts).match(/#[0-9a-f]{6}/g) ?? []),
+                ].map((c) => (
                   <span key={c} style={{ background: c }} title={c} />
                 ))}
               </div>

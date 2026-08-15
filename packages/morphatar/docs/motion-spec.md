@@ -19,17 +19,17 @@ hover.** Content inside an SVG loaded through `<img>` is a non-interactive,
 isolated document: `:hover` never fires inside it, and host-page CSS cannot
 reach the shapes.
 
-(CSS animations *declared inside* the SVG do run in an `<img>` — so an
+(CSS animations _declared inside_ the SVG do run in an `<img>` — so an
 always-on loop would technically work there. Hover would not. Since hover is the
 default trigger, this does not rescue the `<img>` path.)
 
 So an animated avatar **must render inline SVG**, and the adapter has to switch
 rendering mode based on the prop:
 
-| `animate` | Rendering | DOM nodes per avatar |
-| --------- | --------- | -------------------- |
-| `false` (default) | `<img src={dataUri}>` | 1 |
-| `"hover"` / `"always"` | inline `<svg>` | ~10–16 |
+| `animate`              | Rendering             | DOM nodes per avatar |
+| ---------------------- | --------------------- | -------------------- |
+| `false` (default)      | `<img src={dataUri}>` | 1                    |
+| `"hover"` / `"always"` | inline `<svg>`        | ~10–16               |
 
 The `<img>` path stays the default precisely because a list of 400 avatars is
 the case it was chosen for. Animation is opt-in, and opting in costs DOM. Say
@@ -62,6 +62,11 @@ consumer's call, and they are the only one who knows.
 
 ## 3. The loop model — read this before §4
 
+> Expressions — the triggered poses `happy`, `sad`, `mad` — are a separate axis
+> and live in [expression-spec.md](./expression-spec.md). They share this
+> section's amplitude model and invert §4.1's timing asymmetry on purpose. An
+> avatar can be sad and still breathing.
+
 The idle motion is a **continuous loop**, not a one-shot reaction. Hover does not
 start and stop it; hover controls its **amplitude**.
 
@@ -84,7 +89,9 @@ Amplitude gating fixes both, in pure CSS:
   --mo-amp: 0;
   transition: --mo-amp 400ms ease-out;
 }
-.mo-root:hover { --mo-amp: 1; }
+.mo-root:hover {
+  --mo-amp: 1;
+}
 
 .mo-breathe {
   /* Runs continuously. See "Why this runs rather than pauses" below — this
@@ -95,8 +102,7 @@ Amplitude gating fixes both, in pure CSS:
 
 @keyframes mo-breathe {
   to {
-    transform:
-      scaleX(calc(1 + 0.022 * var(--mo-amp)))
+    transform: scaleX(calc(1 + 0.022 * var(--mo-amp)))
       scaleY(calc(1 - 0.018 * var(--mo-amp)));
   }
 }
@@ -114,7 +120,7 @@ hover entirely.
 
 The original design added `animation-play-state: paused` and only ran the
 animation on hover, on the theory that idle avatars should cost nothing. That
-depended on an unknown: does a *paused* animation re-resolve its transform when
+depended on an unknown: does a _paused_ animation re-resolve its transform when
 a custom property inside its keyframes changes? Probed in Firefox 153 and
 Chrome (`amp-probe.html`, four legs — substitution, paused-recalc, ramp,
 return):
@@ -163,7 +169,7 @@ apart from each other. Every amplitude below is the value at `--mo-amp: 1`.
 **Units, before any numbers below.** These transforms apply to SVG elements,
 where `transform-box` defaults to `view-box` — so percentages resolve against
 the `0 0 100 100` viewport, not against the element, and `transform-origin:
-50% 50%` means the viewport center (50, 50). That is *close to* but not exactly
+50% 50%` means the viewport center (50, 50). That is _close to_ but not exactly
 the body center, which `layout()` jitters by ±1.5 units — so a 2.2% scale about
 the wrong center displaces the body by 0.03 units. Invisible. Keep the default
 box on the motion groups.
@@ -243,8 +249,14 @@ whole interval and the blink is a narrow window inside it:
 }
 
 @keyframes mo-blink {
-  0%, 97.2%, 100% { /* open */ }
-  98.6%           { /* closed */ }
+  0%,
+  97.2%,
+  100% {
+    /* open */
+  }
+  98.6% {
+    /* closed */
+  }
 }
 ```
 
@@ -259,7 +271,7 @@ Do not omit `--mo-blink-phase`. Without it every avatar's blink window sits at
 the same offset in its own cycle, and while the periods differ, a fresh grid
 still opens with a visible synchronized flutter before they drift apart.
 
-**Critical:** each eye must scale about *its own* center. Applied to a shared
+**Critical:** each eye must scale about _its own_ center. Applied to a shared
 group, the eyes slide toward the group center instead of closing. Requires
 `transform-box: fill-box; transform-origin: center` on each eye path —
 verify browser support during implementation.
@@ -287,7 +299,7 @@ Ship it last. The first four layers are pure CSS and carry most of the effect.
 ### 4.6 Saccades — idle glances
 
 Added after the first five layers, and worth more than §4.5: a face that looks
-around reads as *thinking*, where blink only reads as *alive*. It is also pure
+around reads as _thinking_, where blink only reads as _alive_. It is also pure
 CSS, which gaze-follow is not.
 
 ```
@@ -320,7 +332,7 @@ left. Walking the compass in order reads as a mechanism rather than as
 attention.
 
 **Direction has to be seeded, not just phase.** One shared `@keyframes` walks one
-*sequence*, so without per-avatar direction the whole grid looks left, then up,
+_sequence_, so without per-avatar direction the whole grid looks left, then up,
 then right together. That is worse than the unison problem in §5, because a
 sequence is more legible than a phase. `--mo-look-x/y` carry magnitude and sign
 drawn separately, so no seed lands near zero, the pattern mirrors into four
@@ -349,6 +361,76 @@ it works for the one place it cannot.
 
 ---
 
+### 4.7 Wrap — the eyes as marks on a sphere
+
+Rides §4.6's windows exactly: same period, same phase, same jump fractions, so
+the shape change lands on the frame the move does. A wrap lagging the translate
+by even one window reads as the eyes deforming _after_ they arrive, which is
+worse than not having it.
+
+Three cues, in descending order of how much work they do.
+
+**Foreshortening** — a glance sideways compresses both eyes on X, a glance up or
+down compresses both on Y. This is most of the effect, and the only one that
+would be worth keeping alone. It reads `--mo-look-mx/my`, the _unsigned_
+magnitudes, because how far a feature foreshortens depends on how far the face
+turned, not which way it turned. Those two variables exist only for this: CSS
+`abs()` did not reach Safari until 17.2.
+
+**Differential** — the eye leading into a turn sits nearer the limb and
+compresses harder than the trailing one. Signed, against each eye's own
+`--mo-wrap` side. Its coefficient stays under half the shared one at every stop,
+which is what keeps the sum below 1; an eye _growing_ on a glance is the tell
+that kills the sphere read instantly. There is a test on that inequality.
+
+**Tilt** — and this is the part worth being pedantic about, because the obvious
+implementation is wrong. Rolling a capsule is not what a rotating eye does: a
+real eyeball yawing in its socket does not change the iris's tilt. Rotation reads
+as the _head_ turning, and hanging a head-turn on saccade cadence gives six of
+them in six seconds, which reads as a nervous bird rather than as depth. The
+honest term is the one a sphere actually produces: features off the centre
+meridian converge toward the pole, so the tilt is the product `x·y`, in
+**opposite** directions per eye. It vanishes on pure horizontals and verticals,
+where a real face shows no tilt either. A shared roll is the version that looks
+like a mistake; the differential is the version that looks spherical.
+
+**Peaks are 7.0% on X, 4.6% on Y, and 2.4°**, against the static per-avatar lean
+capped at 12° in `layout()`. That ceiling is the constraint and not a
+coincidence: lean carries identity, so an animated tilt approaching it stops
+decorating the avatar and starts overwriting who it is. Treat 12° as the number
+to stay well under if either range is ever retuned.
+
+**On `.mo-eye`, not `.mo-eyes`.** The two eyes must differ, which rules out the
+shared group. That puts wrap on the same element as §4.4, so the two run as a
+two-value `animation-*` list: blink on its own seeded period, wrap reading
+`--mo-saccade`/`--mo-saccade-phase` so it stays locked to the parent. They are
+frame-exact because they are literally the same expression, not because their
+periods are close. They claim different properties too — `transform` for blink,
+`rotate`/`scale` for wrap — so neither overwrites the other.
+
+**Per-eye sign ships as `style="--mo-wrap:±1"` on each path.** Sixteen bytes and
+no ids, which the no-collision guarantee depends on; a class per side would also
+work and cost a selector. This is the one place the static markup gains a `style`
+attribute, and only when `animate` is set — the "static output is untouched" test
+covers that.
+
+**The keyframes are written out per stop, not factored.** Both obvious cleanups
+measure _worse_: hoisting the chains into custom properties on `.mo-eye` cost 11
+gzipped bytes, and animating registered coefficients cost 27, because six
+identical chains are nearly free under gzip while six unique short names are not.
+Measure before factoring here.
+
+**Budget.** No form of this layer fit the 800 B ceiling — foreshortening alone
+measured 854 — so §10 moved to 950 B. That is the right trade in this file and
+nowhere else: the stylesheet is paid once per app, so ~180 B buys a 3D read that
+per-avatar markup could never afford.
+
+**Also close to invisible at 40px**, for the same reason §4.6 is: foreshortening
+a 3px eye by 7% is sub-pixel. Same rule applies — do not inflate it to make it
+show up in a grid.
+
+---
+
 ## 5. Seeded phase offsets — do not skip this
 
 A grid where every avatar breathes in unison does not read as a crowd of
@@ -360,18 +442,22 @@ Fix: derive the phase from the seed and emit it as a CSS custom property.
 ```ts
 // Negated at the source. Emitting the positive value is the one mistake this
 // section exists to prevent, so do not leave the sign to the caller.
-const phase = -t.num("motion.phase", 0, 2800);        // ms
-const bob   = -t.num("motion.bob", 0, 3400);          // ms
-const blink = t.num("motion.blink", 3500, 6500);      // period
-const bph   = -t.num("motion.blinkPhase", 0, blink);  // ms
+const phase = -t.num("motion.phase", 0, 2800); // ms
+const bob = -t.num("motion.bob", 0, 3400); // ms
+const blink = t.num("motion.blink", 3500, 6500); // period
+const bph = -t.num("motion.blinkPhase", 0, blink); // ms
 ```
 
 ```html
-<svg style="--mo-phase:-1740ms; --mo-blink:5.2s; --mo-blink-phase:-3100ms">
+<svg
+  style="--mo-phase:-1740ms; --mo-blink:5.2s; --mo-blink-phase:-3100ms"
+></svg>
 ```
 
 ```css
-.mo-breathe { animation-delay: var(--mo-phase); }
+.mo-breathe {
+  animation-delay: var(--mo-phase);
+}
 ```
 
 Negative delays start the animation mid-cycle immediately. A **positive** delay
@@ -417,12 +503,12 @@ who ships through a bundler rather than to the one person who forgot a line.
 
 ```jsonc
 {
-  "sideEffects": ["*.css"],           // was: false
+  "sideEffects": ["*.css"], // was: false
   "exports": {
     // …existing entries…
-    "./motion": "./src/motion.ts",    // gaze follow (§4.5)
-    "./motion.css": "./src/motion.css"
-  }
+    "./motion": "./src/motion.ts", // gaze follow (§4.5)
+    "./motion.css": "./src/motion.css",
+  },
 }
 ```
 
@@ -439,13 +525,17 @@ a nesting layer so hover-scale and breathe compose instead of overwriting each
 other (one `transform` property per element).
 
 ```html
-<g class="mo-root">          <!-- hover reaction: scale + lift -->
-  <g class="mo-breathe">     <!-- idle loop: squash/stretch -->
-    <g class="mo-bob">       <!-- idle loop: vertical drift -->
+<g class="mo-root">
+  <!-- hover reaction: scale + lift -->
+  <g class="mo-breathe">
+    <!-- idle loop: squash/stretch -->
+    <g class="mo-bob">
+      <!-- idle loop: vertical drift -->
       <g fill="…">…body + petals…</g>
       <g fill="…">
-        <path class="mo-eye"/>   <!-- own transform-origin, for blink -->
-        <path class="mo-eye"/>
+        <path class="mo-eye" />
+        <!-- own transform-origin, for blink -->
+        <path class="mo-eye" />
       </g>
     </g>
   </g>
@@ -455,12 +545,20 @@ other (one `transform` property per element).
 Classes are emitted **only** when `animate` is set, so the static path keeps its
 current byte count exactly.
 
-The wrapper belongs inside `style.render()`, not in `makeAvatar`. The backdrop
-`<path>` is pushed separately in `makeAvatar` (`src/render.ts`) before
-`style.render()` runs, and wrapping at that level would breathe the plate along
-with the body. `blob` defaults to no backdrop, so this is invisible until
-someone passes `background: "circle"` — which is exactly the kind of thing that
-ships.
+The breathe and bob wrappers belong inside `style.render()`, not in
+`makeAvatar`. The backdrop `<path>` is handled separately in `src/render.ts`,
+because wrapping at that level would breathe the plate along with the body.
+`blob` defaults to no backdrop, so this is invisible until someone passes
+`background: "circle"` — which is exactly the kind of thing that ships.
+
+**`.mo-root` is the exception, and it is the caller's.** Its class is the one
+piece of markup that varies at runtime — `mo-expr` goes on and off with the
+expression — and anything that varies inside the innerHTML string costs the
+morph outright. See §1 of
+[expression-followups.md](./expression-followups.md) for what that failure
+looks like; the short version is that React replaces the subtree, a fresh
+element has no previous computed value, and a transition cannot run on one. So
+`makeParts` returns the root class as `cls` and the adapter renders the element.
 
 ### 7.1 The React adapter
 
@@ -477,10 +575,24 @@ type AvatarProps =
 
 `avatar()` returns markup as a string, so the inline branch renders the body
 through `dangerouslySetInnerHTML` on an `<svg>` the adapter writes itself,
-carrying `viewBox`, the seeded custom properties as a `style` object, and the
-motion classes. That means `render()` needs to be reachable without the
-surrounding `<svg>` — either a second export or a documented split of the string
-— rather than the adapter regex-stripping the outer tag.
+carrying `viewBox` and the seeded custom properties as a `style` object. That
+means `render()` needs to be reachable without the surrounding `<svg>` — hence
+`makeParts`, rather than the adapter regex-stripping the outer tag.
+
+The split runs one level deeper than the `<svg>`, and the extra level is
+load-bearing. `makeParts` returns four things — `cls`, `bg`, `inner`, `vars` —
+and only `inner` goes through `dangerouslySetInnerHTML`. The root class, the
+backdrop and the `<title>` are all real React elements or attributes, so a
+change to any of them is an attribute write rather than a subtree rebuild. Two
+consequences worth stating, because both were learned the hard way:
+
+- `<title>` names the element it is the first child of, so it must be a child of
+  the `<svg>`; the backdrop must be a sibling of `.mo-root`, not a descendant,
+  or the plate hover-lifts with the creature.
+- The `{__html}` object must be **memoized on the string**. React compares props
+  by reference and re-assigns `innerHTML` for any new object, byte-identical
+  content or not — which rebuilds the subtree and kills the morph just as
+  effectively as changing the markup would.
 
 This is the bulk of the implementation work and none of it is CSS. Budget for it
 accordingly.
@@ -510,7 +622,10 @@ a playful drag interaction, and 400 bouncy elements is a toy, not a product.
 
 ```css
 @media (prefers-reduced-motion: reduce) {
-  .mo-root, .mo-breathe, .mo-bob, .mo-eye {
+  .mo-root,
+  .mo-breathe,
+  .mo-bob,
+  .mo-eye {
     animation: none;
     transition: none;
     transform: none;
@@ -520,7 +635,9 @@ a playful drag interaction, and 400 bouncy elements is a toy, not a product.
 /* Touch devices fire hover on tap and hold it until the next tap elsewhere —
    a tapped avatar would sit there breathing. Neutralize, do not just comment. */
 @media not ((hover: hover) and (pointer: fine)) {
-  .mo-root:hover { --mo-amp: 0; }   /* defeat the hover rule, keep amplitude at rest */
+  .mo-root:hover {
+    --mo-amp: 0;
+  } /* defeat the hover rule, keep amplitude at rest */
 }
 ```
 
@@ -542,12 +659,12 @@ removing it costs the user nothing.
 
 ## 10. Budget and acceptance
 
-| Entry | Budget (gz) |
-| ----- | ----------- |
-| `morphatar/motion.css` | 700 B — **at 592 B with five layers in.** The saccade layer will not fit; raise to 800 B rather than shaving comments out of the stylesheet. |
-| `morphatar/motion` (gaze JS) | 900 B |
-| Static output byte count | **unchanged** |
-| `blob only` JS | **unchanged** |
+| Entry                        | Budget (gz)                                                                                                                                                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `morphatar/motion.css`       | 950 B — **at 923 B with seven layers in.** Was 700, raised to 800 for saccades (§4.6) and to 950 for wrap (§4.7). Raise it again rather than shaving comments out of the stylesheet; this file is paid once per app. |
+| `morphatar/motion` (gaze JS) | 900 B                                                                                                                                                                                                                |
+| Static output byte count     | **unchanged**                                                                                                                                                                                                        |
+| `blob only` JS               | **unchanged**                                                                                                                                                                                                        |
 
 Only the first two are `scripts/size.ts` entries, and one of them needs a new
 code path: every existing entry builds a synthetic TS consumer through
@@ -605,14 +722,14 @@ Acceptance criteria:
    `makeParts`, the nested `<g>` wrapper, `mo-eye` on each eye. Demo has an
    animate selector that routes the grid through the real adapter.
 4. ~~Blink (§4.4).~~ **Built, unreviewed.** `.mo-eye` with `transform-box:
-   fill-box`, the 2.8% window, amplitude folded into the closed pose. Slow-motion
+fill-box`, the 2.8% window, amplitude folded into the closed pose. Slow-motion
    toggle in the demo.
 5. ~~Breathe + bob (§4.2, §4.3).~~ **Built, unreviewed.** Both on the phases
    already emitted, both scaled by `--mo-rate`.
    **Nobody has watched any of it move yet.** `docs/motion-probe.html` asserts
    the mechanics in six legs — eyes close about their own centers, the body
    moves at full amplitude, and nothing moves at all at `--mo-amp: 0` — but a
-   probe cannot tell you whether it *reads* as a creature breathing. That
+   probe cannot tell you whether it _reads_ as a creature breathing. That
    judgement is the next step, at 5× in the demo, and preferably twice on
    different days.
 6. ~~Hover reaction (§4.1).~~ **Built, unreviewed.** Transform transition on
@@ -625,25 +742,32 @@ Acceptance criteria:
    the enter/exit asymmetry and the retarget behavior across a grid are
    hand-checks. Sweep the pointer fast across several rows: nothing should jump,
    restart, or lag behind the cursor.
+
 7. ~~Idle saccades (§4.6).~~ **Built, unreviewed.** On `.mo-eyes`, four seeded
    fixations, jump-and-hold. Eyes are allowed to cross the body silhouette.
    Demo's focus modal now animates at `always`, so the layer can be judged at a
    size where it is actually visible.
-8. Gaze follow (`morphatar/motion`, JS). It targets the same group as saccades;
+8. ~~Wrap (§4.7).~~ **Built, unreviewed.** On `.mo-eye`, riding the saccade's
+   clock: foreshortening, a leading-eye differential, and a per-eye opposite
+   tilt on diagonals. Judge it at `always` on the focus modal — like §4.6 it is
+   sub-pixel in a 40px grid. Watch specifically for the tilt reading as a head
+   turn rather than as depth; if it does, the x·y term is too large before the
+   foreshortening is.
+9. Gaze follow (`morphatar/motion`, JS). It targets the same group as saccades;
    they now coexist by using different properties (`transform` vs `translate`),
    but a pointer-driven gaze and an idle glance still fight for meaning, so
    gaze should probably suppress saccades while the pointer is over the avatar.
 
 **Where steps 1–3 landed on size**, against the pre-motion baseline:
 
-| Entry | Before | After | Δ |
-| ----- | ------ | ----- | - |
-| `blob only` | 3382 | 3449 | **+67** |
-| `character` | 3320 | 3330 | +10 |
-| `both` | 4474 | 4557 | +83 |
-| `uri` | 4569 | 4652 | +83 |
-| `react` | 4745 | 5239 | +494 |
-| `motion.css` | — | 230 | — |
+| Entry        | Before | After | Δ       |
+| ------------ | ------ | ----- | ------- |
+| `blob only`  | 3382   | 3449  | **+67** |
+| `character`  | 3320   | 3330  | +10     |
+| `both`       | 4474   | 4557  | +83     |
+| `uri`        | 4569   | 4652  | +83     |
+| `react`      | 4745   | 5239  | +494    |
+| `motion.css` | —      | 230   | —       |
 
 Static markup is byte-identical across 4000 renders (8 option sets × 500 seeds),
 so that criterion held exactly. The **byte count did not** — "unchanged" in §10

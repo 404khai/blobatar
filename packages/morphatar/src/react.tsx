@@ -39,9 +39,10 @@ export function Avatar({
   contrast,
   title,
   animate,
+  expression,
   ...rest
 }: AvatarProps) {
-  const opts = { size, background, palette, hue, tone, normalize, contrast, title };
+  const opts = { size, background, palette, hue, tone, normalize, contrast, title, expression };
 
   // Both branches are hooks-stable: `animate` changing swaps the element type,
   // which remounts anyway.
@@ -59,6 +60,24 @@ export function Avatar({
     [dep],
   );
 
+  /**
+   * The markup object, kept stable by identity and not just by value.
+   *
+   * Getting the varying class out of `parts.inner` is only half of what the
+   * morph needs. React compares props by reference, and `dangerouslySetInnerHTML`
+   * is a fresh `{__html}` literal on every render — so it re-assigns
+   * `innerHTML` whenever anything else about the avatar changes, even when the
+   * string is byte-identical. That assignment destroys and rebuilds the whole
+   * subtree, which is exactly the thing an expression change must not do: a
+   * fresh element has no previous computed value, so no transition runs on it,
+   * and every idle animation underneath restarts from phase zero and throws
+   * away its seeded offset.
+   *
+   * Keyed on the string, so the object survives an expression change and
+   * changes only when the markup genuinely does.
+   */
+  const html = useMemo(() => ({ __html: parts?.inner ?? "" }), [parts?.inner]);
+
   if (parts) {
     const { style, ...svgRest } = rest as SVGProps<SVGSVGElement>;
     return (
@@ -74,9 +93,29 @@ export function Avatar({
         role={title ? "img" : undefined}
         aria-hidden={title ? undefined : true}
         style={{ ...(parts.vars as React.CSSProperties), ...style }}
-        dangerouslySetInnerHTML={{ __html: parts.inner }}
         {...svgRest}
-      />
+      >
+        {/*
+          Three real children rather than one innerHTML blob, and the reason is
+          the morph.
+
+          Only the third varies at runtime — its class does, when the expression
+          changes — and `dangerouslySetInnerHTML` is all-or-nothing: had the root
+          `<g>` stayed inside that string, every expression change would replace
+          the entire subtree. A fresh element has no previous computed value, so
+          no transition runs on it and every idle animation under it restarts
+          from phase zero. Split this way, React writes one attribute and the
+          DOM below survives, which is what the transition needs to exist at all.
+
+          The first two have to be siblings of the root rather than inside it:
+          `<title>` names the element it is the first child of, so nesting it
+          would label a `<g>` instead of this `<svg>`, and the backdrop must sit
+          outside the hover-lift or the plate scales with the creature.
+        */}
+        {title ? <title>{title}</title> : null}
+        {parts.bg ? <path d={parts.bg.d} fill={parts.bg.fill} /> : null}
+        <g className={parts.cls} dangerouslySetInnerHTML={html} />
+      </svg>
     );
   }
 

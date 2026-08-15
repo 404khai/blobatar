@@ -3,11 +3,11 @@
 Deterministic geometric avatars from any string. No dependencies, ~3.3 KB
 gzipped.
 
-| Path                 | What it is                                                    |
-| -------------------- | ------------------------------------------------------------- |
-| `packages/morphatar` | The library. [Docs here](./packages/morphatar/README.md).      |
-| `apps/site`          | The landing page. Static, dark-only.                           |
-| `apps/demo`          | The tuning grid — the internal design tool, not a demo.        |
+| Path                 | What it is                                                |
+| -------------------- | --------------------------------------------------------- |
+| `packages/morphatar` | The library. [Docs here](./packages/morphatar/README.md). |
+| `apps/site`          | The landing page. Static, dark-only.                      |
+| `apps/demo`          | The tuning grid — the internal design tool, not a demo.   |
 
 ```sh
 bun install

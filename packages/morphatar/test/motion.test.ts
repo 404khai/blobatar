@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { motionVars } from "../src/animate";
-import { avatar, _parts } from "../src/avatar";
+import { avatar, _layout, _parts } from "../src/avatar";
 import { traits } from "../src/traits";
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => `user-${i}`);
@@ -18,11 +19,15 @@ describe("markup", () => {
   });
 
   test("animating nests the transform layers and marks each eye", () => {
-    const { inner } = _parts("alain", { animate: "hover" });
+    const { cls, inner } = _parts("alain", { animate: "hover" });
 
     // One transform property per element, so hover-lift, breathe and bob need
-    // three elements or they overwrite each other.
-    expect(inner).toContain('<g class="mo-root"><g class="mo-breathe"><g class="mo-bob">');
+    // three elements or they overwrite each other. The hover-lift one is the
+    // caller's — its class varies with the expression, and anything that varies
+    // inside this string costs the morph. See `makeParts`.
+    expect(cls).toBe("mo-root");
+    expect(inner).toStartWith('<g class="mo-breathe"><g class="mo-bob">');
+    expect(inner).not.toContain("mo-root");
     expect(inner.match(/class="mo-eye"/g)).toHaveLength(2);
   });
 
@@ -35,28 +40,71 @@ describe("markup", () => {
     expect(group.match(/class="mo-eye"/g)).toHaveLength(2);
   });
 
+  test("each eye carries its own baked lean", () => {
+    // `superellipse` bakes rotation into the coordinates, so every scale in the
+    // stylesheet has to counter-rotate by this angle or it squashes along screen
+    // axes and shears the capsule. Without the value there is nothing to
+    // counter-rotate *by* — and the failure is silent, because a sheared eye is
+    // still an eye.
+    const { inner } = _parts("alain", { animate: "hover" });
+    const leans = [...inner.matchAll(/--mo-lean:(-?[\d.]+)/g)].map((m) =>
+      Number(m[1]),
+    );
+    expect(leans).toHaveLength(2);
+    const eyes = _layout("alain").eyes as { rot: number }[];
+    for (const [i, lean] of leans.entries())
+      expect(lean).toBeCloseTo(eyes[i]!.rot, 1);
+  });
+
+  test("the eyes carry opposite wrap sides", () => {
+    // The wrap layer's tilt converges the two eyes toward the pole, and its
+    // foreshortening is heavier on whichever eye leads the turn. Both read this
+    // sign. Same sign on both would turn a sphere back into a head tilting.
+    const { inner } = _parts("alain", { animate: "hover" });
+    expect(inner).toContain('style="--mo-wrap:-1;');
+    expect(inner).toContain('style="--mo-wrap:1;');
+    expect(inner.match(/--mo-wrap:/g)).toHaveLength(2);
+    // Left eye first, so the sign matches the side it is drawn on.
+    expect(inner.indexOf("--mo-wrap:-1")).toBeLessThan(
+      inner.indexOf("--mo-wrap:1"),
+    );
+  });
+
   test("always mode is a class, not a second code path", () => {
-    expect(_parts("alain", { animate: "always" }).inner).toContain('class="mo-root mo-always"');
+    expect(_parts("alain", { animate: "always" }).cls).toBe(
+      "mo-root mo-always",
+    );
   });
 
-  test("the backdrop stays outside the motion wrapper", () => {
-    // Wrapping at the parts level instead would breathe the plate along with
-    // the body. `blob` is transparent by default, so this only shows up when
-    // someone passes a background — which is exactly why it needs a test.
-    const { inner } = _parts("alain", { animate: "hover", background: "square" });
-    expect(inner.indexOf("<path")).toBeLessThan(inner.indexOf("mo-root"));
+  test("the backdrop comes back as geometry, outside the motion wrapper", () => {
+    // A plate that hover-lifts and breathes with the creature stops being a
+    // plate. It used to be a string concatenated ahead of the wrapper; now it
+    // leaves as `bg` so the adapter can draw it as a sibling of the root `<g>`
+    // — which is what lets the root `<g>` be a real React element at all.
+    const { bg, inner } = _parts("alain", {
+      animate: "hover",
+      background: "square",
+    });
+    expect(bg).toEqual({ d: "M0 0H100V100H0Z", fill: expect.any(String) });
+    expect(inner).not.toContain("M0 0H100V100H0Z");
+    expect(_parts("alain", { animate: "hover" }).bg).toBeUndefined();
   });
 
-  test("the title stays outside the motion wrapper", () => {
+  test("the title never enters the markup string", () => {
+    // `<title>` names the element it is the first child of, so it has to be a
+    // child of the `<svg>`. React renders it, which also means React escapes it.
     const { inner } = _parts("alain", { animate: "hover", title: "Ada" });
-    expect(inner).toStartWith("<title>Ada</title>");
+    expect(inner).not.toContain("<title>");
+    expect(inner).toStartWith('<g class="mo-breathe">');
   });
 
   test("markup stays balanced with the wrapper in place", () => {
     for (const s of SEEDS.slice(0, 50)) {
       const { inner } = _parts(s, { animate: "hover" });
       const open = (inner.match(/<(?!\/)[a-z]/g) ?? []).length;
-      const close = (inner.match(/<\/[a-z]/g) ?? []).length + (inner.match(/\/>/g) ?? []).length;
+      const close =
+        (inner.match(/<\/[a-z]/g) ?? []).length +
+        (inner.match(/\/>/g) ?? []).length;
       expect(open).toBe(close);
     }
   });
@@ -77,7 +125,9 @@ describe("timing", () => {
   test("phases span their period and do not cluster", () => {
     // The failure this guards is a grid that breathes as one heartbeat.
     const buckets = new Set(
-      SEEDS.map(s => Math.floor((-ms(motionVars(traits(s))["--mo-phase"]!) / 2800) * 10)),
+      SEEDS.map((s) =>
+        Math.floor((-ms(motionVars(traits(s))["--mo-phase"]!) / 2800) * 10),
+      ),
     );
     expect(buckets.size).toBe(10);
   });
@@ -85,9 +135,13 @@ describe("timing", () => {
   test("breathe and bob drift independently", () => {
     // Sharing one offset keeps the two periods drifting apart but locks every
     // avatar into the same drift — unison again, one level up.
-    const same = SEEDS.filter(s => {
+    const same = SEEDS.filter((s) => {
       const v = motionVars(traits(s));
-      return Math.abs(ms(v["--mo-phase"]!) / 2800 - ms(v["--mo-bob-phase"]!) / 3400) < 0.01;
+      return (
+        Math.abs(
+          ms(v["--mo-phase"]!) / 2800 - ms(v["--mo-bob-phase"]!) / 3400,
+        ) < 0.01
+      );
     });
     expect(same.length).toBeLessThan(SEEDS.length * 0.05);
   });
@@ -114,12 +168,30 @@ describe("timing", () => {
     }
   });
 
+  test("look magnitudes are the unsigned form of the signed ones", () => {
+    // The wrap layer foreshortens by how far the eyes travelled, which is
+    // sign-independent, and CSS has no portable abs(). If these two ever drift
+    // apart, a mirrored avatar foreshortens the wrong way — it would read as the
+    // eyes bulging on a glance rather than compressing, in exactly half the grid.
+    for (const s of SEEDS) {
+      const v = motionVars(traits(s));
+      expect(Number(v["--mo-look-mx"])).toBe(
+        Math.abs(Number(v["--mo-look-x"])),
+      );
+      expect(Number(v["--mo-look-my"])).toBe(
+        Math.abs(Number(v["--mo-look-y"])),
+      );
+      expect(Number(v["--mo-look-mx"])).toBeGreaterThan(0);
+      expect(Number(v["--mo-look-my"])).toBeGreaterThan(0);
+    }
+  });
+
   test("glances go in every direction across a grid", () => {
     // One shared @keyframes walks one sequence of fixations, so the only thing
     // stopping 400 avatars looking the same way at the same moment is the sign
     // of these two. All four quadrants have to show up.
     const quadrants = new Set(
-      SEEDS.map(s => {
+      SEEDS.map((s) => {
         const v = motionVars(traits(s));
         return `${Number(v["--mo-look-x"]) > 0}${Number(v["--mo-look-y"]) > 0}`;
       }),
@@ -137,6 +209,30 @@ describe("timing", () => {
     }
   });
 
+  test("no wrap stop can make an eye grow", () => {
+    // The guarantee behind the differential term: the eye leading a turn
+    // compresses *more* than the trailing one, but the trailing one still
+    // compresses. If the signed coefficient ever caught up with the shared one,
+    // that eye would scale past 1 on a glance — and an eye swelling as it looks
+    // sideways is the single tell that kills the sphere read.
+    const css = readFileSync(
+      new URL("../src/motion.css", import.meta.url),
+      "utf8",
+    );
+    const wrap = css.slice(css.indexOf("@keyframes mo-wrap"));
+
+    const stops = [
+      ...wrap.matchAll(
+        /1 - ([\d.]+) \* var\(--mo-look-mx[^)]*\) \* var\(--mo-amp\) ([+-]) ([\d.]+)/g,
+      ),
+    ];
+    expect(stops).toHaveLength(5); // every stop but the two zeroed ones
+
+    for (const [, shared, , signed] of stops) {
+      expect(Number(signed)).toBeLessThan(Number(shared));
+    }
+  });
+
   test("reading motion traits leaves every existing trait untouched", () => {
     // Trait keys are string-addressed, so this should hold by construction.
     // It is asserted anyway because it is the property the whole keyed-stream
@@ -150,7 +246,9 @@ describe("timing", () => {
       expect(avatar(s)).toBe(before);
       // Same shapes, same numbers — the animated build differs only by the
       // wrapper and the eye class.
-      expect(geometry(_parts(s, { animate: "hover" }).inner)).toEqual(geometry(before));
+      expect(geometry(_parts(s, { animate: "hover" }).inner)).toEqual(
+        geometry(before),
+      );
     }
   });
 });
