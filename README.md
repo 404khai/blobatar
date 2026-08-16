@@ -1,6 +1,6 @@
 # blobatar — workspace
 
-Deterministic geometric blobatars from any string. No dependencies, ~3.3 KB
+Deterministic geometric blobatars from any string. No dependencies, ~3.7 KB
 gzipped.
 
 | Path                 | What it is                                                |

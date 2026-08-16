@@ -26,6 +26,29 @@ type Bg = "none" | "squircle" | "circle" | "square";
 const HUES = [12, 40, 78, 140, 190, 225, 275, 320];
 
 /**
+ * The six silhouettes, each as the position in [0, 1) that selects it.
+ *
+ * Shape is not a named prop — the library exposes it as a pinned *trait*, and a
+ * trait value is "the number the hash would have produced". So these are the
+ * midpoints of the bands `shapeOf` splits that range into, midpoints rather than
+ * edges because the bands are frozen per major but their boundaries are the one
+ * place a future retune would land.
+ *
+ * Like `hue`, this is tri-state: unset means the name picks, which is the
+ * default and the more interesting behaviour.
+ */
+const SHAPES = [
+  { name: "round", at: 0.14 },
+  { name: "organic", at: 0.43 },
+  { name: "boxy", at: 0.65 },
+  { name: "nub", at: 0.78 },
+  { name: "cloud", at: 0.885 },
+  { name: "sun", at: 0.965 },
+] as const;
+
+type Shape = (typeof SHAPES)[number];
+
+/**
  * The roster, paired with the identifier you would import to get it.
  *
  * The name is not decoration: it is what the snippet writes into both the
@@ -86,7 +109,13 @@ function attr(value: string) {
   return /["\\]/.test(value) ? `{${JSON.stringify(value)}}` : `"${value}"`;
 }
 
-function snippet(seed: string, bg: Bg, hue: number | null, pose: Pose) {
+function snippet(
+  seed: string,
+  bg: Bg,
+  hue: number | null,
+  pose: Pose,
+  shape: Shape | null,
+) {
   const posed = pose.value !== idle;
 
   const imports = [`import { Blobatar } from "blobatar/react";`];
@@ -97,14 +126,26 @@ function snippet(seed: string, bg: Bg, hue: number | null, pose: Pose) {
   // reads as configuration you are obliged to supply, which is the opposite of
   // what a one-prop library wants to advertise.
   const props = [`name=${attr(seed || "blobatar")}`];
+  if (shape) props.push(`traits={{ shape: ${shape.at} }}`);
   if (bg !== "none") props.push(`background="${bg}"`);
   if (hue !== null) props.push(`hue={${hue}}`);
   if (posed) props.push(`expression={${pose.name}}`);
   props.push(`animate="hover"`);
 
-  return [imports.join("\n"), "", `<Blobatar`, ...props.map((p) => `  ${p}`), `/>`].join(
-    "\n",
-  );
+  // The one line here that cannot be read off the code. `0.885` is a position in
+  // a range, not a measurement, and nothing about it says "cloud" — so the name
+  // goes above the element, where a `//` is legal. Inside the attribute list it
+  // would not be: JSX has no line comments between props.
+  const note = shape ? [`// shape: ${shape.name}`] : [];
+
+  return [
+    imports.join("\n"),
+    "",
+    ...note,
+    `<Blobatar`,
+    ...props.map((p) => `  ${p}`),
+    `/>`,
+  ].join("\n");
 }
 
 export function Hero() {
@@ -112,6 +153,7 @@ export function Hero() {
   const [bg, setBg] = useState<Bg>("none");
   const [hue, setHue] = useState<number | null>(null);
   const [pose, setPose] = useState<Pose>(POSES[0]);
+  const [shape, setShape] = useState<Shape | null>(null);
 
   /**
    * A reaction is a temporary override of the picked pose, not a replacement
@@ -127,7 +169,7 @@ export function Hero() {
   useEffect(() => () => clearTimeout(release.current ?? undefined), []);
 
   const shown = burst ?? pose.value;
-  const tuned = bg !== "none" || hue !== null || pose.value !== idle;
+  const tuned = bg !== "none" || hue !== null || pose.value !== idle || shape !== null;
 
   /**
    * The burst pattern the library documents: an expression is a latched state,
@@ -153,6 +195,10 @@ export function Hero() {
     background: bg === "none" ? false : bg,
     hue: hue ?? undefined,
     expression: shown,
+    // Sparse on purpose: pinning `shape` leaves every other trait — eye gap,
+    // body ratio, tilt — coming from the name, so picking a cloud still gives
+    // you *your* cloud rather than the same cloud everybody else gets.
+    traits: shape ? { shape: shape.at } : undefined,
   };
 
   return (
@@ -321,9 +367,50 @@ export function Hero() {
               align={wide ? "start" : "center"}
               sideOffset={wide ? 28 : 20}
               collisionPadding={16}
-              className="w-80"
+              // Seven shape tiles made this panel tall enough to outgrow a
+              // short window. Radix measures the space it actually has and
+              // publishes it as a custom property; capping to that turns an
+              // overflow into a scroll instead of a clipped hue row.
+              className="max-h-[var(--radix-popover-content-available-height)] w-80 overflow-y-auto"
             >
               <div className="flex flex-col gap-5">
+                {/*
+                  Shape first: it is the trait that decides what creature this
+                  is, and every control under it decorates that decision.
+
+                  Same argument as the expression row for showing the thing
+                  rather than naming it — "nub" and "organic" are words for
+                  silhouettes nobody has seen yet. Seeded with the current name,
+                  so the row is six versions of *your* blobatar.
+                */}
+                <Field label="shape">
+                  <div className="grid grid-cols-4 gap-1" role="group" aria-label="Shape">
+                    {/*
+                      `auto` is a tile rather than a pill because it is a
+                      seventh option of the same kind — it shows the blobatar
+                      the name produces on its own, which is exactly what
+                      picking it gives you back.
+                    */}
+                    <ShapeTile
+                      label="auto"
+                      seed={seed}
+                      opts={{ ...opts, traits: undefined }}
+                      selected={shape === null}
+                      onClick={() => setShape(null)}
+                    />
+                    {SHAPES.map((s) => (
+                      <ShapeTile
+                        key={s.name}
+                        label={s.name}
+                        seed={seed}
+                        opts={{ ...opts, traits: { shape: s.at } }}
+                        selected={shape?.name === s.name}
+                        onClick={() => setShape(s)}
+                      />
+                    ))}
+                  </div>
+                </Field>
+
                 {/*
                   The expression picker is the same blobatar wearing each pose,
                   not a select. A pose is a *look*, and the only honest label
@@ -463,7 +550,7 @@ export function Hero() {
             <span>your config</span>
             <span className="font-mono normal-case">Blobatar.tsx</span>
           </div>
-          <Snippet code={snippet(seed, bg, hue, pose)} />
+          <Snippet code={snippet(seed, bg, hue, pose, shape)} />
           <p className="text-muted/70 text-xs leading-relaxed">
             Every prop is optional except the name. Drop{" "}
             <code className="font-mono">animate</code> and the blobatar renders as a
@@ -472,6 +559,51 @@ export function Hero() {
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * One silhouette, rendered as itself.
+ *
+ * Static `<img>`s, deliberately — same trade the expression row makes: seven
+ * live SVG trees inside a panel would be seven things competing with the one
+ * that is supposed to be moving. The options spread in carry whatever else is
+ * currently tuned, so the row restyles as you change hue or pose rather than
+ * showing six blobatars from a different configuration.
+ */
+function ShapeTile({
+  label,
+  seed,
+  opts,
+  selected,
+  onClick,
+}: {
+  label: string;
+  seed: string;
+  opts: BlobatarOptions;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        "flex flex-col items-center gap-1 rounded-xl py-2 transition-colors duration-150",
+        selected ? "bg-line/70" : "hover:bg-line/30",
+      )}
+    >
+      <Blobatar name={seed || " "} {...opts} alt="" className="size-9" />
+      <span
+        className={cn(
+          "font-mono text-[0.65rem] lowercase transition-colors",
+          selected ? "text-ink" : "text-muted",
+        )}
+      >
+        {label}
+      </span>
+    </button>
   );
 }
 
