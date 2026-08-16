@@ -17,7 +17,7 @@ const TOKEN =
   /(\/\/[^\n]*)|("[^"]*")|\b(import|from)\b|(<\/?[A-Z][A-Za-z0-9]*)|([a-zA-Z][A-Za-z0-9]*)(?==)/g;
 
 const CLASS = [
-  "text-muted/50 italic", // comment
+  "text-muted italic", // comment
   "text-code-str", // string
   "text-code-key", // keyword
   "text-ink", // component tag

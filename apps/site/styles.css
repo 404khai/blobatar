@@ -118,6 +118,39 @@
 }
 
 /*
+ * Below-the-fold sections.
+ *
+ * `content-visibility: auto` lets the browser skip style, layout and paint for
+ * a subtree until it is close to the viewport. It exists here because the page
+ * is prerendered: every word of these sections is in the HTML, which is what we
+ * want for anything reading the page without running it, but it also means the
+ * browser has a full second and third screen of markup to lay out before it can
+ * paint the first one. This defers that work without deferring the content.
+ *
+ * `contain-intrinsic-size` is the half people leave off and then wonder why the
+ * scrollbar jumps: a skipped subtree measures zero without it, so the page
+ * collapses to the height of the hero and re-expands as you scroll into each
+ * section. The values are placeholders for the real heights, close enough that
+ * the scrollbar does not visibly resettle. `auto` in front means "remember the
+ * real size once you have measured it", so it self-corrects after first scroll.
+ *
+ * Applied only below the fold, and that restriction matters — on the hero this
+ * would be a pure loss, deferring work that has to happen before first paint
+ * anyway.
+ *
+ * Not on the wall, either, and for a different reason: its parallax resolves
+ * `animation-timeline: view()` against the scroll container, and a skipped
+ * subtree has no boxes for that to measure. The wall pays nothing at first
+ * paint regardless — it renders its field only after mount.
+ */
+@layer components {
+  .defer-offscreen {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 100vh;
+  }
+}
+
+/*
  * The wall.
  *
  * A scattered field of blobatars on three depth layers. Two motions stack, and

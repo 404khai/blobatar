@@ -574,7 +574,7 @@ export function Hero() {
             <span className="font-mono normal-case">Blobatar.tsx</span>
           </div>
           <Snippet code={snippet(seed, bg, hue, pose, shape)} />
-          <p className="text-muted/70 text-xs leading-relaxed">
+          <p className="text-muted text-xs leading-relaxed">
             Every prop is optional except the name. Drop{" "}
             <code className="font-mono">animate</code> and the blobatar renders as a
             single <code className="font-mono">&lt;img&gt;</code>.

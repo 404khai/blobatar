@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Blobatar } from "blobatar/react";
 import { NAMES, shuffled } from "@/names";
+import { useMounted } from "@/lib/mounted";
 
 /**
  * The field is generated on a jittered grid rather than from raw random
@@ -42,11 +43,28 @@ type Blob = {
 };
 
 export function Wall() {
+  /*
+   * The field is client-only, and for two reasons that happen to agree.
+   *
+   * The honest one: it is built from `Math.random()`, so a prerendered field
+   * and the one the client generates on hydration would never match, and React
+   * would throw the server's markup away.
+   *
+   * The useful one: it is sixty inline SVGs, about a thousand elements — by far
+   * the heaviest thing on the page, and all of it below the fold. Keeping it out
+   * of the prerendered HTML is what keeps that document small enough to paint
+   * in one round trip. The heading below renders either way, so the section is
+   * never empty of meaning; only its decoration arrives late.
+   */
+  const mounted = useMounted();
+
   // Once per mount, not per render: a reshuffle on every state change would
   // make the wall flicker. Random per visit is the point — the claim is
   // "millions of options", and a field that is provably different on every
   // reload is the cheapest possible proof.
   const blobs = useMemo<Blob[]>(() => {
+    if (!mounted) return [];
+
     const pool = shuffled(NAMES);
     const out: Blob[] = [];
 
@@ -81,7 +99,7 @@ export function Wall() {
     }
 
     return out;
-  }, []);
+  }, [mounted]);
 
   return (
     /*
@@ -151,7 +169,7 @@ export function Wall() {
                   {depth.label && (
                     // Dropped below `sm`: the cells are narrow enough there
                     // that captions land on their neighbours.
-                    <span className="text-ink/40 hidden font-mono text-[0.6rem] lowercase sm:block">
+                    <span className="text-ink/50 hidden font-mono text-[0.6rem] lowercase sm:block">
                       {b.name}
                     </span>
                   )}

@@ -5,7 +5,7 @@ import { Close } from "@/components/Close";
 
 export function App() {
   return (
-    <>
+    <main>
       <Hero />
       <Wall />
       {/*
@@ -16,6 +16,6 @@ export function App() {
       */}
       <Chat />
       <Close />
-    </>
+    </main>
   );
 }

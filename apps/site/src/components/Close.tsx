@@ -7,7 +7,7 @@ const FACTS = [
 
 export function Close() {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-32">
+    <section className="defer-offscreen mx-auto max-w-5xl px-6 py-32">
       <div className="border-line grid gap-px border-t sm:grid-cols-4">
         {FACTS.map(([value, label]) => (
           <div key={label} className="py-8">

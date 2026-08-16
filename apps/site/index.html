@@ -49,6 +49,14 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:creator" content="@alain_0012" />
     <!--
+      Both faces are preloaded, but the tags are injected by `build.ts` rather
+      than written here — see the comment there. Short version: the bundler
+      resolves and hashes any font URL it finds in this file, and the @font-face
+      rules below deliberately use an unresolvable absolute path, so a preload
+      written here would prime a *different* copy than the one the page uses.
+    -->
+
+    <!--
       @font-face lives here, inline, rather than in styles.css.
 
       Bun's CSS bundler resolves and base64-inlines every url() it can reach —
