@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "bun --hot server.ts",
     "build": "bun build.ts",
-    "check": "true"
+    "check": "bun test"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.23",
+    "@radix-ui/react-slider": "^1.4.7",
     "@radix-ui/react-toggle-group": "^1.1.2",
     "@vercel/analytics": "^2.0.1",
     "blobatar": "workspace:*",

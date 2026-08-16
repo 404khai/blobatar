@@ -2,26 +2,37 @@ import { CheckIcon, CopyIcon, useCopy } from "@/components/ui/copy";
 import { cn } from "@/lib/utils";
 
 /**
- * One regex, five token classes.
+ * One regex, seven token classes.
  *
- * A real highlighter is a parser and a grammar and ~20 KB, and this page emits
- * the only code it ever renders — a couple of imports and one JSX element,
- * written by the generator two files over. The grammar is known, closed, and
- * small enough to match in one pass.
+ * A real highlighter is a parser and a grammar and ~20 KB, and this site emits
+ * the only code it ever renders — a couple of imports, one JSX element or one
+ * call, and an object literal of trait positions, written by the two generators
+ * that use this. The grammar is known, closed, and small enough to match in one
+ * pass.
  *
  * Alternation order is the whole correctness argument: comments and strings
  * come first so that a `//` inside a string, or a keyword inside a comment,
  * is already consumed by the time the later branches are tried.
+ *
+ * The property-name branch has to come *before* the general string one for the
+ * same reason in miniature: `"eye.gap"` is a key and `"blobatar/react"` is a
+ * string, and the only thing that separates them is the colon after. A single
+ * string branch first would swallow both and there would be no second chance.
  */
 const TOKEN =
-  /(\/\/[^\n]*)|("[^"]*")|\b(import|from)\b|(<\/?[A-Z][A-Za-z0-9]*)|([a-zA-Z][A-Za-z0-9]*)(?==)/g;
+  /(\/\/[^\n]*)|("[^"]*")(?=\s*:)|("[^"]*")|\b(import|from|const)\b|(<\/?[A-Z][A-Za-z0-9]*)|([a-zA-Z][A-Za-z0-9]*)(?=\s*[=:])|\b(\d+\.?\d*)\b/g;
 
 const CLASS = [
   "text-muted italic", // comment
+  "text-muted", // property name, quoted — coloured as the name it is, not the string it is written as
   "text-code-str", // string
   "text-code-key", // keyword
   "text-ink", // component tag
-  "text-muted", // attribute name
+  "text-muted", // attribute or property name
+  // The trait positions, and the only numbers this ever renders. `ink` because
+  // on the editor's page they are the thing that was chosen — the rest of the
+  // snippet is scaffolding around them.
+  "text-ink",
 ];
 
 function highlight(code: string) {

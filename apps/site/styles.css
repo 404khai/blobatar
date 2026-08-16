@@ -12,6 +12,11 @@
 @source "./src";
 @source "./frontend.tsx";
 @source "./index.html";
+/* The editor's document and entry, same reason. One stylesheet serves both
+   pages — the build inlines it into each — so a class only the editor uses has
+   to be scanned for here or it never gets compiled. */
+@source "./editor.tsx";
+@source "./editor.html";
 
 /*
  * Self-hosted rather than pulled from a CDN: the page is meant to be genuinely
@@ -313,5 +318,22 @@
 @media (hover: hover) and (pointer: fine) {
   .hero-blobatar .mo-root:hover {
     transform: scale(1.04);
+  }
+
+  /*
+   * …and the editor's preview, which is the same case: one large blobatar that
+   * is the subject of the page rather than one of sixty in a field.
+   *
+   * Its own selector rather than the hero's class, because the two are not the
+   * same element wearing the same name — the hero's blobatar is a button you
+   * click for an expression, this one is not clickable at all. Sharing a class
+   * would make a later change to either of them silently reach the other.
+   *
+   * Slightly under the hero's 4%: this blobatar is on `animate="hover"` by
+   * default, so the scale lands on top of the idle layers waking up rather than
+   * on a resting shape.
+   */
+  .editor-preview .mo-root:hover {
+    transform: scale(1.03);
   }
 }

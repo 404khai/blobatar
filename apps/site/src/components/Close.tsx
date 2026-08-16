@@ -22,7 +22,13 @@ export function Close() {
         description. Repeating it would mean two copy buttons for one string,
         and the reason it moved was that this was the only place it appeared.
       */}
-      <div className="mt-10 flex flex-col items-start gap-6">
+      <div className="mt-10 flex flex-wrap items-start gap-x-8 gap-y-4">
+        <a
+          href="/editor"
+          className="text-muted hover:text-ink text-sm underline underline-offset-4 transition-colors"
+        >
+          Open the editor
+        </a>
         <a
           href="https://github.com/alain/blobatar"
           className="text-muted hover:text-ink text-sm underline underline-offset-4 transition-colors"

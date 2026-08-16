@@ -579,6 +579,22 @@ export function Hero() {
             <code className="font-mono">animate</code> and the blobatar renders as a
             single <code className="font-mono">&lt;img&gt;</code>.
           </p>
+
+          {/*
+            A plain anchor to a plain second document, which is the whole reason
+            it costs nothing: no router, no prefetch, no editor code in this
+            bundle. The panel above is four axes and this page is not the place
+            for twenty, so the link is where the four run out.
+          */}
+          <a
+            href="/editor"
+            className="text-muted hover:text-ink group inline-flex w-fit items-center gap-1.5 text-xs transition-colors"
+          >
+            Tune every trait in the editor
+            <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">
+              →
+            </span>
+          </a>
         </div>
       </div>
     </section>

@@ -12,7 +12,7 @@ import tailwind from "bun-plugin-tailwind";
 // `createElement` rather than JSX, so this file stays a plain `.ts` — it is the
 // build, not part of the app, and renaming it to `.tsx` for one call site would
 // be the tail wagging the dog.
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { writeFavicon } from "./favicon";
 import { writeLlmsTxt } from "./llms";
@@ -26,10 +26,16 @@ const OUT = "dist";
  * Surviving at-rules mean Tailwind did not run at all — the definitive compile
  * signal. The size ceiling catches something subtler: Tailwind running but
  * scanning too much, or fonts being inlined as data URIs instead of emitted as
- * files. Both compile cleanly and look fine until you check the number: the
- * real stylesheet here is ~25 KB, and either mistake takes it past 200 KB.
+ * files. Both compile cleanly and look fine until you check the number: either
+ * mistake takes the stylesheet past 200 KB.
+ *
+ * The ceiling was 40 KB when one page compiled to ~25 KB. Two pages share one
+ * stylesheet — Tailwind's scan is over the whole app, not per entrypoint — and
+ * the editor's controls took it to ~39 KB, which left the gate firing on the
+ * next ordinary change rather than on the failure it exists for. Raised with
+ * that headroom restored; the failure mode it catches is five times this.
  */
-const CSS_CEILING = 40_000;
+const CSS_CEILING = 50_000;
 const UNCOMPILED = ["@theme", "@apply", "@tailwind"];
 
 await rm(OUT, { recursive: true, force: true });
@@ -41,7 +47,19 @@ await writeFavicon();
 await writeLlmsTxt();
 
 const result = await Bun.build({
-  entrypoints: ["./index.html"],
+  /*
+   * Two documents, two bundles.
+   *
+   * The editor is not a route on the landing page, and this is where that
+   * decision is enforced rather than merely intended: a client-side route would
+   * put its slider, its twenty controls and its layout readback into the bundle
+   * every visitor downloads before the hero paints — the exact cost the whole
+   * rewrite pass below exists to manage. Separate entrypoints mean the landing
+   * page cannot regress from anything the editor grows into.
+   *
+   * The two pages are rewritten differently afterwards; see `finish`.
+   */
+  entrypoints: ["./index.html", "./editor.html"],
   outdir: OUT,
   minify: true,
   plugins: [tailwind],
@@ -87,13 +105,15 @@ const ORIGIN =
     : null);
 
 if (ORIGIN) {
-  const page = `${OUT}/index.html`;
-  const html = await Bun.file(page).text();
-  // Narrow on purpose: `content="/…"` is the shape only the OG tags have. The
-  // bundler has already rewritten every real asset reference to a hashed
-  // filename by this point, so nothing else in the file starts a `content`
-  // attribute with a slash.
-  await Bun.write(page, html.replaceAll('content="/', `content="${ORIGIN}/`));
+  for (const name of ["index.html", "editor.html"]) {
+    const page = `${OUT}/${name}`;
+    const html = await Bun.file(page).text();
+    // Narrow on purpose: `content="/…"` is the shape only the OG tags have. The
+    // bundler has already rewritten every real asset reference to a hashed
+    // filename by this point, so nothing else in the file starts a `content`
+    // attribute with a slash.
+    await Bun.write(page, html.replaceAll('content="/', `content="${ORIGIN}/`));
+  }
   console.log(`  origin                   ${ORIGIN}`);
 }
 
@@ -125,9 +145,9 @@ for (const output of result.outputs) {
 if (failed) process.exit(1);
 
 /**
- * Everything below rewrites the built `index.html` for first paint.
+ * Everything below rewrites a built document for first paint.
  *
- * The measurements behind it, all mobile Lighthouse on this bundle: the page
+ * The measurements behind it, all mobile Lighthouse on the landing page: it
  * scored 94, and the reason was that nothing rendered until 113 KB of gzipped
  * JavaScript had arrived. Lighthouse's network simulation puts *any* script
  * that starts fetching before the first paint onto the critical path, so the
@@ -143,93 +163,144 @@ if (failed) process.exit(1);
  * The full-page prerender was tried and is *not* what this does: prerendering
  * the wall as well took the document from 1.6 KB to 28 KB and scored 93, worse
  * than doing nothing. `Wall` renders its field only after mount, so what lands
- * here is the hero, the chat, the closing section and the wall's heading —
- * every word on the page, and none of its sixty SVGs.
+ * in the landing page is the hero, the chat, the closing section and the wall's
+ * heading — every word on the page, and none of its sixty SVGs.
+ *
+ * Two of the three are page-level judgements rather than facts about the build,
+ * which is why they are parameters: the editor takes the stylesheet inline and
+ * neither of the others. See the call below it for why.
  */
-const page = `${OUT}/index.html`;
-let html = await Bun.file(page).text();
+async function finish(
+  name: string,
+  { prerender, defer }: { prerender?: ReactNode; defer: boolean },
+) {
+  const page = `${OUT}/${name}`;
+  let html = await Bun.file(page).text();
 
-const before = html.length;
+  const before = html.length;
+
+  /*
+   * 0. Preload both faces.
+   *
+   *    Injected here rather than written into the source HTML, and the reason is
+   *    the same quirk the @font-face rules work around: Bun resolves font URLs it
+   *    finds in HTML and emits hashed copies, so a `<link rel="preload">` written
+   *    in the source file comes out pointing at `geist-variable-a1b2c3.woff2`
+   *    while the stylesheet still asks for `/fonts/geist-variable.woff2`. That is
+   *    two downloads of the same font — strictly worse than not preloading. The
+   *    URLs below are the ones the CSS actually uses.
+   *
+   *    Worth doing because both faces are above the fold and the code snippet —
+   *    set in the mono face — is the LCP element, so the font is on the critical
+   *    path by definition. Without a preload the browser only discovers it after
+   *    parsing the inline @font-face block.
+   *
+   *    `crossorigin` is required even though these are same-origin: fonts are
+   *    always fetched in CORS mode, and a preload missing it primes a second,
+   *    separate cache entry instead of the one the CSS will ask for.
+   */
+  html = html.replace(
+    "</head>",
+    ["geist-variable", "geist-mono-variable"]
+      .map(
+        f =>
+          `<link rel="preload" href="/fonts/${f}.woff2" as="font" type="font/woff2" crossorigin>`,
+      )
+      .join("") + "</head>",
+  );
+
+  // 1. Prerender.
+  if (prerender)
+    html = html.replace(
+      '<div id="root"></div>',
+      `<div id="root">${renderToString(prerender)}</div>`,
+    );
+
+  // 2. Inline the stylesheet — it is render-blocking, and at ~7 KB gzipped it
+  //    costs a whole round trip to save nothing. The file it came from is
+  //    deleted after every page has been through here rather than now: two
+  //    entrypoints can share one emitted stylesheet, and removing it under the
+  //    second page's feet would fail the build on a file the first page already
+  //    inlined correctly.
+  const link = html.match(/<link rel="stylesheet"[^>]*href="\.\/([^"]+\.css)"[^>]*>/);
+  if (!link) throw new Error(`no stylesheet <link> in ${name}`);
+
+  const cssPath = `${OUT}/${link[1]}`;
+  inlined.add(cssPath);
+  html = html.replace(link[0], `<style>${await Bun.file(cssPath).text()}</style>`);
+
+  /*
+   * 3. Load the bundle from an inline script on `load` rather than from a
+   *    `<script src>` the preload scanner finds while parsing.
+   *
+   *    This is the one change here with a real cost, so it is worth being plain
+   *    about: it buys first paint by delaying interactivity. The page is fully
+   *    *visible* as soon as the HTML lands, but its controls do not respond
+   *    until the bundle has loaded and hydrated, a few hundred milliseconds
+   *    later on a slow connection.
+   *
+   *    That trade is defensible on a landing page whose job is to be read, whose
+   *    controls are an optional flourish rather than the reason anyone arrived,
+   *    and where the alternative — shipping 113 KB before showing anything — is
+   *    worse for the same visitor. It is *not* defensible on the editor, which
+   *    is nothing but controls: a visible-but-dead editor is a broken editor,
+   *    and it has no prerendered first frame worth protecting either way.
+   *
+   *    The honest way to shrink this cost further is to shrink the bundle: about
+   *    51 KB of it is unused on first render, most of it the Radix popover and
+   *    toggle-group that only the tuning panel needs. Code-splitting those behind
+   *    the trigger would let this script load earlier.
+   */
+  if (defer) {
+    const script = html.match(
+      /<script type="module"[^>]*src="\.\/([^"]+\.js)"[^>]*><\/script>/,
+    );
+    if (!script) throw new Error(`no module <script> in ${name}`);
+
+    html = html.replace(
+      script[0],
+      `<script>addEventListener("load",function(){var s=document.createElement("script");` +
+        `s.type="module";s.src=${JSON.stringify(`/${script[1]}`)};document.body.appendChild(s)})</script>`,
+    );
+  }
+
+  /*
+   * 4. Root-relative every asset reference the bundler left as `./…`.
+   *
+   *    Both files sit in `dist` root, so this changes nothing about *which*
+   *    file is fetched from `/index.html`. It matters for `/editor`: the page
+   *    is served from a path with no extension, and a browser resolving
+   *    `./chunk-abc.js` against `/editor/` — which is what a stray trailing
+   *    slash produces — asks for a file that is not there. One `/` removes the
+   *    class of bug rather than the instance.
+   */
+  html = html.replaceAll('="./', '="/');
+
+  await Bun.write(page, html);
+
+  console.log(
+    `  ${`${name} (rewritten)`.padEnd(24)} ${(before / 1024).toFixed(1)} KB → ${(html.length / 1024).toFixed(1)} KB`,
+  );
+}
+
+/** Stylesheets that ended up inline, dropped once every page has been through. */
+const inlined = new Set<string>();
+
+await finish("index.html", { prerender: createElement(App), defer: true });
 
 /*
- * 0. Preload both faces.
+ * The editor gets neither of the other two, and both omissions are the same
+ * judgement from opposite ends.
  *
- *    Injected here rather than written into `index.html`, and the reason is the
- *    same quirk the @font-face rules work around: Bun resolves font URLs it
- *    finds in HTML and emits hashed copies, so a `<link rel="preload">` written
- *    in the source file comes out pointing at `geist-variable-a1b2c3.woff2`
- *    while the stylesheet still asks for `/fonts/geist-variable.woff2`. That is
- *    two downloads of the same font — strictly worse than not preloading. The
- *    URLs below are the ones the CSS actually uses.
- *
- *    Worth doing because both faces are above the fold and the code snippet —
- *    set in the mono face — is the LCP element, so the font is on the critical
- *    path by definition. Without a preload the browser only discovers it after
- *    parsing the inline @font-face block.
- *
- *    `crossorigin` is required even though these are same-origin: fonts are
- *    always fetched in CORS mode, and a preload missing it primes a second,
- *    separate cache entry instead of the one the CSS will ask for.
+ * No prerender: its first frame is worth nothing until it can be dragged, and
+ * it would be a large frame — twenty controls and a dozen shape tiles, well past
+ * the 28 KB document that measured *worse* than doing nothing on the landing
+ * page. No defer, for the reason in `finish`: a page that is only controls
+ * cannot buy paint with interactivity.
  */
-html = html.replace(
-  "</head>",
-  ["geist-variable", "geist-mono-variable"]
-    .map(
-      f =>
-        `<link rel="preload" href="/fonts/${f}.woff2" as="font" type="font/woff2" crossorigin>`,
-    )
-    .join("") + "</head>",
-);
+await finish("editor.html", { defer: false });
 
-// 1. Prerender.
-html = html.replace(
-  '<div id="root"></div>',
-  `<div id="root">${renderToString(createElement(App))}</div>`,
-);
-
-// 2. Inline the stylesheet, then drop the file it came from — it is
-//    render-blocking, and at ~7 KB gzipped it costs a whole round trip to save
-//    nothing. Nothing else references it, so leaving it in `dist` would only be
-//    a second copy for a crawler to find.
-const link = html.match(/<link rel="stylesheet"[^>]*href="\.\/([^"]+\.css)"[^>]*>/);
-if (!link) throw new Error("no stylesheet <link> in the built HTML");
-
-const cssPath = `${OUT}/${link[1]}`;
-html = html.replace(link[0], `<style>${await Bun.file(cssPath).text()}</style>`);
-await rm(cssPath);
-
-/*
- * 3. Load the bundle from an inline script on `load` rather than from a
- *    `<script src>` the preload scanner finds while parsing.
- *
- *    This is the one change here with a real cost, so it is worth being plain
- *    about: it buys first paint by delaying interactivity. The page is fully
- *    *visible* as soon as the HTML lands, but the hero's tuning controls do not
- *    respond until the bundle has loaded and hydrated, a few hundred
- *    milliseconds later on a slow connection.
- *
- *    That trade is defensible here and would not be everywhere: this is a
- *    landing page whose job is to be read, its controls are an optional
- *    flourish rather than the reason anyone arrived, and the alternative —
- *    shipping 113 KB before showing anything — is worse for the same visitor.
- *
- *    The honest way to shrink this cost further is to shrink the bundle: about
- *    51 KB of it is unused on first render, most of it the Radix popover and
- *    toggle-group that only the tuning panel needs. Code-splitting those behind
- *    the trigger would let this script load earlier.
- */
-const script = html.match(/<script type="module"[^>]*src="\.\/([^"]+\.js)"[^>]*><\/script>/);
-if (!script) throw new Error("no module <script> in the built HTML");
-
-html = html.replace(
-  script[0],
-  `<script>addEventListener("load",function(){var s=document.createElement("script");` +
-    `s.type="module";s.src=${JSON.stringify(`/${script[1]}`)};document.body.appendChild(s)})</script>`,
-);
-
-await Bun.write(page, html);
-
-console.log(
-  `  index.html (rewritten)   ${(before / 1024).toFixed(1)} KB → ${(html.length / 1024).toFixed(1)} KB`,
-);
+// Nothing else references them, so leaving them in `dist` would only be a
+// second copy for a crawler to find.
+for (const css of inlined) await rm(css);
 

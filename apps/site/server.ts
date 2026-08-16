@@ -10,6 +10,7 @@ await writeFavicon();
 await writeLlmsTxt();
 
 const { default: index } = await import("./index.html");
+const { default: editor } = await import("./editor.html");
 
 /**
  * `public/` at the root, mirroring what the build copies into `dist`.
@@ -38,6 +39,21 @@ const server = serve({
       });
     },
     ...assets,
+    /*
+     * Its own document, ahead of the SPA fallback.
+     *
+     * Not a client-side route: the editor is a second entrypoint with its own
+     * bundle, so that nothing it needs — the slider, the control set, the layout
+     * readback — is downloaded by someone who only ever reads the landing page.
+     * See the note on `entrypoints` in `build.ts`.
+     *
+     * Both spellings, because that is what the deployment serves: `cleanUrls`
+     * in `vercel.json` maps `/editor` onto `dist/editor.html` and redirects the
+     * extension away, and a dev server that only answered one of them would
+     * disagree with production about a link somebody had already shared.
+     */
+    "/editor": editor,
+    "/editor.html": editor,
     "/*": index,
 	},
 	port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
