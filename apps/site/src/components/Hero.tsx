@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Snippet } from "@/components/ui/snippet";
+import { Install } from "@/components/ui/install";
 import { cn } from "@/lib/utils";
 
 type Bg = "none" | "squircle" | "circle" | "square";
@@ -443,17 +444,32 @@ export function Hero() {
         is four lines you can paste. It regenerates on every control, so there
         is never a step where you have to work out which prop you changed.
       */}
-      <div className="flex w-full flex-col gap-3">
-        <div className="text-muted flex items-baseline justify-between text-xs lowercase">
-          <span>your config</span>
-          <span className="font-mono normal-case">Blobatar.tsx</span>
+      <div className="flex w-full flex-col gap-6">
+        {/*
+          Directly above the snippet, because the two are one instruction in the
+          order you carry it out: install the package, then paste the code that
+          imports it. It used to sit in the closing section — past a viewport of
+          hero and two of wall — which put the page's only call to action behind
+          the entire page.
+
+          `self-start` is load-bearing: a flex column stretches its children, and
+          a command pill as wide as the snippet stops reading as a thing you
+          press.
+        */}
+        <Install command="bun add blobatar" className="self-start" />
+
+        <div className="flex flex-col gap-3">
+          <div className="text-muted flex items-baseline justify-between text-xs lowercase">
+            <span>your config</span>
+            <span className="font-mono normal-case">Blobatar.tsx</span>
+          </div>
+          <Snippet code={snippet(seed, bg, hue, pose)} />
+          <p className="text-muted/70 text-xs leading-relaxed">
+            Every prop is optional except the name. Drop{" "}
+            <code className="font-mono">animate</code> and the blobatar renders as a
+            single <code className="font-mono">&lt;img&gt;</code>.
+          </p>
         </div>
-        <Snippet code={snippet(seed, bg, hue, pose)} />
-        <p className="text-muted/70 text-xs leading-relaxed">
-          Every prop is optional except the name. Drop{" "}
-          <code className="font-mono">animate</code> and the blobatar renders as a
-          single <code className="font-mono">&lt;img&gt;</code>.
-        </p>
       </div>
     </section>
   );

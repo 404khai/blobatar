@@ -17,12 +17,12 @@ export function Close() {
         ))}
       </div>
 
-      <div className="mt-16 flex flex-col items-start gap-6">
-        <code className="bg-raised border-line rounded-lg border px-5 py-3.5 font-mono text-sm">
-          <span className="text-muted select-none">$ </span>
-          bun add blobatar
-        </code>
-
+      {/*
+        No install command here any more — it is in the hero, under the
+        description. Repeating it would mean two copy buttons for one string,
+        and the reason it moved was that this was the only place it appeared.
+      */}
+      <div className="mt-10 flex flex-col items-start gap-6">
         <a
           href="https://github.com/alain/blobatar"
           className="text-muted hover:text-ink text-sm underline underline-offset-4 transition-colors"
