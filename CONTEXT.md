@@ -33,18 +33,15 @@ _Avoid_: avatar, morphatar, identicon. _Avatar_ is what one generically is, but
 it is not what it is called here — the word survives in the npm keywords, for
 search, and nowhere else.
 
-**Variant**:
-Which family a blobatar is drawn from: `blob` or `character`. Set explicitly via
-options; defaults to `blob`.
-_Avoid_: style, type, kind.
-
 **Shape**:
-Which silhouette a `blob` takes — `round`, `organic`, `boxy`, `nub`, `cloud`, or
+Which silhouette a blobatar takes — `round`, `organic`, `boxy`, `nub`, `cloud`, or
 `sun`. **Derived, never set directly.** There is no `shape` option; a caller who
 wants a particular silhouette overrides the `shape` _trait_, and the same
-thresholds turn it into a shape. There is no `shape` axis for `character` at all.
-_Avoid_: variant, form. Conflating shape with variant is the most common
-mistake: `blob` is a variant, `round` is a shape, and one contains the other.
+thresholds turn it into a shape.
+_Avoid_: variant, form. There is no variant axis: a `character` family existed
+until 0.1.0 and was removed, and the vocabulary of six shapes is the only family
+now. The specs and ADRs under `docs/` predate that and still discuss it; they are
+kept as written, since a decision record that quietly changes is worth nothing.
 
 **Trait**:
 A named value pulled from the seed's hash by string key (`"hue"`, `"body.r"`),

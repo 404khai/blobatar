@@ -1,0 +1,103 @@
+/**
+ * What a consumer gets, checked the way a consumer gets it.
+ *
+ * Runs under **Node**, deliberately: Bun transpiles TypeScript, resolves
+ * extensionless specifiers and is forgiving about module linking, so a package
+ * can be thoroughly broken for the rest of the ecosystem while `bun test` stays
+ * green. This file linked `dist/index.js` under Node and found exactly that —
+ * a bundler bug re-exporting names out of a module that never imported them.
+ *
+ * Plain `.mjs` rather than `.ts` for the same reason: nothing may transpile it.
+ * Every import goes through the package name, not a relative path, so the
+ * `exports` map is under test too and a missing subpath fails here.
+ */
+
+import { createRequire } from "node:module";
+import { existsSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { blobatar, palette, traits, normalizeSeed } from "blobatar";
+import { blobatar as blob } from "blobatar/blob";
+import { blobatarUri } from "blobatar/uri";
+import { happy, mad, sad, idle } from "blobatar/expression";
+import { Blobatar } from "blobatar/react";
+
+let failed = false;
+
+const check = (name, fn) => {
+  try {
+    const detail = fn();
+    console.log(`✓ ${name}${detail ? ` — ${detail}` : ""}`);
+  } catch (err) {
+    console.error(`✗ ${name} — ${err.message}`);
+    failed = true;
+  }
+};
+
+const assert = (cond, msg) => {
+  if (!cond) throw new Error(msg);
+};
+
+const svg = (s, what) => {
+  assert(typeof s === "string", `${what} did not return a string`);
+  assert(s.startsWith("<svg"), `${what} did not return SVG: ${s.slice(0, 40)}`);
+  assert(s.includes("</svg>"), `${what} returned truncated SVG`);
+  return s;
+};
+
+check("blobatar()", () => `${svg(blobatar("alain@example.com"), "blobatar").length} chars`);
+check("blobatar/blob", () => `${svg(blob("alain"), "blob").length} chars`);
+
+check("blobatar/expression", () => {
+  for (const [name, pose] of Object.entries({ happy, mad, sad, idle })) {
+    assert(pose != null, `${name} is not exported`);
+    svg(blob("alain", { expression: pose }), `blob + ${name}`);
+  }
+  return "happy, mad, sad, idle";
+});
+
+check("blobatar/uri", () => {
+  const uri = blobatarUri("alain");
+  assert(uri.startsWith("data:image/svg+xml,"), `bad data URI prefix: ${uri.slice(0, 30)}`);
+  assert(!uri.includes("#"), "unescaped # would truncate the URI in CSS");
+  return `${uri.length} chars`;
+});
+
+check("blobatar/react", () => {
+  const html = renderToStaticMarkup(createElement(Blobatar, { name: "alain", size: 48 }));
+  assert(html.includes("<img"), `static mode did not render an <img>: ${html.slice(0, 60)}`);
+  assert(html.includes("data:image/svg+xml"), "static mode rendered no blobatar");
+  return "renders on the server";
+});
+
+check("blobatar/react animated", () => {
+  const html = renderToStaticMarkup(
+    createElement(Blobatar, { name: "alain", size: 48, animate: true }),
+  );
+  assert(html.includes("<svg"), "animated mode did not render inline SVG");
+  assert(html.includes("mo-root"), "animated mode emitted no motion class");
+  return "inline SVG with motion classes";
+});
+
+check("named exports on the barrel", () => {
+  assert(typeof palette === "function", "palette is not a function");
+  assert(typeof traits === "function", "traits is not a function");
+  assert(typeof normalizeSeed === "function", "normalizeSeed is not a function");
+  assert(palette(200).bg?.startsWith("#"), "palette did not resolve to hex");
+  return "palette, traits, normalizeSeed";
+});
+
+check("determinism", () => {
+  assert(blobatar("alain") === blobatar("alain"), "same name rendered differently twice");
+  assert(blobatar("alain") !== blobatar("alaim"), "one character changed nothing");
+  return "same in, same out";
+});
+
+check("blobatar/motion.css", () => {
+  const path = createRequire(import.meta.url).resolve("blobatar/motion.css");
+  assert(existsSync(path), `resolved to a file that does not exist: ${path}`);
+  return path.split("/").slice(-2).join("/");
+});
+
+process.exit(failed ? 1 : 0);

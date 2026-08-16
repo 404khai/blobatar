@@ -20,8 +20,8 @@ import { traits } from "../src/traits";
  * hardest, a body scale pushing a sun's petals through the frame.
  *
  * The other half is the contract, which is cheap to assert and expensive to
- * discover broken: `idle` costs nothing, `character` is untouched, and every
- * blobatar wears a given expression at the same strength.
+ * discover broken: `idle` costs nothing, and every blobatar wears a given
+ * expression at the same strength.
  */
 
 const SEEDS = Array.from({ length: 4000 }, (_, i) => `seed-${i}`);
@@ -116,17 +116,6 @@ describe("the contract", () => {
       ).toBe("mo-root mo-expr");
   });
 
-  test("character ignores expressions rather than half-applying them", () => {
-    // Documented as blob-only. Silently drawing a partial pose would be worse
-    // than doing nothing.
-    for (const [name, e] of ALL) {
-      expect(
-        blobatar("seed-1", { variant: "character", expression: e }),
-        name,
-      ).toBe(blobatar("seed-1", { variant: "character" }));
-    }
-  });
-
   test("every pose covers every channel", () => {
     // The morph is a transition between two vectors, so a channel missing from
     // one pose would jump rather than interpolate on the way to it.
@@ -143,10 +132,7 @@ describe("geometry survives every expression", () => {
   test("the two capsules never fuse, on any seed, in any expression", () => {
     for (const [name, e] of ALL) {
       for (const s of SEEDS) {
-        const l = posed(s, e) as ReturnType<typeof blob.layout> & {
-          eyes: never[];
-        };
-        const [a, b] = l.eyes as unknown as [
+        const [a, b] = posed(s, e).eyes as unknown as [
           { cx: number; rx: number; ry: number; rot: number },
           { cx: number; rx: number; ry: number; rot: number },
         ];

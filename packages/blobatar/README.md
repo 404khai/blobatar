@@ -25,22 +25,15 @@ import { blobatarUri } from "blobatar/uri";
 el.style.backgroundImage = `url("${blobatarUri(user.id)}")`;
 ```
 
-## Variants
+## Shapes
 
-**`blob`** (default) — a soft body and two capsule eyes, drawn from a vocabulary
-of six silhouettes: `round`, `organic`, `boxy`, `nub`, `cloud`, `sun`. Weighted
-so rounds and pebbles are everyday and suns are a find. Transparent backdrop by
-default; the body is the blobatar.
+A soft body and two capsule eyes, drawn from a vocabulary of six silhouettes:
+`round`, `organic`, `boxy`, `nub`, `cloud`, `sun`. Weighted so rounds and pebbles
+are everyday and suns are a find. Transparent backdrop by default; the body is
+the blobatar.
 
-**`character`** — a flat face with eyes, brows, mouth, hair and ears on a
-squircle plate.
-
-```ts
-blobatar(name, { variant: "character" });
-```
-
-Importing `blobatar` carries both. If you ship one, import it directly and save
-about a kilobyte:
+The main entry also carries the palette and trait utilities. If all you do is
+render, import the renderer on its own and save about a kilobyte:
 
 ```ts
 import { blobatar } from "blobatar/blob";
@@ -59,8 +52,7 @@ per major.
 
 **Contrast.** Eyes clear 4.5:1 against the body at every hue and every tone —
 verified at 1° resolution in the test suite. Polarity flips automatically, so
-the near-black tone gets light eyes rather than an invisible face. `character`
-additionally holds its head above the backdrop and its ink above the head.
+the near-black tone gets light eyes rather than an invisible face.
 Colors passed via the `palette` option bypass all of this, by definition.
 
 **Name normalization.** Names are NFC-normalized, trimmed and lowercased before
@@ -76,18 +68,17 @@ several hundred blobatars on one page cannot produce id collisions.
 
 | Option       | Default     | Notes                                                                   |
 | ------------ | ----------- | ----------------------------------------------------------------------- |
-| `variant`    | `"blob"`    | `"blob"` or `"character"`.                                              |
 | `size`       | —           | Emits `width`/`height`. Omit to let CSS size it.                        |
-| `background` | per variant | `"squircle"`, `"circle"`, `"square"`, or `false`.                       |
+| `background` | none        | `"squircle"`, `"circle"`, `"square"`, or `false`.                       |
 | `hue`        | —           | Locks hue in degrees; the name then drives shape only.                 |
-| `tone`       | —           | Locks the `blob` swatch as a 0–1 position in the set.                   |
+| `tone`       | —           | Locks the swatch as a 0–1 position in the set.                          |
 | `traits`     | —           | Pins individual traits as 0–1 positions. See below.                    |
 | `palette`    | —           | Per-key hex overrides. Bypasses the contrast guarantee.                 |
 | `normalize`  | `true`      | NFC + trim + lowercase.                                                 |
 | `contrast`   | `true`      | Enforce the contrast floors.                                            |
 | `title`      | —           | Adds a `<title>` for screen readers.                                    |
 | `animate`    | —           | `"hover"` or `"always"`. See below — it changes how the blobatar renders. |
-| `expression` | `"idle"`    | `"happy"`, `"sad"` or `"mad"`. `blob` only. See below.                  |
+| `expression` | `"idle"`    | `"happy"`, `"sad"` or `"mad"`. See below.                               |
 
 ## Configuring
 
@@ -121,9 +112,8 @@ Trait keys are stable across minors, like the traits themselves. The ranges they
 are read into are what a stated position is relative to, so those are frozen per
 major alongside the shape thresholds and the tone set.
 
-Trait names are not enumerated here on purpose: they follow the layout, and
-`blob` and `character` name different things. Read them off `styles/blob.ts`, or
-let the editor write the map for you.
+Trait names are not enumerated here on purpose: they follow the layout. Read them
+off `styles/blob.ts`, or let the editor write the map for you.
 
 ## Animation
 
@@ -199,8 +189,6 @@ turns `animate` on for you — that would silently flip a 400-blobatar grid from
 ```ts
 blobatar(name, { expression: happy }); // static, posed, no morph
 ```
-
-**`blob` only.** `character` ignores it.
 
 `idle` renders byte-identical markup to omitting the option, so adding this
 moved no existing blobatar.

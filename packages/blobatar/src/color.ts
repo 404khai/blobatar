@@ -19,8 +19,8 @@ export interface Oklch {
   h: number;
 }
 
-/** Every color slot any style can use. Each style fills the subset it needs. */
-export type ColorKey = "bg" | "head" | "hair" | "ink" | "eye";
+/** Every color slot a blobatar has. */
+export type ColorKey = "bg" | "head" | "eye";
 export type Palette = Partial<Record<ColorKey, string>>;
 
 /** OKLCh -> linear-light sRGB. Components may fall outside [0,1] (out of gamut). */
@@ -286,12 +286,10 @@ export function hot(head: string, eye: string): [string, string] {
   return [headHex, toHex(hotEye)];
 }
 
-export type Variant = "character" | "blob";
-
 /**
- * The `blob` tone set.
+ * The tone set.
  *
- * This is the one place a variant is allowed to move lightness and chroma, not
+ * This is the one place the seed is allowed to move lightness and chroma, not
  * just hue — a body vocabulary this varied looks monotonous in a single tone.
  * Letting the seed roam freely over L and C is what makes generated palettes
  * look generated, so instead it picks from six authored swatches: the same
@@ -328,83 +326,53 @@ const toneAt = (v: number) =>
 const DARK_SURFACE: Oklch = { l: 0.145, c: 0, h: 0 }; // ≈ #0a0a0b
 const SURFACE_FLOOR = 1.5;
 
-/**
- * Authored ramps. `character` moves hue only; `blob` also picks a tone.
- */
-const RAMPS: Record<
-  Variant,
-  (h: number, tone: number) => Record<string, Oklch>
-> = {
-  character: (h) => ({
-    bg: { l: 0.91, c: 0.055, h },
-    head: { l: 0.74, c: 0.11, h: h + 22 },
-    hair: { l: 0.34, c: 0.075, h: h - 30 },
-    ink: { l: 0.22, c: 0.03, h: h + 8 },
-  }),
-  blob: (h, tone) => {
-    const t = toneAt(tone);
-    const head = ensureContrast(
-      { l: t.l, c: t.c, h },
-      DARK_SURFACE,
-      SURFACE_FLOOR,
-    );
-    return {
-      bg: { l: 0.965, c: 0.01, h },
-      head,
-      // Polarity follows the body: dark eyes on a light body, light eyes on a
-      // dark one. Without this the ink tone would render an invisible face.
-      eye: head.l >= 0.5 ? { l: 0.17, c: 0.02, h } : { l: 0.97, c: 0.012, h },
-    };
-  },
+/** The authored ramp: the seed picks a hue and a tone, and everything follows. */
+const RAMP = (h: number, tone: number): Record<string, Oklch> => {
+  const t = toneAt(tone);
+  const head = ensureContrast({ l: t.l, c: t.c, h }, DARK_SURFACE, SURFACE_FLOOR);
+  return {
+    bg: { l: 0.965, c: 0.01, h },
+    head,
+    // Polarity follows the body: dark eyes on a light body, light eyes on a
+    // dark one. Without this the ink tone would render an invisible face.
+    eye: head.l >= 0.5 ? { l: 0.17, c: 0.02, h } : { l: 0.97, c: 0.012, h },
+  };
 };
 
 /**
  * Minimum contrast ratios as [foreground, background, ratio], applied in order.
  * Later pairs resolve against already-final earlier colors, so the chain
- * converges. `4.5` on the facial features is the WCAG text floor: eyes and
- * mouth are small marks that have to read at 24px.
+ * converges. `4.5` on the eyes is the WCAG text floor: they are small marks
+ * that have to read at 24px.
+ *
+ * The body/backdrop floor is deliberately weak. The backdrop is off by default,
+ * and the pale swatches are meant to sit quietly on a light surface — forcing
+ * 1.6:1 there would darken exactly the tones the style exists for.
  */
-const FLOORS: Record<Variant, [string, string, number][]> = {
-  character: [
-    ["head", "bg", 1.6],
-    ["hair", "bg", 2.0],
-    ["ink", "head", 4.5],
-  ],
-  // `blob` gets a deliberately weak body/backdrop floor. Its backdrop is off by
-  // default, and the pale swatches are meant to sit quietly on a light surface —
-  // forcing 1.6:1 there would darken exactly the tones the style exists for.
-  // The eye floor is the one that matters, and it is the full text ratio.
-  blob: [
-    ["head", "bg", 1.25],
-    ["eye", "head", 4.5],
-  ],
-};
+const FLOORS: [string, string, number][] = [
+  ["head", "bg", 1.25],
+  ["eye", "head", 4.5],
+];
 
 export { FLOORS };
 
 /** The palette in OKLCh, before hex encoding. The test suite asserts against this. */
 export function ramp(
   hue: number,
-  variant: Variant = "blob",
   enforce = true,
   tone = 0,
 ): Record<string, Oklch> {
-  const r = RAMPS[variant](hue, tone);
+  const r = RAMP(hue, tone);
   if (enforce) {
-    for (const [fg, bg, min] of FLOORS[variant]) {
+    for (const [fg, bg, min] of FLOORS) {
       r[fg] = ensureContrast(r[fg]!, r[bg]!, min);
     }
   }
   return r;
 }
 
-export function palette(
-  hue: number,
-  variant: Variant = "blob",
-  enforce = true,
-  tone = 0,
-): Palette {
-  const r = ramp(hue, variant, enforce, tone);
+export function palette(hue: number, enforce = true, tone = 0): Palette {
+  const r = ramp(hue, enforce, tone);
   const out: Palette = {};
   for (const k in r) out[k as ColorKey] = toHex(r[k]!);
   return out;

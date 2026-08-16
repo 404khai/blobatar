@@ -8,20 +8,17 @@ import {
   mixHex,
   palette,
   ramp,
-  type Variant,
 } from "../src/color";
 import { traits } from "../src/traits";
 
 /** Every hue, at 1° resolution — the guarantee is only worth stating if it holds everywhere. */
 const HUES = Array.from({ length: 360 }, (_, i) => i);
-const VARIANTS: Variant[] = ["character", "blob"];
-
-describe.each(VARIANTS)("%s", (variant) => {
-  const floors = FLOORS[variant];
+describe("the ramp", () => {
+  const floors = FLOORS;
 
   test.each(floors)("%s clears %s at %f:1 across every hue", (fg, bg, min) => {
     for (const h of HUES) {
-      const r = ramp(h, variant);
+      const r = ramp(h);
       expect(contrast(r[fg]!, r[bg]!)).toBeGreaterThanOrEqual(min - 1e-9);
     }
   });
@@ -31,7 +28,7 @@ describe.each(VARIANTS)("%s", (variant) => {
     // at every hue — with ensureContrast as a net, not a load-bearing step.
     // If this ever fails, the ramp constants drifted and need re-authoring.
     for (const h of HUES) {
-      const r = ramp(h, variant, false);
+      const r = ramp(h, false);
       for (const [fg, bg, min] of floors) {
         expect(contrast(r[fg]!, r[bg]!)).toBeGreaterThanOrEqual(min);
       }
@@ -40,7 +37,7 @@ describe.each(VARIANTS)("%s", (variant) => {
 
   test("every hue resolves to a valid 6-digit hex", () => {
     for (const h of HUES) {
-      for (const hex of Object.values(palette(h, variant))) {
+      for (const hex of Object.values(palette(h))) {
         expect(hex).toMatch(/^#[0-9a-f]{6}$/);
       }
     }
@@ -49,13 +46,13 @@ describe.each(VARIANTS)("%s", (variant) => {
   test("hues stay distinguishable rather than collapsing to grey", () => {
     // If chroma reduction were too aggressive the whole wheel would flatten.
     expect(
-      new Set(HUES.map((h) => palette(h, variant).head)).size,
+      new Set(HUES.map((h) => palette(h).head)).size,
     ).toBeGreaterThan(200);
   });
 
   test("500 real seeds all satisfy the guarantee", () => {
     for (let i = 0; i < 500; i++) {
-      const r = ramp(traits(`user-${i}`).num("hue", 0, 360), variant);
+      const r = ramp(traits(`user-${i}`).num("hue", 0, 360));
       for (const [fg, bg, min] of floors) {
         expect(contrast(r[fg]!, r[bg]!)).toBeGreaterThanOrEqual(min - 1e-9);
       }
@@ -63,20 +60,9 @@ describe.each(VARIANTS)("%s", (variant) => {
   });
 });
 
-describe("variant character", () => {
-  test("fills the slots its renderer uses", () => {
-    expect(Object.keys(palette(0, "character")).sort()).toEqual([
-      "bg",
-      "hair",
-      "head",
-      "ink",
-    ]);
-  });
-});
-
-describe("variant blob", () => {
-  test("fills the slots its renderer uses", () => {
-    expect(Object.keys(palette(0, "blob")).sort()).toEqual([
+describe("the palette", () => {
+  test("fills the slots the renderer uses", () => {
+    expect(Object.keys(palette(0)).sort()).toEqual([
       "bg",
       "eye",
       "head",
@@ -88,7 +74,7 @@ describe("variant blob", () => {
   test("eye polarity follows the body across every tone", () => {
     for (const h of HUES) {
       for (const tone of TONES) {
-        const r = ramp(h, "blob", true, tone);
+        const r = ramp(h, true, tone);
         // Light body gets dark eyes, dark body gets light eyes. Without the
         // flip the ink swatch would render an invisible face.
         expect(r.eye!.l < 0.5).toBe(r.head!.l >= 0.5);
@@ -98,7 +84,7 @@ describe("variant blob", () => {
   });
 
   test("the tone set spans pale to dark", () => {
-    const ls = TONES.map((t) => ramp(0, "blob", false, t).head!.l);
+    const ls = TONES.map((t) => ramp(0, false, t).head!.l);
     expect(Math.min(...ls)).toBeLessThan(0.4);
     expect(Math.max(...ls)).toBeGreaterThan(0.85);
     expect(new Set(ls).size).toBe(TONES.length);
@@ -112,7 +98,7 @@ describe("variant blob", () => {
     for (const h of HUES) {
       for (const tone of TONES) {
         expect(
-          contrast(ramp(h, "blob", true, tone).head!, ground),
+          contrast(ramp(h, true, tone).head!, ground),
         ).toBeGreaterThanOrEqual(1.5 - 1e-9);
       }
     }
@@ -121,7 +107,7 @@ describe("variant blob", () => {
   test("pale tones survive enforcement rather than being darkened away", () => {
     // The weak body/backdrop floor exists so soft swatches stay soft.
     for (const h of HUES) {
-      expect(ramp(h, "blob", true, 0.3).head!.l).toBeGreaterThan(0.85);
+      expect(ramp(h, true, 0.3).head!.l).toBeGreaterThan(0.85);
     }
   });
 });
@@ -149,7 +135,7 @@ describe("the hot palette", () => {
   test("the eye clears the body at 4.5:1 at every heat, hue and tone", () => {
     for (const h of HUES) {
       for (const tone of TONES) {
-        const p = palette(h, "blob", true, tone);
+        const p = palette(h, true, tone);
         const [hotHead, hotEye] = hot(p.head!, p.eye!);
         for (const t of HEATS) {
           expect(
@@ -169,7 +155,7 @@ describe("the hot palette", () => {
     // applies to everything the tint can turn the body into.
     for (const h of HUES) {
       for (const tone of TONES) {
-        const p = palette(h, "blob", true, tone);
+        const p = palette(h, true, tone);
         const [hotHead] = hot(p.head!, p.eye!);
         for (const t of HEATS) {
           expect(
@@ -186,7 +172,7 @@ describe("the hot palette", () => {
     // resolve to exactly the resting colour would leave the blobatar a shade off
     // its own identity every time it stopped being angry.
     for (const h of HUES) {
-      const p = palette(h, "blob");
+      const p = palette(h);
       const [hotHead, hotEye] = hot(p.head!, p.eye!);
       expect(mixHex(p.head!, hotHead, 0)).toBe(p.head!);
       expect(mixHex(p.eye!, hotEye, 0)).toBe(p.eye!);
@@ -198,7 +184,7 @@ describe("the hot palette", () => {
     // converged on the same colour, the grid would stop reading as a crowd at
     // precisely the moment it is loudest.
     const heads = TONES.map((t) => {
-      const p = palette(200, "blob", true, t);
+      const p = palette(200, true, t);
       return fromHex(hot(p.head!, p.eye!)[0]).l;
     });
     expect(new Set(heads.map((l) => l.toFixed(3))).size).toBe(TONES.length);
@@ -212,7 +198,7 @@ describe("the hot palette", () => {
     // lands in the reds, and there is chroma left for it to land in.
     for (const tone of TONES) {
       for (const h of HUES) {
-        const p = palette(h, "blob", true, tone);
+        const p = palette(h, true, tone);
         const c = fromHex(hot(p.head!, p.eye!)[0]);
         const off = Math.abs(((c.h - 27 + 540) % 360) - 180);
         expect(off, `hue ${h} tone ${tone}`).toBeLessThan(6);

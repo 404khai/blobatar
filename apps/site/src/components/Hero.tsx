@@ -208,7 +208,30 @@ export function Hero() {
       the page moving. Below `lg` they stack in that same order, so the snippet
       lands directly under the thing it describes.
     */
-    <section className="mx-auto flex min-h-svh max-w-6xl flex-col justify-center gap-14 px-6 py-12 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16 lg:py-16">
+    <section className="relative mx-auto flex min-h-svh max-w-6xl flex-col justify-center gap-14 px-6 py-12 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16 lg:py-16">
+      {/*
+        Source and author, in that order — the repo is what the page is selling
+        and the profile is who to ask about it.
+
+        Absolute to the hero rather than fixed to the viewport: there is no
+        header on this page, so a pair of icons pinned to the window would
+        follow you down three more sections with nothing to belong to. Here
+        they scroll away with the hero, and `right-6` matches the section's own
+        padding so they land on the same edge as the snippet column below.
+
+        Icons rather than labelled links — at this size and this far from the
+        content, two words would read as a navigation bar the page does not
+        have. The name lives in the tooltip and the accessible label.
+      */}
+      <div className="absolute top-6 right-6 z-10 flex items-center gap-1 lg:top-8">
+        <SocialLink href="https://github.com/Alain00/blobatar" label="blobatar on GitHub">
+          <GitHubIcon />
+        </SocialLink>
+        <SocialLink href="https://x.com/alain_0012" label="@alain_0012 on X">
+          <XIcon />
+        </SocialLink>
+      </div>
+
       <div className="flex flex-col items-center gap-10 lg:items-start">
         <div className="w-full">
           <h1 className="text-[clamp(3rem,10vw,7.5rem)] leading-[0.82] font-medium tracking-[-0.055em]">
@@ -613,6 +636,61 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-muted text-[0.7rem] tracking-wide lowercase">{label}</span>
       {children}
     </div>
+  );
+}
+
+/**
+ * Shaped like the options trigger on purpose — same padding, radius and hover
+ * wash. They are the only three icon-only controls on the page, and two of them
+ * sitting in the same column with different hit areas reads as an accident.
+ */
+function SocialLink({
+  href,
+  label,
+  children,
+}: {
+  href: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={label}
+      title={label}
+      className={cn(
+        // `-mr-1.5` on the row's last child cancels the icon padding, so the
+        // marks themselves sit flush with the section edge instead of floating
+        // 6px inside it. Harmless on the first one.
+        "text-muted hover:text-ink hover:bg-line/50 rounded-lg p-1.5 last:-mr-1.5",
+        "transition-colors duration-150",
+      )}
+    >
+      {children}
+    </a>
+  );
+}
+
+/**
+ * Both marks are solid `fill`, not strokes like the rest of the page's icons —
+ * these are wordmarks with fixed geometry, and redrawing them as 1.7px outlines
+ * would make them not-quite-GitHub and not-quite-X.
+ */
+function GitHubIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-[1.15rem]">
+      <path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.56-.29-5.25-1.28-5.25-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.5 3.17-1.18 3.17-1.18.63 1.59.24 2.76.12 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.27 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-[1.05rem]">
+      <path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.65l-5.22-6.82-5.96 6.82H1.68l7.73-8.84L1.25 2.25h6.82l4.71 6.23 5.46-6.23Zm-1.16 17.52h1.83L7.01 4.13H5.05l12.03 15.64Z" />
+    </svg>
   );
 }
 

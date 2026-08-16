@@ -1,0 +1,59 @@
+name: Release
+
+# Publishing is deliberately manual and tag-driven rather than "on push to
+# main": an npm version cannot be unpublished after 72 hours, so the decision to
+# ship one should be an explicit act.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required for npm provenance: the workflow signs the published tarball
+      # with an OIDC token, and npm shows the commit and workflow it came from.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: bun install --frozen-lockfile
+
+      - name: Tests
+        run: bun --filter blobatar test
+
+      - name: Size budgets
+        run: bun --filter blobatar size
+
+      - name: Build
+        run: bun --filter blobatar build
+
+      - name: Smoke the built package
+        run: bun --filter blobatar smoke
+
+      - name: Refuse to publish a tag that disagrees with package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./packages/blobatar/package.json').version")
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag does not match package.json $pkg" >&2
+            exit 1
+          fi
+        if: github.event_name == 'push'
+
+      # npm, not bun: `bun publish` does not yet emit provenance attestations.
+      - name: Publish
+        run: npm publish --workspace blobatar --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

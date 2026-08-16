@@ -12,6 +12,7 @@
     "check": "bun --filter '*' check"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "typescript": "^7.0.2"
   }
 }

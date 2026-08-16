@@ -294,15 +294,6 @@ export function render(l: Layout, p: Palette, mo?: boolean): string {
 }
 
 /**
- * Expressions apply to this variant and not to `character`, which has no motion
- * layer to compose them into. The renderer checks for this rather than sniffing
- * the layout, because an expression bakes into `eyes` and `character`'s eyes are
- * a different shape entirely — a half-applied pose would corrupt the face rather
- * than quietly do nothing.
- */
-export const expressive = true;
-
-/**
  * No backdrop by default. The body *is* the blobatar here, and a plate behind a
  * near-full-bleed shape just adds a rim of color that fights the silhouette.
  */

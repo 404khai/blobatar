@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { blobatar } from "../src/blobatar";
+import { VERSION } from "../src/index";
 import { blobatarUri } from "../src/uri";
 import { palette } from "../src/color";
 
@@ -52,20 +53,17 @@ describe("options", () => {
     expect(on).toBe(off + 1);
   });
 
-  test("each variant brings its own backdrop default", () => {
-    // `blob` is transparent by default; `character` ships its squircle plate.
-    expect(blobatar("a", { variant: "blob" }).match(/<path/g)!.length).toBe(
-      blobatar("a", { variant: "blob", background: false }).match(/<path/g)!.length,
-    );
-    expect(blobatar("a", { variant: "character" }).match(/<path/g)!.length).toBe(
-      blobatar("a", { variant: "character", background: false }).match(/<path/g)!.length + 1,
+  test("the default is no backdrop at all", () => {
+    // The body *is* the blobatar, so nothing is drawn behind it unless asked.
+    expect(blobatar("a").match(/<path/g)!.length).toBe(
+      blobatar("a", { background: false }).match(/<path/g)!.length,
     );
   });
 
   test("hue and tone lock color while leaving shape seed-driven", () => {
     // Feature presence varies by seed, so the *set* of colors used differs.
     // What must hold is that no color outside the locked palette appears.
-    const allowed = new Set(Object.values(palette(200, "blob", true, 0.5)));
+    const allowed = new Set(Object.values(palette(200, true, 0.5)));
     for (const s of SEEDS.slice(0, 50)) {
       for (const hex of blobatar(s, { hue: 200, tone: 0.5 }).match(/#[0-9a-f]{6}/g) ?? []) {
         expect(allowed).toContain(hex);
@@ -78,10 +76,6 @@ describe("options", () => {
 
   test("palette overrides are applied verbatim", () => {
     expect(blobatar("a", { palette: { head: "#ff0000" } })).toContain("#ff0000");
-  });
-
-  test("variants render differently from the same seed", () => {
-    expect(blobatar("a", { variant: "blob" })).not.toBe(blobatar("a", { variant: "character" }));
   });
 
   test("title is escaped", () => {
@@ -103,5 +97,17 @@ describe("data uri", () => {
       expect(uri).not.toContain("#");
       expect(uri).not.toContain("<");
     }
+  });
+});
+
+describe("the published surface", () => {
+  test("VERSION matches package.json", async () => {
+    // `VERSION` is not decoration: it is the one live binding keeping the
+    // barrel from compiling to a stub that Node refuses to link. See the
+    // comment on it in `src/index.ts`. Pinned here so it cannot go stale.
+    const pkg = await Bun.file(
+      new URL("../package.json", import.meta.url),
+    ).json();
+    expect(VERSION).toBe(pkg.version);
   });
 });

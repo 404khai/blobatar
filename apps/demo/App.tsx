@@ -4,7 +4,6 @@ import {
   traits,
   type Animate,
   type BlobatarOptions,
-  type Variant,
 } from "blobatar";
 import { layout } from "blobatar/blob";
 import { happy, idle, mad, sad, type Expression } from "blobatar/expression";
@@ -48,7 +47,6 @@ const PAIR: Expression[] = [sad, mad];
 type Bg = "default" | "squircle" | "circle" | "square" | "none";
 
 export function App() {
-  const [variant, setVariant] = useState<Variant>("blob");
   const [prefix, setPrefix] = useState("user-");
   const [page, setPage] = useState(0);
   const [bg, setBg] = useState<Bg>("default");
@@ -61,12 +59,11 @@ export function App() {
 
   const opts: BlobatarOptions = useMemo(
     () => ({
-      variant,
       background: bg === "default" ? undefined : bg === "none" ? false : bg,
       hue: hue === "" ? undefined : hue,
       expression: EXPRESSIONS[expr] ?? undefined,
     }),
-    [variant, bg, hue, expr],
+    [bg, hue, expr],
   );
 
   // Paired cells are twice as wide, so half as many fit a row. Keeping the
@@ -78,7 +75,7 @@ export function App() {
   // so a rare silhouette still fills a whole page.
   const seeds = useMemo(() => {
     const out: string[] = [];
-    const wanted = variant === "blob" && shape !== "all" ? shape : null;
+    const wanted = shape !== "all" ? shape : null;
     for (
       let i = page * count;
       out.length < count && i < page * count + count * 200;
@@ -88,7 +85,7 @@ export function App() {
       if (!wanted || layout(traits(seed)).shape === wanted) out.push(seed);
     }
     return out;
-  }, [prefix, page, shape, variant, count]);
+  }, [prefix, page, shape, count]);
 
   const stats = useMemo(() => {
     const sizes = seeds.map((s) => blobatar(s, opts).length);
@@ -108,16 +105,6 @@ export function App() {
         <h1>blobatar</h1>
         <div className="controls">
           <label>
-            variant
-            <select
-              value={variant}
-              onChange={(e) => setVariant(e.target.value as Variant)}
-            >
-              <option value="blob">blob</option>
-              <option value="character">character</option>
-            </select>
-          </label>
-          <label>
             shape
             <select
               value={shape}
@@ -125,7 +112,6 @@ export function App() {
                 setShape(e.target.value as typeof shape),
                 setPage(0)
               )}
-              disabled={variant !== "blob"}
             >
               {SHAPES.map((s) => (
                 <option key={s}>{s}</option>
@@ -183,7 +169,6 @@ export function App() {
             <select
               value={expr}
               onChange={(e) => setExpr(e.target.value as ExprMode)}
-              disabled={variant !== "blob"}
             >
               {EXPRESSIONS.map((e) => (
                 <option key={e}>{e}</option>
@@ -301,8 +286,8 @@ export function App() {
             <div className="meta">
               <strong>{focus}</strong>
               <span>
-                {blobatar(focus, opts).length} bytes
-                {variant === "blob" && ` · ${layout(traits(focus)).shape}`}
+                {blobatar(focus, opts).length} bytes ·{" "}
+                {layout(traits(focus)).shape}
               </span>
               <div className="swatches">
                 {[

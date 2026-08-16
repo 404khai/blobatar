@@ -18,5 +18,5 @@ bun run check  # tests + size budgets
 ```
 
 [`CONTEXT.md`](./CONTEXT.md) is the glossary — worth two minutes before changing
-anything, since `variant`, `shape` and the `name`/`seed` split mean specific and
+anything, since `shape` and the `name`/`seed` split mean specific and
 easily-confused things here. Architectural decisions live in [`docs/adr/`](./docs/adr/).

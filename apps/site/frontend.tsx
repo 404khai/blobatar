@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { Analytics } from "@vercel/analytics/react";
 import { App } from "./src/App";
 // Required — nothing animates without it, and the hero is `animate="always"`.
 //
@@ -8,4 +9,12 @@ import { App } from "./src/App";
 import "blobatar/motion.css";
 import "./styles.css";
 
-createRoot(document.getElementById("root")!).render(<App />);
+// `<Analytics />` renders nothing — it injects Vercel's `/_vercel/insights`
+// script, which only exists once the site is deployed. Locally it falls back to
+// the debug script and logs to the console instead of sending anything.
+createRoot(document.getElementById("root")!).render(
+  <>
+    <App />
+    <Analytics />
+  </>,
+);

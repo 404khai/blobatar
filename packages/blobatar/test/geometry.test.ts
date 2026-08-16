@@ -3,7 +3,6 @@ import { _layout } from "../src/blobatar";
 import { blobatar } from "../src/blobatar";
 import { superellipse, blobPath } from "../src/shape";
 import * as blob from "../src/styles/blob";
-import * as character from "../src/styles/character";
 import { traits } from "../src/traits";
 import { BLOB_KEYS } from "./keys";
 
@@ -39,10 +38,10 @@ function corners(e: { cx: number; cy: number; rx: number; ry: number; rot: numbe
   ]);
 }
 
-describe("every variant", () => {
-  test.each(["blob", "character"] as const)("%s keeps all geometry inside the viewBox", v => {
+describe("the frame", () => {
+  test("all geometry stays inside the viewBox", () => {
     for (const s of SEEDS) {
-      const svg = blobatar(s, { variant: v, background: false });
+      const svg = blobatar(s, { background: false });
       for (const m of svg.matchAll(/ d="([^"]+)"/g)) {
         for (const n of m[1]!.match(/-?\d+\.?\d*/g)!.map(Number)) {
           expect(n).toBeGreaterThanOrEqual(0);
@@ -192,56 +191,6 @@ describe("blob under trait overrides", () => {
           expect(n).toBeLessThanOrEqual(100);
         }
       }
-    }
-  });
-});
-
-describe("character", () => {
-  const layouts = SEEDS.map(s => character.layout(traits(s)));
-
-  test("head never leaves the viewBox", () => {
-    for (const { head } of layouts) {
-      expect(head.cx - head.rx).toBeGreaterThanOrEqual(0);
-      expect(head.cx + head.rx).toBeLessThanOrEqual(100);
-      expect(head.cy - head.ry).toBeGreaterThanOrEqual(0);
-      expect(head.cy + head.ry).toBeLessThanOrEqual(100);
-    }
-  });
-
-  test("eyes sit inside the head with clearance for their radius", () => {
-    for (const { head, eyes } of layouts) {
-      for (const [x, y] of [
-        [head.cx - eyes.gap, eyes.y],
-        [head.cx + eyes.gap, eyes.y + eyes.skew],
-      ]) {
-        expect(inside(x! + eyes.r * 1.1, y!, head)).toBeLessThan(1);
-        expect(inside(x! - eyes.r * 1.1, y!, head)).toBeLessThan(1);
-        expect(inside(x!, y! + eyes.r * 1.15, head)).toBeLessThan(1);
-      }
-    }
-  });
-
-  test("brows stay inside the head and clear of the eyes", () => {
-    for (const { head, eyes, brows } of layouts) {
-      if (!brows) continue;
-      const reach = brows.w + brows.th;
-      for (const cx of [head.cx - eyes.gap, head.cx + eyes.gap]) {
-        expect(inside(cx + reach, brows.y, head)).toBeLessThan(1);
-        expect(inside(cx - reach, brows.y, head)).toBeLessThan(1);
-        expect(inside(cx, brows.y - reach, head)).toBeLessThan(1);
-      }
-      const gap = eyes.y - Math.abs(eyes.skew) - eyes.r * eyes.squash - (brows.y + brows.th);
-      expect(gap).toBeGreaterThan(0);
-    }
-  });
-
-  test("mouth stays above the chin and clear of the eyes", () => {
-    for (const { head, eyes, mouth } of layouts) {
-      const low = mouth.y + Math.max(Math.abs(mouth.depth), mouth.w * 0.6) + mouth.stroke;
-      expect(inside(head.cx, low, head)).toBeLessThan(1);
-      expect(inside(head.cx + mouth.w, mouth.y, head)).toBeLessThan(1);
-      const top = mouth.y - Math.max(0, -mouth.depth) - mouth.stroke;
-      expect(top).toBeGreaterThan(eyes.y + eyes.r * eyes.squash);
     }
   });
 });

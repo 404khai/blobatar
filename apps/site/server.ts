@@ -1,5 +1,30 @@
 import { serve } from "bun";
-import index from "./index.html";
+import { readdir } from "node:fs/promises";
+import { writeFavicon } from "./favicon";
+import { writeLlmsTxt } from "./llms";
+
+// Both before anything reads for them: importing `index.html` is what resolves
+// the `<link rel="icon">` href, and the asset routes below enumerate `public/`.
+// On a clean checkout neither generated file exists yet.
+await writeFavicon();
+await writeLlmsTxt();
+
+const { default: index } = await import("./index.html");
+
+/**
+ * `public/` at the root, mirroring what the build copies into `dist`.
+ *
+ * Enumerated at boot rather than matched with a wildcard: `/:file` would sit in
+ * front of the SPA fallback and have to decide, per request, whether a miss is
+ * a missing asset or a route the page should render. One entry per real file
+ * has no such ambiguity — anything not in the directory never matches.
+ */
+const assets = Object.fromEntries(
+  (await readdir("public")).map(name => [
+    `/${name}`,
+    new Response(Bun.file(`./public/${name}`)),
+  ]),
+);
 
 const server = serve({
   routes: {
@@ -12,6 +37,7 @@ const server = serve({
         headers: { "cache-control": "public, max-age=31536000, immutable" },
       });
     },
+    ...assets,
     "/*": index,
 	},
 	port: process.env.PORT ? parseInt(process.env.PORT) : 3000,

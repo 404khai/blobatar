@@ -1,21 +1,19 @@
 import type { Animate } from "./animate";
-import { palette as buildPalette, type Palette, type Variant } from "./color";
+import { palette as buildPalette, type Palette } from "./color";
 import type { Expression, Posable } from "./expression";
 import { superellipse } from "./shape";
 import { traits, type TraitOverrides, type Traits } from "./traits";
 
 export interface BlobatarOptions {
-  /** Which look to render. Default `"blob"`. Ignored by the per-variant entries. */
-  variant?: Variant;
   /** Emits width/height attributes. Omit to let CSS size it (the viewBox always scales). */
   size?: number;
-  /** Overrides the variant's own default. `false` renders transparent. */
+  /** Overrides the default backdrop. `false` renders transparent. */
   background?: boolean | "square" | "circle" | "squircle";
   /** Overrides specific palette entries. Overridden colors bypass the contrast guarantee. */
   palette?: Palette;
   /** Locks the hue in degrees, so the name drives shape only. */
   hue?: number;
-  /** Locks the `blob` tone as a 0–1 position in the swatch set. */
+  /** Locks the tone as a 0–1 position in the swatch set. */
   tone?: number;
   /**
    * Pins individual traits, so the name drives only what you leave out.
@@ -58,9 +56,8 @@ export interface BlobatarOptions {
    *
    * **Honored by `blobatar/react` only, for now.** `blobatar()` returns static
    * markup regardless: a branch on `animate` inside it keeps the motion module
-   * alive for every caller, animating or not, which measured at ~145 B on the
-   * dispatcher and ~190 B on the single-variant entries. An animated string API
-   * wants its own entry point, not a branch here.
+   * alive for every caller, animating or not, which measured at ~190 B. An
+   * animated string API wants its own entry point, not a branch here.
    */
   animate?: Animate;
   /**
@@ -80,8 +77,6 @@ export interface BlobatarOptions {
    * its own, and there are no timers. A burst is `setExpression(happy)` followed
    * by your own `setTimeout`, which is four lines in your code and zero bytes in
    * this bundle.
-   *
-   * **`blob` only.** `character` ignores it.
    *
    * Independent of `animate` in both directions. Without `animate` the blobatar
    * renders the pose statically, which is what makes this work in the string API
@@ -104,31 +99,24 @@ export interface Style<L> {
    * `makeParts`.
    */
   render(l: L, p: Palette, mo?: boolean): string;
-  /** Whether this variant accepts an `expression`. See `styles/blob.ts`. */
-  expressive?: true;
   background: boolean | "square" | "circle" | "squircle";
 }
 
 /**
- * Applies a static pose, if the variant has one and an expression was asked for.
+ * Applies a static pose, if an expression was asked for.
  *
  * The animated path deliberately does not come through here: there, the pose is
  * eight custom properties and the CSS composes it, so baking it into geometry as
  * well would apply it twice.
  */
-function posed<L>(
-  style: Style<L>,
-  l: L,
-  opts: BlobatarOptions,
-  animate?: unknown,
-) {
+function posed<L>(l: L, opts: BlobatarOptions, animate?: unknown) {
   const e = opts.expression;
-  if (animate || !e || !style.expressive) return { l, wrap: "" };
+  if (animate || !e) return { l, wrap: "" };
   return e.bake(l as L & Posable, e.p);
 }
 
 /**
- * Applies a pose's tint, if it has one and the variant accepts expressions.
+ * Applies a pose's tint, if it has one.
  *
  * Called on the static path only, for the mirror-image of the reason `posed`
  * skips the animated one: when animating, the fills have to stay off the markup
@@ -137,8 +125,7 @@ function posed<L>(
  * puts them on. Same two colors, resolved once, serialized into whichever half
  * of the split can carry them.
  */
-const tinted = <L>(style: Style<L>, p: Palette, e?: Expression) =>
-  e?.tint && style.expressive ? e.tint(p, e.p) : p;
+const tinted = (p: Palette, e?: Expression) => (e?.tint ? e.tint(p, e.p) : p);
 
 /** Wraps the body in the pose transform, when there is one. */
 const wrap = (body: string, t: string) =>
@@ -149,19 +136,13 @@ const escape = (s: string) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;",
   );
 
-export function resolve<L>(
-  style: Style<L>,
-  variant: Variant,
-  seed: string,
-  opts: BlobatarOptions,
-) {
+export function resolve(seed: string, opts: BlobatarOptions) {
   const t = traits(seed, opts.normalize ?? true, opts.traits);
   return {
     t,
     palette: {
       ...buildPalette(
         opts.hue ?? t.num("hue", 0, 360),
-        variant,
         opts.contrast ?? true,
         opts.tone ?? t("tone"),
       ),
@@ -181,8 +162,7 @@ export interface Backdrop {
 }
 
 /**
- * The backdrop is a shared concern, so variants declare a default rather than
- * each drawing their own.
+ * The backdrop is the style's concern to default, not the renderer's.
  *
  * Returns the path rather than a serialized `<path>` because the React adapter
  * has to draw it as a real element: it sits *outside* the motion root, so it
@@ -206,7 +186,10 @@ function backdrop<L>(
             ry: 50,
             n: bg === "circle" ? 2 : 6,
           }),
-    fill: p.bg,
+    // `Palette` is partial because each style fills only the slots it needs,
+    // but every ramp in `color.ts` fills `bg` — and a backdrop with no colour
+    // is not a thing this can be asked to draw.
+    fill: p.bg!,
   };
 }
 
@@ -237,19 +220,13 @@ export interface Motion {
  */
 export type MotionFactory = (t: Traits, p: Palette) => Motion;
 
-/**
- * Binds one style into an `blobatar(name, opts)` function.
- *
- * The wrapper exists so the per-variant entry points (`blobatar/blob`,
- * `blobatar/character`) can each pull in exactly one style. Importing the
- * dispatcher instead costs both, which the size gate will tell you about.
- */
-export function makeBlobatar<L>(style: Style<L>, variant: Variant) {
+/** Binds the style into an `blobatar(name, opts)` function. */
+export function makeBlobatar<L>(style: Style<L>) {
   return (name: string, opts: BlobatarOptions = {}): string => {
-    const { t, palette } = resolve(style, variant, name, opts);
-    const p = tinted(style, palette, opts.expression);
+    const { t, palette } = resolve(name, opts);
+    const p = tinted(palette, opts.expression);
     const dim = opts.size ? ` width="${opts.size}" height="${opts.size}"` : "";
-    const pose = posed(style, style.layout(t), opts);
+    const pose = posed(style.layout(t), opts);
     // The pose wraps the figure but not the backdrop, for the same reason the
     // motion groups sit inside `style.render` — a plate that scales and leans
     // with the creature stops being a plate.
@@ -283,15 +260,15 @@ export function makeBlobatar<L>(style: Style<L>, variant: Variant) {
  *
  * `test/expression.test.ts` pins the invariant directly.
  */
-export function makeParts<L>(style: Style<L>, variant: Variant) {
+export function makeParts<L>(style: Style<L>) {
   return (
     name: string,
     opts: BlobatarOptions = {},
     motion?: MotionFactory,
   ) => {
-    const { t, palette: p } = resolve(style, variant, name, opts);
+    const { t, palette: p } = resolve(name, opts);
     const mo = motion?.(t, p);
-    const pose = posed(style, style.layout(t), opts, mo);
+    const pose = posed(style.layout(t), opts, mo);
 
     return {
       /** Goes on the root `<g>`, which the caller renders. */

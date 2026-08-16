@@ -1,0 +1,6 @@
+# Everything, to everyone. This is one public page about an MIT library.
+User-agent: *
+Allow: /
+
+# No Sitemap line: a sitemap helps a crawler find URLs it would not reach by
+# following links, and there is exactly one URL here — the one it is already on.

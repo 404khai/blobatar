@@ -339,7 +339,9 @@ async function checkContinuity() {
   report(
     "B the root class carries the expression",
     host.querySelector(".mo-root")!.classList.contains("mo-expr"),
-    host.querySelector(".mo-root")!.className.baseVal,
+    // `.mo-root` is an SVG `<g>`, so `className` is an `SVGAnimatedString`.
+    // `querySelector` only promises an `Element`, whose `className` is a string.
+    (host.querySelector(".mo-root") as SVGElement).className.baseVal,
   );
 
   // The morph itself: a transition must be running on the pose properties.

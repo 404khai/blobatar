@@ -1,32 +1,21 @@
 import { motionVars, rootClass, type Animate } from "./animate";
-import type { Palette, Variant } from "./color";
+import type { Palette } from "./color";
 import type { Expression } from "./expression";
 import { makeBlobatar, makeParts, resolve, type BlobatarOptions } from "./render";
 import type { Traits } from "./traits";
-import * as character from "./styles/character";
 import * as blob from "./styles/blob";
 
-export type { Variant, BlobatarOptions, Animate, Expression };
-
-const BLOBATARS = {
-  blob: makeBlobatar(blob, "blob"),
-  character: makeBlobatar(character, "character"),
-};
+export type { BlobatarOptions, Animate, Expression };
 
 /**
  * Renders a deterministic blobatar as SVG markup.
  *
  * The same name always produces the same output within a major version. The
- * numeric ranges in each variant's `layout`, its categorical thresholds, and the
- * tone set are all part of that contract: changing any of them reshuffles
- * existing blobatars.
- *
- * This entry carries every variant. Import `blobatar/blob` or
- * `blobatar/character` directly if you only ship one.
+ * numeric ranges in `styles/blob.ts`'s `layout`, its categorical thresholds,
+ * and the tone set are all part of that contract: changing any of them
+ * reshuffles existing blobatars.
  */
-export function blobatar(name: string, opts: BlobatarOptions = {}): string {
-  return BLOBATARS[opts.variant ?? "blob"](name, opts);
-}
+export const blobatar = makeBlobatar(blob);
 
 /**
  * Only constructed when someone actually animates, so it tree-shakes away.
@@ -58,13 +47,13 @@ const motion = (mode: Animate, e?: Expression) => (t: Traits, p: Palette) => {
       // not. Emitted unconditionally rather than only for hot poses, because the
       // stylesheet's `fill` rules have to resolve to *something* correct on an
       // blobatar wearing no expression, and a `var()` that falls back to nothing
-      // makes `fill` inherit black. `p.eye` is the discriminator: it is the slot
-      // only `blob` fills, and `blob` is the only variant with a motion layer.
+      // makes `fill` inherit black.
       //
       // Cost is ~30 B per animated blobatar. It buys the tint being a plain
       // `transition: fill` in both directions instead of a custom property that
       // disappears mid-morph on the way out.
-      ...(p.eye ? { "--mo-head": c.head!, "--mo-eye": c.eye! } : {}),
+      "--mo-head": c.head!,
+      "--mo-eye": c.eye!,
       ...pose,
     },
   };
@@ -77,14 +66,7 @@ const motion = (mode: Animate, e?: Expression) => (t: Traits, p: Palette) => {
  * animating. Underscored because the shape of this object is not public API.
  */
 export function _parts(name: string, opts: BlobatarOptions = {}) {
-  // Built per call rather than hoisted into a module-level table like `BLOBATARS`
-  // above: a hoisted table is a top-level function call, which bundlers cannot
-  // prove is side-effect-free, so it would survive tree-shaking and charge
-  // every static consumer ~145 B for a path they never take. `_layout` below
-  // is written this way for the same reason.
-  const variant = opts.variant ?? "blob";
-  const style = variant === "blob" ? blob : character;
-  return makeParts(style as never, variant)(
+  return makeParts(blob)(
     name,
     opts,
     opts.animate && motion(opts.animate, opts.expression),
@@ -100,25 +82,19 @@ export function _parts(name: string, opts: BlobatarOptions = {}) {
  * the shape of this object is not public API.
  */
 export function _layout(name: string, opts: BlobatarOptions = {}) {
-  const variant = opts.variant ?? "blob";
-  const style = variant === "blob" ? blob : character;
-  const { t, palette } = resolve(style as never, variant, name, opts);
-  const l = style.layout(t);
+  const { t, palette } = resolve(name, opts);
+  const l = blob.layout(t);
   // Posed here rather than by the caller, so the geometry tests assert against
   // the same numbers the static renderer draws. Only the baked half comes back:
   // the body-level `transform` is the renderer's business, and the test that
   // cares about it (frame containment under a pose that scales the body) applies
   // the pose itself rather than parsing a matrix back out.
   const e = opts.expression;
-  const expressive = variant === "blob" && e;
-  const posed = expressive ? e.bake(l as never, e.p).l : l;
+  const posed = e ? e.bake(l as never, e.p).l : l;
   return {
-    variant,
     // Tinted here too, so a colour assertion can read the same numbers the
     // static renderer paints rather than the ramp they came from.
-    palette: (expressive && e.tint
-      ? e.tint(palette as Palette, e.p)
-      : palette) as Palette,
+    palette: (e?.tint ? e.tint(palette as Palette, e.p) : palette) as Palette,
     ...posed,
   };
 }

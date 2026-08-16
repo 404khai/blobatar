@@ -51,29 +51,29 @@ const ENTRIES: {
     // put ~25 named options and their plumbing in this row instead. Measured at
     // 1 B over before the budget bump — the branch gzips against the reader
     // that was already there.
+    // Lowered from 3800 when the `character` variant was removed in 0.1.0. The
+    // variant itself was never in this row — what came out was the plumbing that
+    // existed only to keep two of them apart: the palette's variant-keyed ramp
+    // and floor tables, the `expressive` flag, and the `variant` argument
+    // threaded through `resolve`.
     name: "blob only",
-    budget: 3800,
+    budget: 3700,
     external: [] as string[],
     source: `import { blobatar } from "../../src/blob";
              globalThis.x = blobatar(String(globalThis.seed));`,
   },
   {
-    name: "character",
-    budget: 3650,
-    external: [],
-    source: `import { blobatar } from "../../src/character";
-             globalThis.x = blobatar(String(globalThis.seed));`,
-  },
-  {
-    name: "both",
-    budget: 4900,
+    // The barrel. Costs more than `blob only` above because it also carries the
+    // colour and trait utilities, which a consumer who only renders never touches.
+    name: "barrel",
+    budget: 3750,
     external: [],
     source: `import { blobatar } from "../../src/index";
              globalThis.x = blobatar(String(globalThis.seed));`,
   },
   {
     name: "uri",
-    budget: 5000,
+    budget: 3850,
     external: [],
     source: `import { blobatarUri } from "../../src/uri";
              globalThis.x = blobatarUri(String(globalThis.seed));`,
@@ -97,7 +97,7 @@ const ENTRIES: {
     // or not, so the stylesheet's `fill` rules always resolve to something
     // correct — a `var()` with nothing behind it makes `fill` inherit black.
     name: "react",
-    budget: 5890,
+    budget: 4750,
     external: ["react"],
     source: `import { Blobatar } from "../../src/react";
              globalThis.x = Blobatar;`,
@@ -109,7 +109,7 @@ const ENTRIES: {
     // Measured: +343 B for the first expression (the shared serializer and bake,
     // paid once) and +36 B for each one after it. Importing all three is 4098.
     name: "blob + happy",
-    budget: 4120,
+    budget: 4050,
     external: [],
     source: `import { blobatar } from "../../src/blob";
              import { happy } from "../../src/expression";

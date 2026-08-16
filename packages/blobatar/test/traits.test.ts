@@ -14,11 +14,7 @@ import { BLOB_KEYS } from "./keys";
 
 const SEED = "alain";
 
-/**
- * `_layout` returns a union across variants, and `shape` is the discriminating
- * member — `character` has no such axis at all. Narrowed once here rather than
- * cast at each assertion.
- */
+/** Narrowed once here rather than cast at each assertion. */
 const blobLayout = (seed: string, opts: Parameters<typeof _layout>[1] = {}) =>
   _layout(seed, opts) as Extract<ReturnType<typeof _layout>, { shape: unknown }>;
 
@@ -129,11 +125,11 @@ describe("configuring a blobatar", () => {
     expect(l.palette).toEqual(_layout(SEED, { hue: 200, tone: 0.9 }).palette);
   });
 
-  test("overrides reach both variants", () => {
-    // `character` reads its features through `t.pick`, which is the reader an
-    // unclamped override breaks first.
-    const opts = { traits: { shape: 0.14, "body.r": 1, eyes: 0.999999, hair: 1 } };
+  test("an override at the very top of its range is clamped, not wrapped", () => {
+    // `t.pick` is the reader an unclamped override breaks first: 0.999999 must
+    // land on the last item rather than falling off the end of the list.
+    const opts = { traits: { shape: 0.14, "body.r": 1, eyes: 0.999999 } };
     expect(blobLayout(SEED, opts).shape).toBe("round");
-    expect(blobatar(SEED, { ...opts, variant: "character" })).toContain("<path");
+    expect(blobatar(SEED, opts)).toContain("<path");
   });
 });
