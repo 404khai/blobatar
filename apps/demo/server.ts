@@ -9,4 +9,4 @@ const server = serve({
   development: process.env.NODE_ENV !== "production" && { hmr: true, console: true },
 });
 
-console.log(`morphatar tuning grid → ${server.url}`);
+console.log(`blobatar tuning grid → ${server.url}`);

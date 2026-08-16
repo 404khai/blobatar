@@ -8,7 +8,7 @@ It shares, using the **individual transform properties** (`scale`, `translate`,
 existing keyframe sets. No new DOM nodes.
 
 The trade is bytes against bytes, and the two are not paid at the same rate:
-markup is paid **per avatar**, this stylesheet **once per app**. A 400-avatar
+markup is paid **per blobatar**, this stylesheet **once per app**. A 400-blobatar
 grid pays for two extra `<g>` elements four hundred times; it pays for the
 uglier keyframes once. That is the same argument the wrap layer already used to
 justify 180 bytes of written-out chains in `motion.css`.
@@ -18,10 +18,10 @@ justify 180 bytes of written-out chains in `motion.css`.
 **The composition operator differs per channel, and getting it wrong is
 silent.** Scales multiply into the existing keyframes, offsets and rotations
 add. This is what makes the hover gate transparent to the pose: at
-`--mo-amp: 0` — every unhovered avatar in a grid — the idle keyframes collapse
+`--mo-amp: 0` — every unhovered blobatar in a grid — the idle keyframes collapse
 to identity and the pose survives untouched, because that is what multiplying by
 1 and adding 0 do. Multiply an _offset_ by `--mo-amp` by mistake and that
-channel silently vanishes for the majority of avatars on the page, in the one
+channel silently vanishes for the majority of blobatars on the page, in the one
 state hardest to notice while developing.
 
 `prefers-reduced-motion` has to restate the pose. The block resets `animation`,
@@ -47,11 +47,11 @@ none of them got one:
   differential lands on.
 - **The tremor** took `.mo-root`'s free `translate`, the last unclaimed
   individual transform property in the tree. It does cost one more always-running
-  animation per animated avatar — the first real addition to that count — which
+  animation per animated blobatar — the first real addition to that count — which
   is the price of a held state having no start and no replay.
 - **Colour** needed a selector for the body group and did not get a class. The
   group is addressed as `.mo-bob > g:not(.mo-eyes)`, because a class costs bytes
-  in every animated avatar's markup *and* in the core renderer that decides
+  in every animated blobatar's markup *and* in the core renderer that decides
   whether to emit it — which every static consumer pays for too. `.mo-bob` is
   emitted by one style and has exactly two children, so this is not a guess about
   the DOM shape; it is the whole of it.

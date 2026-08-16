@@ -4,7 +4,7 @@
  * Human handles rather than random strings. The library's own framing for
  * animation is that "a grid reads as a crowd rather than a drill team" — the
  * same is true of the seeds. A wall of `k7f2p9` proves the mathematical claim
- * and undercuts the emotional one; these are what avatars are actually made
+ * and undercuts the emotional one; these are what blobatars are actually made
  * from.
  *
  * The wall shuffles these per visit and appends a numeric suffix, so the field

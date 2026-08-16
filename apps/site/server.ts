@@ -13,8 +13,9 @@ const server = serve({
       });
     },
     "/*": index,
-  },
+	},
+	port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
   development: process.env.NODE_ENV !== "production" && { hmr: true, console: true },
 });
 
-console.log(`morphatar site → ${server.url}`);
+console.log(`blobatar site → ${server.url}`);

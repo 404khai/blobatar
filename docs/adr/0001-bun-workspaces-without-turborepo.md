@@ -1,11 +1,11 @@
 # Bun workspaces, without Turborepo
 
 Adding a landing page to what was a single-package library repo, we moved to Bun
-workspaces (`packages/morphatar`, `apps/site`, `apps/demo`) but deliberately did
+workspaces (`packages/blobatar`, `apps/site`, `apps/demo`) but deliberately did
 not adopt Turborepo.
 
 Workspaces earn their place for one reason beyond tidiness: apps depend on
-`morphatar` as `workspace:*` and import `morphatar/react`, so they resolve
+`blobatar` as `workspace:*` and import `blobatar/react`, so they resolve
 through the real `exports` map. The landing page and the tuning grid are
 therefore live integration tests of the published surface — break an export path
 and they fail to build. Relative `../src` imports would test a path no consumer
@@ -31,10 +31,10 @@ read a seed's `shape` without rendering — was reachable only via
 public surface. Neither would have been noticed otherwise, because the only
 in-repo consumer was reaching around the exports map entirely.
 
-The restructuring was done immediately because it was free: `morphatar` was
+The restructuring was done immediately because it was free: `blobatar` was
 unpublished (npm 404) with no git remote, so there were no downstream consumers
 to break. That window closes with the first publish.
 
 **Publishing is deferred**, which keeps that window open. Before the site goes
-public, `morphatar` must be published — `apps/site` advertises
-`bun add morphatar`, and that command 404s until it is.
+public, `blobatar` must be published — `apps/site` advertises
+`bun add blobatar`, and that command 404s until it is.

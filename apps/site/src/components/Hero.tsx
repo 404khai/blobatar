@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { Avatar } from "morphatar/react";
-import type { AvatarOptions, Variant } from "morphatar";
-import { happy, idle, mad, sad, type Expression } from "morphatar/expression";
+import { Blobatar } from "blobatar/react";
+import type { BlobatarOptions } from "blobatar";
+import { happy, idle, mad, sad, type Expression } from "blobatar/expression";
 import { Segmented, SegmentedItem } from "@/components/ui/segmented";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Snippet } from "@/components/ui/snippet";
 import { cn } from "@/lib/utils";
 
-type Bg = "squircle" | "circle" | "square" | "none";
+type Bg = "none" | "squircle" | "circle" | "square";
 
 /**
  * Eight stops around the wheel plus an auto chip.
@@ -18,45 +25,108 @@ type Bg = "squircle" | "circle" | "square" | "none";
 const HUES = [12, 40, 78, 140, 190, 225, 275, 320];
 
 /**
- * `idle` is excluded: clicking has to visibly do something.
+ * The roster, paired with the identifier you would import to get it.
  *
- * Imported as values, which is the point of `morphatar/expression` — the page
- * ships the three it names and nothing else.
+ * The name is not decoration: it is what the snippet writes into both the
+ * import and the prop, so the picker and the generated code cannot drift. That
+ * is also why `idle` is in the list rather than being a separate "off" control
+ * — it is a real expression with a real export, and it is the one the snippet
+ * omits, because omitting `expression` is what `idle` means.
  */
-const REACTIONS: Expression[] = [happy, sad, mad];
+const POSES = [
+  { name: "idle", value: idle },
+  { name: "happy", value: happy },
+  { name: "sad", value: sad },
+  { name: "mad", value: mad },
+] as const;
+
+type Pose = (typeof POSES)[number];
 
 /**
- * How long a reaction is held before it releases.
+ * How long a reaction is held before it releases back to the picked pose.
  *
  * Measured from the click, so it *contains* the morph in rather than following
- * it: at 420ms in and 560ms back the face sits at full strength for the
- * remainder, and the click lasts about 2s end to end. Long enough to register as
- * an expression rather than a flicker, short enough that a second click never
- * feels blocked.
- *
- * Raised from 1100 when the morph slowed down. The old value left roughly 680ms
- * at the pose, which was fine at the old amplitudes and reads as a flinch at
- * these — the expression arrives and is already leaving.
+ * it: at 300ms in and 400ms back the face sits at full strength for the
+ * remainder, and the click lasts about 2s end to end. Long enough to register
+ * as an expression rather than a flicker, short enough that a second click
+ * never feels blocked.
  */
 const HOLD = 1500;
 
+/**
+ * The `lg` breakpoint, read in JS.
+ *
+ * Which side the tuning panel opens on is a layout decision, and layout
+ * decisions belong in CSS — but Radix positions the panel in JS against a
+ * measured rect, so there is no class to hand it. Matching the same 1024px
+ * the grid switches at keeps the two from disagreeing.
+ */
+function useWide() {
+  const [wide, setWide] = useState(true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setWide(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  return wide;
+}
+
+/**
+ * JSX attribute strings are not JS strings — no backslash escapes — so a name
+ * containing a quote cannot be written as `name="…"` at all. Fall through to an
+ * expression container, where the JS literal `JSON.stringify` produces is
+ * exactly right.
+ */
+function attr(value: string) {
+  return /["\\]/.test(value) ? `{${JSON.stringify(value)}}` : `"${value}"`;
+}
+
+function snippet(seed: string, bg: Bg, hue: number | null, pose: Pose) {
+  const posed = pose.value !== idle;
+
+  const imports = [`import { Blobatar } from "blobatar/react";`];
+  if (posed) imports.push(`import { ${pose.name} } from "blobatar/expression";`);
+  imports.push(`import "blobatar/motion.css";`);
+
+  // Only what differs from the defaults. A snippet that restates every default
+  // reads as configuration you are obliged to supply, which is the opposite of
+  // what a one-prop library wants to advertise.
+  const props = [`name=${attr(seed || "blobatar")}`];
+  if (bg !== "none") props.push(`background="${bg}"`);
+  if (hue !== null) props.push(`hue={${hue}}`);
+  if (posed) props.push(`expression={${pose.name}}`);
+  props.push(`animate="hover"`);
+
+  return [imports.join("\n"), "", `<Blobatar`, ...props.map((p) => `  ${p}`), `/>`].join(
+    "\n",
+  );
+}
+
 export function Hero() {
   const [seed, setSeed] = useState("alain00");
-  const [variant, setVariant] = useState<Variant>("blob");
   const [bg, setBg] = useState<Bg>("none");
   const [hue, setHue] = useState<number | null>(null);
-  const [expression, setExpression] = useState<Expression>(idle);
-  const release = useRef<ReturnType<typeof setTimeout>>(null);
+  const [pose, setPose] = useState<Pose>(POSES[0]);
 
-  // Expressions are `blob` only, so switching away has to clear the pose rather
-  // than leave it latched behind a variant that ignores it — otherwise coming
-  // back reveals a stale expression nobody asked for.
-  const expressive = variant === "blob";
-  useEffect(() => {
-    if (!expressive) setExpression(idle);
-  }, [expressive]);
+  /**
+   * A reaction is a temporary override of the picked pose, not a replacement
+   * for it — clicking the big blobatar borrows the face and gives it back. Held
+   * separately for exactly that reason: `null` here means "show what the picker
+   * says", so the release is a single `setBurst(null)` and the picker never has
+   * to be restored to a value it was already holding.
+   */
+  const [burst, setBurst] = useState<Expression | null>(null);
+  const release = useRef<ReturnType<typeof setTimeout>>(null);
+  const wide = useWide();
 
   useEffect(() => () => clearTimeout(release.current ?? undefined), []);
+
+  const shown = burst ?? pose.value;
+  const tuned = bg !== "none" || hue !== null || pose.value !== idle;
 
   /**
    * The burst pattern the library documents: an expression is a latched state,
@@ -66,159 +136,352 @@ export function Hero() {
    * that re-picks the same expression looks like a click that did nothing.
    */
   const react = () => {
-    const pool = REACTIONS.filter((e) => e !== expression);
-    setExpression(pool[Math.floor(Math.random() * pool.length)]!);
+    const pool = POSES.filter((p) => p.value !== shown && p.value !== idle);
+    setBurst(pool[Math.floor(Math.random() * pool.length)]!.value);
     clearTimeout(release.current ?? undefined);
-    release.current = setTimeout(() => setExpression(idle), HOLD);
+    release.current = setTimeout(() => setBurst(null), HOLD);
   };
 
-  const opts: AvatarOptions = {
-    variant,
+  const pick = (p: Pose) => {
+    clearTimeout(release.current ?? undefined);
+    setBurst(null);
+    setPose(p);
+  };
+
+  const opts: BlobatarOptions = {
     background: bg === "none" ? false : bg,
     hue: hue ?? undefined,
-    expression,
+    expression: shown,
   };
 
   return (
     /*
-      The whole hero has to fit one viewport — the input is the invitation, and
-      an invitation below the fold is not one. `justify-between` inside a
-      `min-h-svh` column does that at any height without fixed magic numbers,
-      and the avatar is sized in `vmin` so it shrinks with a short window rather
-      than pushing the controls off the bottom.
+      One viewport, two columns. The left column is the toy and the right one is
+      the payoff — you tune a face and read the code that produces it, without
+      the page moving. Below `lg` they stack in that same order, so the snippet
+      lands directly under the thing it describes.
     */
-    <section className="mx-auto flex min-h-svh max-w-6xl flex-col justify-between px-6 py-12 sm:py-16">
-      <div>
-        <h1 className="text-[clamp(3rem,12vw,9rem)] leading-[0.82] font-medium tracking-[-0.055em]">
-          morphatar
-        </h1>
+    <section className="mx-auto flex min-h-svh max-w-6xl flex-col justify-center gap-14 px-6 py-12 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16 lg:py-16">
+      <div className="flex flex-col items-center gap-10 lg:items-start">
+        <div className="w-full">
+          <h1 className="text-[clamp(3rem,10vw,7.5rem)] leading-[0.82] font-medium tracking-[-0.055em]">
+            blobatar
+          </h1>
 
-        <p className="text-muted mt-6 max-w-md text-balance text-base leading-relaxed">
-          Deterministic geometric avatars from any string. No dependencies,
-          about 3.7&nbsp;KB.
-        </p>
+          <p className="text-muted mt-5 max-w-md text-balance text-base leading-relaxed">
+            Deterministic geometric blobatars from any string. No dependencies,
+            about 3.7&nbsp;KB.
+          </p>
+        </div>
+
+        {/*
+          Question and answer are one unit, so they sit closer to each other
+          than either does to the wordmark above them. Equal gaps read as three
+          unrelated blocks; this reads as a sentence with its reply.
+
+          The popover root spans both, because the panel is anchored to the
+          face rather than to the button that opens it — see the anchor below.
+        */}
+        <Popover>
+          <div className="flex w-full flex-col items-center gap-6 lg:items-start">
+            {/*
+              A sentence, not a form. The question is the label — literally, via
+              `htmlFor`, so clicking it focuses the field — and the field is a
+              dashed blank inside it, sized to whatever you have typed. That is the
+              one line of the page that has to say "this is about you", and a boxed
+              input with a placeholder says "this is about data entry".
+
+              The field is still a real `<input>`: contenteditable would have cost
+              the caret, the mobile keyboard, autofill suppression and undo, and
+              bought nothing a grid cell cannot do.
+            */}
+            <div className="flex w-full max-w-md flex-wrap items-baseline justify-center gap-x-3 gap-y-2 text-xl sm:text-2xl lg:justify-start">
+              {/*
+                An invitation, not an interrogation. "And your name is?"
+                collects a field; this proposes doing something together, and
+                names the thing you get at the end of it — which is also the
+                only place on the page that says a blobatar is *yours*.
+              */}
+              <label htmlFor="seed" className="text-muted cursor-text tracking-tight">
+                Let’s find your blobatar
+              </label>
+
+              {/*
+                Two elements in one grid cell: the input, and an invisible copy of
+                what it holds. The copy is what has width, so the blank grows and
+                shrinks with the name instead of reserving a fixed run of dashes.
+                `whitespace-pre` keeps a trailing space measurable — without it the
+                caret walks off the end of the underline.
+              */}
+              <span
+                className={cn(
+                  "inline-grid border-b border-dashed pb-1 transition-colors duration-200",
+                  // The dashed rule is the entire affordance now — there is no box
+                  // and no caret until you are in it — so it has to answer a
+                  // hovering pointer. Three states: at rest, under the pointer,
+                  // and focused.
+                  "border-line hover:border-muted focus-within:border-ink",
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className="col-start-1 row-start-1 px-1 whitespace-pre invisible tracking-tight"
+                >
+                  {seed || "someone"}
+                </span>
+                <input
+                  id="seed"
+                  value={seed}
+                  onChange={(e) => setSeed(e.target.value)}
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder="someone"
+                  // `size={1}`, and it is load-bearing. Both elements share one
+                  // grid cell, so the column is as wide as the widest of them —
+                  // and an input's default intrinsic width is about 20 characters,
+                  // which is what would set the width instead of the name. Sized
+                  // to one character it contributes nothing and `w-full` stretches
+                  // it back over the measured copy.
+                  size={1}
+                  className={cn(
+                    "col-start-1 row-start-1 w-full min-w-0 bg-transparent px-1 text-center",
+                    "tracking-tight outline-none",
+                    "placeholder:text-muted/40",
+                  )}
+                />
+              </span>
+
+              <PopoverTrigger
+                  aria-label="Blobatar options"
+                  className={cn(
+                    "text-muted hover:text-ink hover:bg-line/50 -mb-1 self-center rounded-lg p-1.5",
+                    "transition-colors duration-150",
+                    // Two states worth showing on a control that hides everything
+                    // behind it: open, because the panel is portalled and the
+                    // button would otherwise look untouched while it hangs off
+                    // it; and tuned, because a closed panel is the only place the
+                    // page says that this blobatar is no longer the default one.
+                    "data-[state=open]:text-ink data-[state=open]:bg-line/50",
+                    tuned && "text-ink",
+                  )}
+                >
+                <SlidersIcon />
+              </PopoverTrigger>
+            </div>
+
+            {/*
+              Below the question, because that is the order it happens in: you are
+              asked, you answer, the face is what comes back. With the blobatar above
+              the input the page showed you the answer before it had asked, which
+              is what made the column read as three unrelated things stacked.
+
+              `animate="always"` puts this on the inline-SVG path — roughly a dozen
+              DOM nodes instead of one <img>. That is the trade the library
+              documents, and a single hero blobatar is exactly the case it is meant
+              for.
+
+              A real button, not a click handler on the SVG. The blobatar keeps its
+              own `role="img"` and name — the expression is decorative and
+              deliberately invisible to assistive tech — so the button is what
+              carries the action, and its label describes what clicking *does*
+              rather than what the face is currently doing.
+
+              It is also the popover's anchor. A panel that positions itself off
+              the little icon has to open *somewhere* relative to a point inside
+              the sentence, and every direction from there crosses the blobatar at
+              one width or another — which is fatal for a control surface whose
+              whole job is changing what the blobatar looks like. Anchored to the
+              face instead, "beside it" and "under it" are directions that mean
+              what they say.
+            */}
+            <PopoverAnchor asChild>
+              <button type="button" onClick={react} aria-label="React" className="rounded-full">
+                <Blobatar
+                  name={seed || " "}
+                  animate="always"
+                  {...opts}
+                  title={`Blobatar for ${seed}`}
+                  // `hero-blobatar` is a hook for one rule in `styles.css`, which
+                // gives this blobatar back the pointer reaction the page turns
+                // off everywhere else.
+                className="hero-blobatar size-[min(26vmin,13rem)]"
+                />
+              </button>
+            </PopoverAnchor>
+
+            {/*
+              Beside the face on a wide screen, where the gap between the columns
+              is empty; under it on a narrow one, where nothing is beside it and
+              the only thing worth covering is the snippet. Both are measured
+              from the blobatar, so neither lands on top of it.
+            */}
+            <PopoverContent
+              side={wide ? "right" : "bottom"}
+              align={wide ? "start" : "center"}
+              sideOffset={wide ? 28 : 20}
+              collisionPadding={16}
+              className="w-80"
+            >
+              <div className="flex flex-col gap-5">
+                {/*
+                  The expression picker is the same blobatar wearing each pose,
+                  not a select. A pose is a *look*, and the only honest label
+                  for a look is the look — "mad" on two capsule eyes means
+                  nothing until you have seen it. Seeded identically to the
+                  hero, so the row reads as one creature's range rather than
+                  four strangers.
+                */}
+                <Field label="expression">
+                  <div className="grid grid-cols-4 gap-1" role="group" aria-label="Expression">
+                    {POSES.map((p) => (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => pick(p)}
+                        aria-pressed={pose.name === p.name}
+                        className={cn(
+                          "flex flex-col items-center gap-1 rounded-xl py-2 transition-colors duration-150",
+                          pose.name === p.name ? "bg-line/70" : "hover:bg-line/30",
+                        )}
+                      >
+                        {/*
+                          Static `<img>`s, deliberately. A pose renders without
+                          `animate` — that is the library's own claim — and four
+                          live SVG trees inside a panel would be four things
+                          competing with the one that is supposed to be moving.
+                        */}
+                        <Blobatar
+                          name={seed || " "}
+                          {...opts}
+                          expression={p.value}
+                          alt=""
+                          className="size-10"
+                        />
+                        <span
+                          className={cn(
+                            "font-mono text-[0.65rem] lowercase transition-colors",
+                            pose.name === p.name ? "text-ink" : "text-muted",
+                          )}
+                        >
+                          {p.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+
+                <Field label="background">
+                  <Segmented
+                    type="single"
+                    value={bg}
+                    onValueChange={(v) => v && setBg(v as Bg)}
+                    aria-label="Background"
+                  >
+                    {/*
+                      Tighter than the default: four options have to fit the
+                      panel's width on one pill, and a pill that wraps stops
+                      being one.
+                    */}
+                    <SegmentedItem value="none" className="px-3">
+                      none
+                    </SegmentedItem>
+                    <SegmentedItem value="squircle" className="px-3">
+                      squircle
+                    </SegmentedItem>
+                    <SegmentedItem value="circle" className="px-3">
+                      circle
+                    </SegmentedItem>
+                    <SegmentedItem value="square" className="px-3">
+                      square
+                    </SegmentedItem>
+                  </Segmented>
+                </Field>
+
+                <Field label="hue">
+                  <div
+                    className="flex flex-wrap items-center gap-1.5"
+                    role="group"
+                    aria-label="Hue"
+                  >
+                    <button
+                      onClick={() => setHue(null)}
+                      aria-pressed={hue === null}
+                      className={cn(
+                        "border-line rounded-full border px-2.5 py-0.5 text-[0.7rem] lowercase transition-colors",
+                        hue === null
+                          ? "bg-ink text-ground border-ink"
+                          : "text-muted hover:text-ink",
+                      )}
+                    >
+                      auto
+                    </button>
+                    {HUES.map((h) => (
+                      <button
+                        key={h}
+                        onClick={() => setHue(h)}
+                        aria-label={`Hue ${h} degrees`}
+                        aria-pressed={hue === h}
+                        style={{ background: `oklch(0.72 0.15 ${h})` }}
+                        className={cn(
+                          "size-5 rounded-full transition-transform duration-150",
+                          hue === h
+                            ? "ring-ink ring-offset-raised scale-110 ring-2 ring-offset-2"
+                            : "hover:scale-110",
+                        )}
+                      />
+                    ))}
+                  </div>
+                </Field>
+              </div>
+            </PopoverContent>
+          </div>
+        </Popover>
       </div>
 
       {/*
-        `animate="always"` puts this on the inline-SVG path — roughly a dozen
-        DOM nodes instead of one <img>. That is the trade the library documents,
-        and a single hero avatar is exactly the case it is meant for.
+        The snippet is the whole argument of the page: whatever you just tuned
+        is four lines you can paste. It regenerates on every control, so there
+        is never a step where you have to work out which prop you changed.
       */}
-      <div className="flex flex-col items-center gap-3 py-6">
-        {/*
-          A real button, not a click handler on the SVG. The avatar keeps its own
-          `role="img"` and name — the expression is decorative and deliberately
-          invisible to assistive tech — so the button is what carries the action,
-          and its label describes what clicking *does* rather than what the face
-          is currently doing.
-        */}
-        <button
-          type="button"
-          onClick={react}
-          disabled={!expressive}
-          aria-label="React"
-          className="rounded-full disabled:cursor-default"
-        >
-          <Avatar
-            seed={seed || " "}
-            animate="always"
-            {...opts}
-            title={`Avatar for ${seed}`}
-            className="size-[min(34vmin,17rem)]"
-          />
-        </button>
-
-        {/*
-          The hover reaction already says "interactive" to a pointer, but says
-          nothing to a first-time visitor deciding whether to try. One muted line
-          is the cheapest fix, and it disappears on `character`, which has no
-          expressions to play.
-        */}
-        <p className="text-muted/70 h-4 text-xs">
-          {expressive ? "click to react" : ""}
+      <div className="flex w-full flex-col gap-3">
+        <div className="text-muted flex items-baseline justify-between text-xs lowercase">
+          <span>your config</span>
+          <span className="font-mono normal-case">Blobatar.tsx</span>
+        </div>
+        <Snippet code={snippet(seed, bg, hue, pose)} />
+        <p className="text-muted/70 text-xs leading-relaxed">
+          Every prop is optional except the name. Drop{" "}
+          <code className="font-mono">animate</code> and the blobatar renders as a
+          single <code className="font-mono">&lt;img&gt;</code>.
         </p>
       </div>
-
-      <div className="flex flex-col items-center gap-6">
-        {/*
-          Flat input: a rule, not a box. The caret and the text are the only
-          affordance, which is the point — it should read as a line of the page
-          you happen to be able to type on.
-        */}
-        <label className="w-full max-w-sm">
-          <span className="sr-only">Seed</span>
-          <input
-            value={seed}
-            onChange={(e) => setSeed(e.target.value)}
-            spellCheck={false}
-            autoComplete="off"
-            placeholder="type a name"
-            className={cn(
-              "border-line focus:border-ink w-full border-b bg-transparent pb-3 text-center",
-              "text-2xl tracking-tight outline-none transition-colors duration-200",
-              "placeholder:text-muted/50",
-            )}
-          />
-        </label>
-
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <Segmented
-            type="single"
-            value={variant}
-            onValueChange={(v) => v && setVariant(v as Variant)}
-            aria-label="Variant"
-          >
-            <SegmentedItem value="blob">blob</SegmentedItem>
-            <SegmentedItem value="character">character</SegmentedItem>
-          </Segmented>
-
-          <Segmented
-            type="single"
-            value={bg}
-            onValueChange={(v) => v && setBg(v as Bg)}
-            aria-label="Background"
-          >
-            <SegmentedItem value="none">none</SegmentedItem>
-            <SegmentedItem value="squircle">squircle</SegmentedItem>
-            <SegmentedItem value="circle">circle</SegmentedItem>
-            <SegmentedItem value="square">square</SegmentedItem>
-          </Segmented>
-
-          <div
-            className="border-line flex items-center gap-1.5 rounded-full border p-1"
-            role="group"
-            aria-label="Hue"
-          >
-            <button
-              onClick={() => setHue(null)}
-              aria-pressed={hue === null}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs lowercase transition-colors",
-                hue === null
-                  ? "bg-ink text-ground"
-                  : "text-muted hover:text-ink",
-              )}
-            >
-              auto
-            </button>
-            {HUES.map((h) => (
-              <button
-                key={h}
-                onClick={() => setHue(h)}
-                aria-label={`Hue ${h} degrees`}
-                aria-pressed={hue === h}
-                style={{ background: `oklch(0.72 0.15 ${h})` }}
-                className={cn(
-                  "size-5 rounded-full transition-transform duration-150",
-                  hue === h
-                    ? "ring-ink scale-110 ring-2 ring-offset-2 ring-offset-ground"
-                    : "hover:scale-110",
-                )}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
     </section>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-muted text-[0.7rem] tracking-wide lowercase">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function SlidersIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      aria-hidden="true"
+      className="size-[1.15rem]"
+    >
+      <path d="M4 8h8M17 8h3M4 16h3M12 16h8" />
+      <circle cx="14.5" cy="8" r="2.2" />
+      <circle cx="9.5" cy="16" r="2.2" />
+    </svg>
   );
 }

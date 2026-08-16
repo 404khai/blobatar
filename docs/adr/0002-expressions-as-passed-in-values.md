@@ -1,18 +1,18 @@
 # Expressions are passed-in values, applied as registered custom properties
 
 Adding triggerable expressions (`happy`, `sad`, `mad`) to the `blob` variant, we
-made each one a **value imported from `morphatar/expression`** rather than a
+made each one a **value imported from `blobatar/expression`** rather than a
 string naming an entry in a table the core owns:
 
 ```ts
-import { avatar } from "morphatar/blob";
-import { happy } from "morphatar/expression";
+import { blobatar } from "blobatar/blob";
+import { happy } from "blobatar/expression";
 
-avatar(seed, { expression: happy });
+blobatar(seed, { expression: happy });
 ```
 
 Each expression is a plain object carrying its pose plus the two functions that
-apply it, so `avatar()` calls through what it is handed and imports nothing. A
+apply it, so `blobatar()` calls through what it is handed and imports nothing. A
 consumer who imports no expression carries no pose code; each one imported costs
 what it actually weighs.
 
@@ -26,7 +26,7 @@ expressions is what a transition on those numbers does.
 
 ## Considered options
 
-**A string option on `avatar()`** — `expression: "happy"` — was built first and
+**A string option on `blobatar()`** — `expression: "happy"` — was built first and
 measured at **+420 B gz in the core**, paid by every consumer including those
 who never set it. `expression` has to work without `animate` (or it could not
 exist in the string API, and `prefers-reduced-motion` would have no pose to fall
@@ -35,7 +35,7 @@ keeps `animate.ts` out of static bundles. Rejected on that number: the core
 budget exists precisely to stop a feature most callers never use from landing in
 everyone's bundle.
 
-**Per-expression entry points** (`morphatar/expression/happy`) would give the
+**Per-expression entry points** (`blobatar/expression/happy`) would give the
 same granularity through the exports map, at the cost of three more public paths
 to keep stable and shared machinery that still has to live somewhere.
 
@@ -59,7 +59,7 @@ and the colour code is the first thing large enough to make that visible.
 The exports are plain object literals over shared function references, **not
 calls to a `make()` factory**. A top-level function call is not provably
 side-effect-free, so a factory would keep every expression alive whether or not
-it was imported — the same trap already documented on `_parts` in `avatar.ts`.
+it was imported — the same trap already documented on `_parts` in `blobatar.ts`.
 Anyone tidying this file into a factory will silently undo the whole ADR.
 
 The custom property names (`--mo-esx`, `--mo-esy`, `--mo-tilt`, `--mo-edx`,

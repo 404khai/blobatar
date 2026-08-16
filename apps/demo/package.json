@@ -7,7 +7,7 @@
     "check": "true"
   },
   "dependencies": {
-    "morphatar": "workspace:*",
+    "blobatar": "workspace:*",
     "react": "^19",
     "react-dom": "^19"
   },

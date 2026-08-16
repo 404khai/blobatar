@@ -31,8 +31,8 @@
   --font-mono: "Geist Mono", ui-monospace, monospace;
 
   /*
-   * Near-black rather than #000. Blob avatars have a transparent backdrop by
-   * default — the body *is* the avatar — so they sit directly on this color.
+   * Near-black rather than #000. Blob blobatars have a transparent backdrop by
+   * default — the body *is* the blobatar — so they sit directly on this color.
    * Against true black the silhouettes read as cut out; against #0A0A0B they
    * read as placed.
    */
@@ -41,6 +41,14 @@
   --color-ink: #fafaf8;
   --color-muted: #8a8a93;
   --color-line: #232327;
+
+  /*
+   * Two tokens, not a theme. The page is monochrome by design — the blobatars
+   * are the only saturated thing on it — so the snippet gets just enough hue
+   * to separate what you type from what the library names, and no more.
+   */
+  --color-code-str: oklch(0.83 0.07 165);
+  --color-code-key: oklch(0.78 0.055 265);
 }
 
 @layer base {
@@ -73,21 +81,62 @@
 }
 
 /*
+ * The tuning popover.
+ *
+ * Keyed on Radix's `data-state` rather than on mount, because Radix keeps the
+ * element in the tree for the duration of the exit animation — that is the
+ * whole reason the closed state has keyframes at all.
+ */
+@layer components {
+  .popover-panel {
+    transform-origin: var(--radix-popover-content-transform-origin);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .popover-panel[data-state="open"] {
+      animation: popover-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .popover-panel[data-state="closed"] {
+      animation: popover-out 110ms ease-in;
+    }
+  }
+
+  @keyframes popover-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-2px);
+    }
+  }
+
+  @keyframes popover-out {
+    to {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+}
+
+/*
  * The wall.
  *
- * Columns translate at differing rates as the section passes through the
- * viewport. This is scroll-linked, not time-linked: `animation-timeline` ties
+ * A scattered field of blobatars on three depth layers. Two motions stack, and
+ * they are deliberately on different elements: the layer carries the scroll
+ * parallax, each blobatar carries its own idle float. Both would be fighting for
+ * the same `transform` if they shared an element.
+ *
+ * The parallax is scroll-linked, not time-linked: `animation-timeline` ties
  * progress to scroll position, so it runs off the main thread and cannot drift
  * out of sync with the page the way a scroll listener does.
  */
 @layer components {
-  .wall-col {
+  .wall-layer {
     --wall-shift: 0px;
   }
 
   @supports (animation-timeline: view()) {
     @media (prefers-reduced-motion: no-preference) {
-      .wall-col {
+      .wall-layer {
         animation-name: wall-drift;
         animation-timing-function: linear;
         animation-fill-mode: both;
@@ -111,5 +160,81 @@
     to {
       transform: translate3d(0, calc(var(--wall-shift) * -1), 0);
     }
+  }
+
+  /*
+   * The float. Six pixels over five-to-ten seconds — small and slow enough
+   * that no single blobatar is ever the thing you are looking at, which is the
+   * only version of this that can run on sixty elements at once without
+   * pulling attention off the heading.
+   *
+   * The negative delay each blobatar is given starts it mid-cycle, so the field
+   * is already dispersed on first paint instead of rising together and
+   * gradually falling out of phase.
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    .wall-float {
+      animation: wall-float var(--float-duration, 7s) ease-in-out infinite;
+      animation-delay: var(--float-delay, 0s);
+    }
+  }
+
+  @keyframes wall-float {
+    0%,
+    100% {
+      transform: translate3d(0, 3px, 0);
+    }
+    50% {
+      transform: translate3d(0, -3px, 0);
+    }
+  }
+}
+
+/*
+ * No hover lift on any blobatar, anywhere on this page.
+ *
+ * `blobatar/motion.css` reacts to a pointer with `translateY(-1.5px)
+ * scale(1.04)`. On a page that is mostly blobatars — sixty of them in the wall,
+ * plus the hero — that reads as the layout twitching under the cursor rather
+ * than as one creature noticing you.
+ *
+ * Only the transform is cancelled. `--mo-amp` is untouched, so hover still
+ * wakes the idle layers: the wall's blobatars keep breathing and blinking when
+ * pointed at, which is the reaction actually worth having here.
+ *
+ * Deliberately outside every `@layer`. Tailwind's layers all lose to unlayered
+ * rules, and the rule this overrides is itself unlayered — so this has to be
+ * too, and `frontend.tsx` has to import this file second. Same specificity,
+ * later wins.
+ */
+.mo-root:hover {
+  transform: none;
+}
+
+/*
+ * …except the hero, which is the one blobatar that is asking to be clicked.
+ *
+ * Scale only. The library pairs its 4% with a 1.5px lift, and the lift is what
+ * made the reaction read as the blobatar sliding rather than growing — at this
+ * size it is a nudge in a direction, not a response. A pure scale about the
+ * middle grows in place, which is what "it noticed you" looks like.
+ *
+ * Aimed at `.mo-root` — the inner `<g>` — rather than at the `<svg>` this class
+ * sits on, and the difference is real: the group is the painted creature, so
+ * the reaction fires when the pointer is on the blob and not when it is in the
+ * transparent corner of a square box. That is also where the library puts its
+ * own `transform-box: view-box; transform-origin: center`, so the centre this
+ * scales about is the middle of the viewBox rather than the top-left corner an
+ * SVG would otherwise pivot on. Both durations are the library's: 220ms in from
+ * its `:hover` rule, 160ms out from its base rule.
+ *
+ * Gated on a real pointer. Touch latches `:hover` on tap and holds it until you
+ * tap elsewhere, which is exactly why `motion.css` cancels the transform under
+ * the same query — and this rule is more specific than that cancellation, so
+ * without the gate it would hand the latch straight back.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .hero-blobatar .mo-root:hover {
+    transform: scale(1.04);
   }
 }

@@ -1,19 +1,19 @@
 import { useMemo, useState } from "react";
 import {
-  avatar,
+  blobatar,
   traits,
   type Animate,
-  type AvatarOptions,
+  type BlobatarOptions,
   type Variant,
-} from "morphatar";
-import { layout } from "morphatar/blob";
-import { happy, idle, mad, sad, type Expression } from "morphatar/expression";
-import { Avatar } from "morphatar/react";
+} from "blobatar";
+import { layout } from "blobatar/blob";
+import { happy, idle, mad, sad, type Expression } from "blobatar/expression";
+import { Blobatar } from "blobatar/react";
 
 /**
  * The tuning harness.
  *
- * The point is the grid, not the single avatar. Numeric ranges can only be
+ * The point is the grid, not the single blobatar. Numeric ranges can only be
  * judged in aggregate — you are looking for clusters, dead zones and outliers,
  * which are invisible when you inspect one seed at a time. The shape filter
  * exists because the rarer silhouettes would otherwise appear a handful of
@@ -59,7 +59,7 @@ export function App() {
   const [slow, setSlow] = useState(false);
   const [expr, setExpr] = useState<keyof typeof EXPRESSIONS>("idle");
 
-  const opts: AvatarOptions = useMemo(
+  const opts: BlobatarOptions = useMemo(
     () => ({
       variant,
       background: bg === "default" ? undefined : bg === "none" ? false : bg,
@@ -91,7 +91,7 @@ export function App() {
   }, [prefix, page, shape, variant, count]);
 
   const stats = useMemo(() => {
-    const sizes = seeds.map((s) => avatar(s, opts).length);
+    const sizes = seeds.map((s) => blobatar(s, opts).length);
     return {
       min: Math.min(...sizes),
       max: Math.max(...sizes),
@@ -105,7 +105,7 @@ export function App() {
     // most of what slow motion is for.
     <main className={slow ? "mo-slow" : undefined}>
       <header>
-        <h1>morphatar</h1>
+        <h1>blobatar</h1>
         <div className="controls">
           <label>
             variant
@@ -210,7 +210,7 @@ export function App() {
           <button onClick={() => setPage((p) => p + 1)}>→</button>
         </div>
         <p className="stats">
-          {seeds.length} avatars · svg {stats.min}–{stats.max} bytes (avg{" "}
+          {seeds.length} blobatars · svg {stats.min}–{stats.max} bytes (avg{" "}
           {stats.avg}){hue !== "" && ` · hue ${hue}°`}
         </p>
       </header>
@@ -240,7 +240,7 @@ export function App() {
                 <span
                   key={e}
                   dangerouslySetInnerHTML={{
-                    __html: avatar(seed, { ...opts, expression: e }),
+                    __html: blobatar(seed, { ...opts, expression: e }),
                   }}
                 />
               ))}
@@ -254,7 +254,7 @@ export function App() {
               title={seed}
               onClick={() => setFocus(seed)}
             >
-              <Avatar seed={seed} animate={animate} {...opts} />
+              <Blobatar name={seed} animate={animate} {...opts} />
             </button>
           ) : (
             <button
@@ -262,7 +262,7 @@ export function App() {
               className="cell"
               title={seed}
               onClick={() => setFocus(seed)}
-              dangerouslySetInnerHTML={{ __html: avatar(seed, opts) }}
+              dangerouslySetInnerHTML={{ __html: blobatar(seed, opts) }}
             />
           ),
         )}
@@ -273,7 +273,7 @@ export function App() {
           <div className="card" onClick={(e) => e.stopPropagation()}>
             {/*
               Animated at "always" whenever animation is on at all. A modal has
-              no grid to sweep, so "hover" would mean the avatar you opened to
+              no grid to sweep, so "hover" would mean the blobatar you opened to
               look at sits perfectly still — and the whole point of opening it
               is to watch the motion at a size where it is legible.
             */}
@@ -283,35 +283,35 @@ export function App() {
                   <span
                     key={e}
                     dangerouslySetInnerHTML={{
-                      __html: avatar(focus, { ...opts, expression: e }),
+                      __html: blobatar(focus, { ...opts, expression: e }),
                     }}
                   />
                 ))}
               </div>
             ) : animate ? (
               <div className="big">
-                <Avatar seed={focus} animate="always" {...opts} />
+                <Blobatar name={focus} animate="always" {...opts} />
               </div>
             ) : (
               <div
                 className="big"
-                dangerouslySetInnerHTML={{ __html: avatar(focus, opts) }}
+                dangerouslySetInnerHTML={{ __html: blobatar(focus, opts) }}
               />
             )}
             <div className="meta">
               <strong>{focus}</strong>
               <span>
-                {avatar(focus, opts).length} bytes
+                {blobatar(focus, opts).length} bytes
                 {variant === "blob" && ` · ${layout(traits(focus)).shape}`}
               </span>
               <div className="swatches">
                 {[
-                  ...new Set(avatar(focus, opts).match(/#[0-9a-f]{6}/g) ?? []),
+                  ...new Set(blobatar(focus, opts).match(/#[0-9a-f]{6}/g) ?? []),
                 ].map((c) => (
                   <span key={c} style={{ background: c }} title={c} />
                 ))}
               </div>
-              <textarea readOnly value={avatar(focus, opts)} />
+              <textarea readOnly value={blobatar(focus, opts)} />
             </div>
           </div>
         </div>

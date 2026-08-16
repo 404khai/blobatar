@@ -20,11 +20,11 @@ export function Close() {
       <div className="mt-16 flex flex-col items-start gap-6">
         <code className="bg-raised border-line rounded-lg border px-5 py-3.5 font-mono text-sm">
           <span className="text-muted select-none">$ </span>
-          bun add morphatar
+          bun add blobatar
         </code>
 
         <a
-          href="https://github.com/alain/morphatar"
+          href="https://github.com/alain/blobatar"
           className="text-muted hover:text-ink text-sm underline underline-offset-4 transition-colors"
         >
           Source on GitHub
@@ -32,7 +32,7 @@ export function Close() {
       </div>
 
       <footer className="border-line text-muted mt-32 border-t pt-8 text-xs">
-        MIT licensed. Every avatar on this page was generated in your browser.
+        MIT licensed. Every blobatar on this page was generated in your browser.
       </footer>
     </section>
   );
