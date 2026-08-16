@@ -42,6 +42,19 @@ const build = await Bun.build({
   // React is a peer dependency and an optional one: never inline it, and never
   // let the JSX runtime import get rewritten into the bundle either.
   external: ["react", "react/jsx-runtime", "react/jsx-dev-runtime"],
+  // What selects the JSX runtime. Bun reads `process.env.NODE_ENV` to choose
+  // between `jsx` and `jsxDEV`, and a publish build run from a normal shell has
+  // it unset — so without this the package shipped `react/jsx-dev-runtime`
+  // calls. That resolves fine under Node, which is why `smoke.mjs` stayed green
+  // on it, and dies in any consumer bundling for production, where that
+  // specifier carries no `jsxDEV`: every animated blobatar throws
+  // `jsxDEV is not a function` on first render.
+  //
+  // Stated here rather than as an env var on the script so that `bun run build`
+  // yields the same package whatever the shell or CI has set. The failure is
+  // invisible locally and only reaches a consumer, so it cannot be left to
+  // ambient state.
+  define: { "process.env.NODE_ENV": '"production"' },
 });
 
 if (!build.success) {

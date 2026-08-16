@@ -1,7 +1,7 @@
 import { Blobatar } from "blobatar/react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Facepile } from "@/components/ui/facepile";
-import { useMounted } from "@/lib/mounted";
+import { useNearViewport } from "@/lib/near-viewport";
 
 /**
  * The thread, flat and in order. Grouping consecutive messages from one person
@@ -46,17 +46,19 @@ export function Chat() {
    * indicator's one, and four more in the facepile — which makes it the second
    * heaviest thing on the page after the wall, and it sits two screens down.
    *
-   * The heading and the paragraph above it are prerendered as normal. It is the
-   * illustration that waits, and only until hydration; the argument this
-   * section makes is in its words, and those are in the HTML.
+   * The heading and the paragraph above it are prerendered as normal, so the
+   * argument this section makes is in the HTML either way; it is the
+   * illustration that waits, and it waits for the scroll rather than for
+   * hydration. See `useNearViewport` for why that distinction is the whole
+   * point.
    */
-  const mounted = useMounted();
+  const [ref, near] = useNearViewport<HTMLElement>();
 
   return (
     // Heading and card share one column rather than a wide heading over a
     // narrower centred card — offset left edges read as two sections that
     // happen to be adjacent.
-    <section className="defer-offscreen mx-auto max-w-2xl px-6 py-32">
+    <section ref={ref} className="defer-offscreen mx-auto max-w-2xl px-6 py-32">
       <div className="mb-10 max-w-lg">
         <h2 className="text-[clamp(1.75rem,4vw,2.75rem)] leading-[1.05] font-medium tracking-[-0.04em]">
           Everyone gets a face
@@ -74,7 +76,7 @@ export function Chat() {
         happens inside a shape that is already the right size, rather than
         growing the page under everything below it.
       */}
-      {!mounted ? (
+      {!near ? (
         <div
           className="bg-raised border-line h-[34rem] rounded-2xl border"
           aria-hidden="true"

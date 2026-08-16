@@ -13,7 +13,7 @@
  */
 
 import { createRequire } from "node:module";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -78,6 +78,26 @@ check("blobatar/react animated", () => {
   assert(html.includes("<svg"), "animated mode did not render inline SVG");
   assert(html.includes("mo-root"), "animated mode emitted no motion class");
   return "inline SVG with motion classes";
+});
+
+/**
+ * The one check here that reads the build rather than running it.
+ *
+ * A dev-runtime build passes every other assertion in this file: Node resolves
+ * `react/jsx-dev-runtime` and `jsxDEV` works, so the component renders and the
+ * smoke test goes green on a package that throws
+ * `jsxDEV is not a function` for anyone bundling for production. Nothing
+ * observable at runtime *here* distinguishes the two builds, so the specifier
+ * itself is the assertion. See the `define` in `scripts/build.ts`.
+ */
+check("blobatar/react ships the production JSX runtime", () => {
+  const path = createRequire(import.meta.url).resolve("blobatar/react");
+  const src = readFileSync(path, "utf8");
+  assert(
+    !src.includes("jsx-dev-runtime") && !src.includes("jsxDEV"),
+    "built with the development JSX transform — it will throw in production bundlers",
+  );
+  return "jsx-runtime";
 });
 
 check("named exports on the barrel", () => {

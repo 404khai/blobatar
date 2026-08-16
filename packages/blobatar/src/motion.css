@@ -942,6 +942,41 @@
   .mo-root.mo-always {
     --mo-amp: 1;
   }
+
+  /**
+   * …and, having established that amplitude is pinned at zero here, stop
+   * paying for the loops that amplitude scales.
+   *
+   * The rule three hundred lines up — that the idle layers run continuously
+   * rather than pausing, because Firefox will re-resolve a paused effect but
+   * not interpolate one, and so jump-cuts on hover-out — is a statement about
+   * hover-out. Under this query there is no hover-out: the rule above forces
+   * `--mo-amp: 0` through a tap and back, so nothing ever interpolates and
+   * there is no transition to protect. The loops resolve to the identity pose
+   * on every frame, forever, and the only thing they produce is work.
+   *
+   * That work is not small at scale, which is the case this library invites —
+   * a grid meant to read as a crowd. Eight effects per blobatar, most of them
+   * driving registered custom properties, which are style-recalculated on the
+   * main thread rather than composited. Sixty blobatars on a landing page came
+   * to roughly 480 live animations and 6.7s of style and layout in a Lighthouse
+   * trace; pausing them took it to 1.9s and moved Total Blocking Time by an
+   * order of magnitude on a mid-range phone.
+   *
+   * `animation-play-state`, not `animation: none`. Paused effects keep their
+   * resolved styles, so the pose a blobatar holds is the one it already had;
+   * removing the animations would drop back to the base declarations and, for
+   * the eye layers, lose the pose entirely. `.mo-always` is excluded because it
+   * is the one mode whose amplitude survives this query.
+   *
+   * The descendant is `*` rather than the four layer classes by name: it is a
+   * third of the bytes, it cannot fall out of date when a layer is added, and
+   * everything it can reach inside `.mo-root` is this file's own.
+   */
+  .mo-root:not(.mo-always),
+  .mo-root:not(.mo-always) * {
+    animation-play-state: paused;
+  }
 }
 
 /**

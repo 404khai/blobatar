@@ -161,7 +161,16 @@ const ENTRIES: {
     // The transition lists got *shorter* despite three more channels, because
     // the duration and easing lists are now stated once in `--mo-md`/`--mo-me`
     // instead of being restated in full by the `:hover` rule.
-    budget: 1400,
+    // Raised from 1400 for one rule, and it is the cheapest 7 bytes in the
+    // file: pausing the idle loops on touch devices, where the hover rule two
+    // lines above it has already pinned `--mo-amp` at zero and the loops can
+    // therefore only resolve to the identity pose. Measured on a page with
+    // sixty blobatars, it took style and layout in a Lighthouse trace from
+    // 6.7s to 1.9s — the loops are ~8 per blobatar and most of them drive
+    // registered custom properties, which recalculate on the main thread
+    // rather than compositing. A grid that reads as a crowd is the case this
+    // library invites, so that is the case worth being cheap in.
+    budget: 1450,
     external: [],
     ext: "css",
     source: `@import "../../src/motion.css";`,

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Blobatar } from "blobatar/react";
 import { NAMES, shuffled } from "@/names";
-import { useMounted } from "@/lib/mounted";
+import { useNearViewport } from "@/lib/near-viewport";
 
 /**
  * The field is generated on a jittered grid rather than from raw random
@@ -44,26 +44,25 @@ type Blob = {
 
 export function Wall() {
   /*
-   * The field is client-only, and for two reasons that happen to agree.
+   * The field is client-only, and waits for the scroll that reveals it.
    *
-   * The honest one: it is built from `Math.random()`, so a prerendered field
-   * and the one the client generates on hydration would never match, and React
-   * would throw the server's markup away.
+   * Client-only because it is built from `Math.random()`, so a prerendered
+   * field and the one the client generates would never match, and because sixty
+   * inline SVGs in the document costs a round trip on the way to first paint.
    *
-   * The useful one: it is sixty inline SVGs, about a thousand elements — by far
-   * the heaviest thing on the page, and all of it below the fold. Keeping it out
-   * of the prerendered HTML is what keeps that document small enough to paint
-   * in one round trip. The heading below renders either way, so the section is
-   * never empty of meaning; only its decoration arrives late.
+   * Deferred to intersection rather than to mount because rendering it at
+   * hydration put a thousand elements' worth of work directly into the window
+   * Total Blocking Time measures — see `useNearViewport`. The heading below
+   * renders either way, so the section is never empty of meaning.
    */
-  const mounted = useMounted();
+  const [ref, near] = useNearViewport<HTMLElement>();
 
   // Once per mount, not per render: a reshuffle on every state change would
   // make the wall flicker. Random per visit is the point — the claim is
   // "millions of options", and a field that is provably different on every
   // reload is the cheapest possible proof.
   const blobs = useMemo<Blob[]>(() => {
-    if (!mounted) return [];
+    if (!near) return [];
 
     const pool = shuffled(NAMES);
     const out: Blob[] = [];
@@ -99,7 +98,7 @@ export function Wall() {
     }
 
     return out;
-  }, [mounted]);
+  }, [near]);
 
   return (
     /*
@@ -109,7 +108,7 @@ export function Wall() {
       a box that never scrolls and sat frozen at the identity transform. `clip`
       clips the same way without becoming a scroller.
     */
-    <section className="relative min-h-[150vh] overflow-clip">
+    <section ref={ref} className="relative min-h-[150vh] overflow-clip">
       {/*
         One positioned layer per depth, each with its own scroll shift, and the
         blobatars parented into whichever one they belong to. Doing the parallax
