@@ -30,7 +30,7 @@ export function Close() {
           Open the editor
         </a>
         <a
-          href="https://github.com/alain/blobatar"
+          href="https://github.com/Alain00/blobatar"
           className="text-muted hover:text-ink text-sm underline underline-offset-4 transition-colors"
         >
           Source on GitHub
