@@ -4,9 +4,18 @@ import {
   bakePose,
   happy,
   idle,
+  love,
   mad,
   poseVars,
   sad,
+  scared,
+  shy,
+  sick,
+  sleepy,
+  smug,
+  surprised,
+  unsure,
+  wink,
   type Expression,
 } from "../src/expression";
 import * as blob from "../src/styles/blob";
@@ -30,6 +39,15 @@ const NAMED: [string, Expression][] = [
   ["happy", happy],
   ["sad", sad],
   ["mad", mad],
+  ["surprised", surprised],
+  ["wink", wink],
+  ["sleepy", sleepy],
+  ["smug", smug],
+  ["unsure", unsure],
+  ["scared", scared],
+  ["love", love],
+  ["shy", shy],
+  ["sick", sick],
 ];
 const ALL: [string, Expression][] = [["idle", idle], ...NAMED];
 

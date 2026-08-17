@@ -20,7 +20,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { blobatar, palette, traits, normalizeSeed } from "blobatar";
 import { blobatar as blob } from "blobatar/blob";
 import { blobatarUri } from "blobatar/uri";
-import { happy, mad, sad, idle } from "blobatar/expression";
+import * as poses from "blobatar/expression";
 import { Blobatar } from "blobatar/react";
 
 let failed = false;
@@ -50,11 +50,17 @@ check("blobatar()", () => `${svg(blobatar("alain@example.com"), "blobatar").leng
 check("blobatar/blob", () => `${svg(blob("alain"), "blob").length} chars`);
 
 check("blobatar/expression", () => {
-  for (const [name, pose] of Object.entries({ happy, mad, sad, idle })) {
-    assert(pose != null, `${name} is not exported`);
+  // Every exported pose, discovered rather than listed: a roster addition that
+  // forgets the build config would ship an export that resolves to `undefined`,
+  // and the whole point of this file is to run against `dist` the way an
+  // installed consumer does.
+  const named = Object.entries(poses).filter(([, v]) => v && typeof v === "object" && "p" in v);
+  assert(named.length >= 13, `only ${named.length} poses exported`);
+  for (const [name, pose] of named) {
+    assert(typeof pose.vars === "function", `${name} has no serializer`);
     svg(blob("alain", { expression: pose }), `blob + ${name}`);
   }
-  return "happy, mad, sad, idle";
+  return `${named.length} poses — ${named.map(([n]) => n).join(", ")}`;
 });
 
 check("blobatar/uri", () => {
