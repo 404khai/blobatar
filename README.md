@@ -3,7 +3,7 @@
 Deterministic geometric blobatars from any string. No dependencies, ~3.7 KB
 gzipped.
 
-![A field of forty-odd blobatars, no two alike, each generated from an ordinary handle like alain, tove or kasper](./docs/media/sheet.png)
+![A field of forty-odd blobatars, no two alike, each generated from an ordinary handle like alain, tove or kasper](./docs/media/crowd.png)
 
 ```sh
 bun add blobatar    # npm / pnpm / yarn all work too
@@ -67,7 +67,7 @@ name stops mattering, which is how you build one fixed blobatar.
 
 Every value those options take, and what each one draws:
 
-![The six silhouettes labelled round, organic, boxy, nub, cloud and sun; the eight hue stops from 12 to 320 degrees; the four expressions idle, happy, sad and mad; the four backgrounds none, squircle, circle and square](./docs/media/sheet.png)
+![The six silhouettes labelled round, organic, boxy, nub, cloud and sun; the eight hue stops from 12 to 320 degrees; the thirteen expressions from idle through happy, sad and mad to love, shy and sick; the four backgrounds none, squircle, circle and square](./docs/media/sheet.png)
 
 ### Animation and expressions
 

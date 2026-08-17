@@ -78,7 +78,7 @@ several hundred blobatars on one page cannot produce id collisions.
 | `contrast`   | `true`      | Enforce the contrast floors.                                            |
 | `title`      | —           | Adds a `<title>` for screen readers.                                    |
 | `animate`    | —           | `"hover"` or `"always"`. See below — it changes how the blobatar renders. |
-| `expression` | `"idle"`    | `"happy"`, `"sad"` or `"mad"`. See below.                               |
+| `expression` | `idle`      | One of thirteen poses, imported as a value. See below.                  |
 
 ## Configuring
 
@@ -155,8 +155,24 @@ callers will never use. If you need animated markup without React, open an issue
 
 ## Expressions
 
-A pose the blobatar holds until you change it — `idle` (the default), `happy`,
-`sad`, `mad`. Setting one morphs from whatever it was wearing.
+A pose the blobatar holds until you change it. Setting one morphs from whatever
+it was wearing.
+
+| pose        | reads as                                                    |
+| ----------- | ----------------------------------------------------------- |
+| `idle`      | the default — byte-identical to passing nothing              |
+| `happy`     | tall arcs, lifted, tilted in parallel                        |
+| `sad`       | small eyes dropped low, brows in                             |
+| `mad`       | wide flat bars in a `\ /`, warm-tinted, trembling            |
+| `surprised` | the only pose that grows the eyes — wide and lifted          |
+| `wink`      | one eye shut, the other open                                 |
+| `sleepy`    | level lids low over a sunk body                              |
+| `smug`      | narrow and cocked — a head tilt, not a brow                  |
+| `unsure`    | one eye squeezed, the pair barely moved                      |
+| `scared`    | small, converged, shivering                                  |
+| `love`      | narrow and drawn together, rose-tinted                       |
+| `shy`       | small, low, converged, pale blush                            |
+| `sick`      | wide bars slumped into a `/ \`, green-tinted, faint tremor   |
 
 Expressions are **imported as values, not named as strings**, so you ship the
 ones you use and nothing else:
@@ -167,9 +183,13 @@ import { happy, idle } from "blobatar/expression";
 <Blobatar name={user.email} animate="always" expression={happy} size={64} />;
 ```
 
-The first expression you import costs about 340 bytes (the shared serializer,
-paid once) and each one after it about 36. A consumer who imports none carries
-no pose code at all — which is why `expression` is a value rather than a string.
+The first expression you import costs about 340 bytes (the shared serializer and
+bake, paid once) and each untinted one after it about 35. The four tinted poses —
+`mad`, `love`, `shy`, `sick` — are the exception: the first of them pulls in the
+OKLab colour path for about 720 bytes, and each tinted one after that costs about
+60, because they share one walk with four targets. The whole roster is about 1.5
+KB over `blob` alone; a consumer who imports none carries no pose code at all,
+which is why `expression` is a value rather than a string.
 
 **A state, not an event.** Nothing returns to `idle` on its own and there are no
 timers. If you want a burst, schedule the clear yourself:
@@ -193,13 +213,18 @@ blobatar(name, { expression: happy }); // static, posed, no morph
 `idle` renders byte-identical markup to omitting the option, so adding this
 moved no existing blobatar.
 
-The pose moves parts the blobatar already has — eyes and body — and never adds a
-mark, so a blob grows no mouth when it is happy. That ceiling is real and worth
-knowing before you reach for it: `happy` reads unmistakably, while `sad` and
-`mad` read as clearly different from idle and from each other without announcing
-their emotion the way a mouth would. Two capsules and a soft body only go so
-far. See [docs/expression-spec.md](./docs/expression-spec.md) for what carries
-signal and what does not.
+The pose moves parts the blobatar already has — eye scale, tilt, offset, a rigid
+body shift, a tremor and a tint — and never adds a mark, so a blob grows no mouth
+when it is happy. That ceiling is real and worth knowing before you reach for it.
+`happy`, `surprised` and `wink` read unmistakably, because a shape nothing else
+in the roster wears is doing the work. The rest read as clearly different from
+idle and from each other, without announcing the emotion the way a mouth would:
+`sick` is not going to read as nausea on its own, but you will never mistake it
+for `sleepy`. Two capsules and a soft body only go so far, and every pose here is
+separated from its nearest neighbour by three channels rather than one — never by
+its tint alone, so the roster still works in greyscale. See
+[docs/expression-spec.md](./docs/expression-spec.md) for what carries signal and
+what does not.
 
 Expressions are decorative and do not reach assistive technology: `title` names
 who the blobatar is and does not change with the pose. Under reduced motion the

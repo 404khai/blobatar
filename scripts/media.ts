@@ -26,8 +26,17 @@ import { join } from "node:path";
 import { blobatar } from "../packages/blobatar/src/blobatar";
 import {
   happy,
+  love,
   mad,
   sad,
+  scared,
+  shy,
+  sick,
+  sleepy,
+  smug,
+  surprised,
+  unsure,
+  wink,
   type Expression,
 } from "../packages/blobatar/src/expression";
 import type { BlobatarOptions } from "../packages/blobatar/src/render";
@@ -318,12 +327,28 @@ const SHAPES = [
 /** Eight stops around the wheel, the same set the site's hue picker offers. */
 const HUES = [12, 40, 78, 140, 190, 225, 275, 320];
 
+/**
+ * The whole roster, in the order `expression-spec.md` introduces it. Thirteen
+ * cells at this size are wider than the sheet, so the row is split in two —
+ * `EXPRESSION_ROWS` is where that break lives, not a claim about the poses.
+ */
 const EXPRESSIONS: { label: string; value?: Expression }[] = [
   { label: "idle" },
   { label: "happy", value: happy },
   { label: "sad", value: sad },
   { label: "mad", value: mad },
+  { label: "surprised", value: surprised },
+  { label: "wink", value: wink },
+  { label: "sleepy", value: sleepy },
+  { label: "smug", value: smug },
+  { label: "unsure", value: unsure },
+  { label: "scared", value: scared },
+  { label: "love", value: love },
+  { label: "shy", value: shy },
+  { label: "sick", value: sick },
 ];
+
+const EXPRESSION_ROWS = [EXPRESSIONS.slice(0, 7), EXPRESSIONS.slice(7)];
 
 const BACKGROUNDS = ["none", "squircle", "circle", "square"] as const;
 
@@ -340,14 +365,14 @@ const SHEET_ROWS: Row[] = [
     size: 88,
     cells: HUES.map((h) => ({ label: `hue=${h}`, name: "hue", opts: { hue: h } })),
   },
-  {
+  ...EXPRESSION_ROWS.map((row) => ({
     size: 88,
-    cells: EXPRESSIONS.map((e) => ({
+    cells: row.map((e) => ({
       label: e.label,
       name: "emil",
       opts: { expression: e.value } as BlobatarOptions,
     })),
-  },
+  })),
   {
     size: 88,
     cells: BACKGROUNDS.map((bg) => ({
