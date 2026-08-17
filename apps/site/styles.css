@@ -273,6 +273,66 @@
 }
 
 /*
+ * The easter eggs — see `src/eggs.tsx`.
+ *
+ * Two animations, and the split is the same one the hero blobatar makes: an
+ * arrival, and a reaction to being clicked. Each sits on its own wrapper element
+ * — see the comment in `eggs.tsx` for why they cannot share one — and both
+ * wrappers are HTML rather than SVG, so `transform` pivots about the middle
+ * without needing `transform-box`.
+ */
+@layer components {
+  @media (prefers-reduced-motion: no-preference) {
+    /*
+     * The reveal. A blobatar cross-fades into another blobatar because both are
+     * the same handful of shapes moving; a mark replacing one is a different
+     * thing appearing, so it arrives — up from slightly small, with the
+     * overshoot in the easing rather than in a third keyframe.
+     */
+    .egg-in {
+      animation: egg-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    /*
+     * The click. The blobatar answers a click with an expression, which a mark
+     * has no equivalent of — so it answers with the other thing a face does when
+     * poked: it rocks, and settles. Rotation only, no scale, so it reads as the
+     * mark being knocked rather than as a button press.
+     */
+    .egg-nudge {
+      animation: egg-nudge 500ms ease-in-out;
+    }
+  }
+
+  @keyframes egg-in {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes egg-nudge {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(-5deg);
+    }
+    60% {
+      transform: rotate(4deg);
+    }
+    85% {
+      transform: rotate(-1.5deg);
+    }
+  }
+}
+
+/*
  * No hover lift on any blobatar, anywhere on this page.
  *
  * `blobatar/motion.css` reacts to a pointer with `translateY(-1.5px)

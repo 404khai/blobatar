@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/popover";
 import { Snippet } from "@/components/ui/snippet";
 import { Install } from "@/components/ui/install";
+import { EggMark, eggFor } from "@/eggs";
 import { cn } from "@/lib/utils";
 
 type Bg = "none" | "squircle" | "circle" | "square";
@@ -166,6 +167,26 @@ export function Hero() {
   const release = useRef<ReturnType<typeof setTimeout>>(null);
   const wide = useWide();
 
+  /**
+   * A few names render as themselves instead of as a hash — see `@/eggs`.
+   *
+   * Only the face is swapped. The panel keeps tuning a real blobatar and the
+   * snippet keeps printing the code that produces one, because both are claims
+   * about the library and the library has no eggs in it — the same name in a
+   * consumer's app renders a blob, and a snippet that implied otherwise would be
+   * the one part of this joke that costs somebody an afternoon.
+   */
+  const egg = eggFor(seed);
+
+  /**
+   * A mark has no expression to burst into, so the click gets its own reaction.
+   *
+   * A flag rather than a timer, unlike `burst`: the animation itself is the
+   * duration, and `onAnimationEnd` is a more honest end than a number that has
+   * to be kept in sync with the keyframes.
+   */
+  const [nudge, setNudge] = useState(false);
+
   useEffect(() => () => clearTimeout(release.current ?? undefined), []);
 
   const shown = burst ?? pose.value;
@@ -302,7 +323,14 @@ export function Hero() {
                 <input
                   id="seed"
                   value={seed}
-                  onChange={(e) => setSeed(e.target.value)}
+                  // The nudge is cleared on every keystroke rather than only on
+                  // the ones that change which mark is showing: a flag left set
+                  // from a previous name lands the click reaction on the reveal
+                  // of the next one, and the two transforms fight.
+                  onChange={(e) => {
+                    setSeed(e.target.value);
+                    setNudge(false);
+                  }}
                   spellCheck={false}
                   autoComplete="off"
                   placeholder="someone"
@@ -365,17 +393,43 @@ export function Hero() {
               what they say.
             */}
             <PopoverAnchor asChild>
-              <button type="button" onClick={react} aria-label="React" className="rounded-full">
-                <Blobatar
-                  name={seed || " "}
-                  animate="always"
-                  {...opts}
-                  title={`Blobatar for ${seed}`}
-                  // `hero-blobatar` is a hook for one rule in `styles.css`, which
-                // gives this blobatar back the pointer reaction the page turns
-                // off everywhere else.
-                className="hero-blobatar size-[min(26vmin,13rem)]"
-                />
+              <button
+                type="button"
+                onClick={egg ? () => setNudge(true) : react}
+                aria-label={egg ? "Nudge" : "React"}
+                className="rounded-full"
+              >
+                {/*
+                  Same slot, same size class, either way — the sentence above it
+                  and the snippet beside it must not move when a mark takes the
+                  face's place, or the egg stops being a surprise and becomes a
+                  layout shift.
+
+                  Keyed on which name matched, so typing your way from one egg to
+                  another remounts and replays the reveal — a different creature
+                  arriving, rather than the same one changing colour.
+                */}
+                {egg ? (
+                  <EggMark
+                    key={egg.id}
+                    egg={egg}
+                    title={seed.trim()}
+                    nudge={nudge}
+                    onSettled={() => setNudge(false)}
+                    className="size-[min(26vmin,13rem)]"
+                  />
+                ) : (
+                  <Blobatar
+                    name={seed || " "}
+                    animate="always"
+                    {...opts}
+                    title={`Blobatar for ${seed}`}
+                    // `hero-blobatar` is a hook for one rule in `styles.css`, which
+                    // gives this blobatar back the pointer reaction the page turns
+                    // off everywhere else.
+                    className="hero-blobatar size-[min(26vmin,13rem)]"
+                  />
+                )}
               </button>
             </PopoverAnchor>
 
