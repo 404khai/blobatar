@@ -10,7 +10,7 @@
   },
   "//dependencies": "`blobatar` from npm rather than `workspace:*`. Inside this repo bun links the local package either way, since its version satisfies the range; outside it — a clone made by the Deploy to Cloudflare button, whose install runs in this directory alone — a workspace protocol would be unresolvable. The range is what makes the directory deployable on its own.",
   "dependencies": {
-    "blobatar": "^0.2.0"
+    "blobatar": "^1.0.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
