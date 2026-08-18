@@ -431,6 +431,105 @@ const sheet = () =>
   );
 
 // ---------------------------------------------------------------------------
+// The roster
+// ---------------------------------------------------------------------------
+
+/**
+ * The gen2 announcement image: six silhouettes above, ten below.
+ *
+ * The sheet already draws all ten and labels them, and is the wrong picture for
+ * this — it documents what exists, while the announcement is about what
+ * changed, and "changed" needs both states in frame at once. Hence the
+ * duplication of the six: they are the control, and dropping them would leave
+ * a row of four new shapes making no visible claim about the roster they joined.
+ *
+ * Sized 16:9 because that is the aspect a single image is cropped to in a
+ * timeline, and a picture that argues by comparison cannot afford to have
+ * either row cropped away.
+ */
+const ROSTER = { width: 1400, height: 788, out: join(MEDIA, "roster.png") };
+
+/** The four `gen=2` adds, by label — the only thing this image is claiming. */
+const ADDED = new Set(["capsule", "triangle", "hexagon", "droplet"]);
+
+/** `gen=1`'s vocabulary, in the order the README's table lists it. */
+const GEN1 = ["round", "organic", "boxy", "nub", "cloud", "sun"];
+
+/**
+ * The six are drawn from the same gen2 band midpoints as the ten below.
+ *
+ * Reaching for `blobatar@1` to draw the top row would be the literal reading
+ * and the wrong one: a silhouette that both generations carry is the same
+ * silhouette, and the row is illustrating the vocabulary, not the mapping. The
+ * mapping is what the caption is for.
+ */
+const shapeAt = (label: string) =>
+  SHAPES.find((s) => s.label === label)!.at;
+
+const NEW_LABEL = "#e8e8e8";
+
+/**
+ * Hues are assigned per row so neither row repeats a colour, and the four new
+ * shapes are not colour-coded — the accent is on the label alone. Tinting them
+ * would make the picture read as "four special shapes" rather than "ten shapes,
+ * four of which are new", and they stop being new with the next generation.
+ */
+const rosterCell = (label: string, size: number, hue: number, isNew: boolean) => `
+  <figure style="width:${size + 32}px">
+    <div style="width:${size}px;height:${size}px">${blobatar("shape", {
+      traits: { shape: shapeAt(label) },
+      hue,
+    })}</div>
+    <figcaption style="color:${isNew ? NEW_LABEL : LABEL}">${
+      isNew ? `+ ${label}` : label
+    }</figcaption>
+  </figure>`;
+
+const rosterRow = (
+  heading: string,
+  note: string,
+  labels: readonly string[],
+  size: number,
+  hueFrom: number,
+) => `
+  <section>
+    <header><span>${heading}</span><span>${note}</span></header>
+    <div class="row">${labels
+      .map((l, i) =>
+        rosterCell(l, size, HUES[(hueFrom + i) % HUES.length]!, ADDED.has(l)),
+      )
+      .join("")}</div>
+  </section>`;
+
+const roster = () =>
+  page(
+    ROSTER.width,
+    ROSTER.height,
+    `body {
+       display: flex; flex-direction: column; justify-content: center;
+       gap: 58px; padding: 0 44px;
+     }
+     section { display: flex; flex-direction: column; gap: 22px }
+     header {
+       display: flex; justify-content: space-between; align-items: baseline;
+       padding: 0 6px 14px; border-bottom: 1px solid #1e1e20;
+     }
+     header span:first-child {
+       color: #f2f2f2; font-size: 15px; letter-spacing: 0.06em;
+     }
+     header span:last-child { color: ${LABEL}; font-size: 13px }
+     .row { display: flex; justify-content: center; align-items: flex-end }
+     figure { display: flex; flex-direction: column; align-items: center; gap: 14px }
+     figcaption { font-size: 13px; letter-spacing: 0.02em; line-height: 18px }
+     footer {
+       color: ${LABEL}; font-size: 13px; text-align: center; letter-spacing: 0.02em;
+     }`,
+    `${rosterRow("gen 1", "six silhouettes", GEN1, 128, 1)}
+     ${rosterRow("gen 2", "ten \u2014 four of them new", SHAPES.map((s) => s.label), 102, 4)}
+     <footer>unversioned URLs render gen 2 \u00b7 pin <b style="color:${NEW_LABEL};font-weight:400">?gen=1</b> to keep the original six</footer>`,
+  );
+
+// ---------------------------------------------------------------------------
 // Rasterizing
 // ---------------------------------------------------------------------------
 
@@ -508,5 +607,6 @@ function shoot(name: string, html: string, width: number, height: number, out: s
 
 shoot("crowd", crowd(), CROWD.width, CROWD.height, CROWD.out);
 shoot("sheet", sheet(), SHEET.width, SHEET_HEIGHT, SHEET.out);
+shoot("roster", roster(), ROSTER.width, ROSTER.height, ROSTER.out);
 
 rmSync(tmp, { recursive: true, force: true });
