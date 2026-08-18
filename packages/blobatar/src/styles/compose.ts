@@ -1,33 +1,11 @@
 /**
- * A generation, composed from shape values.
+ * A Blobatar style composed from silhouette definitions.
  *
- * `compose(bands, fit)` is the whole of what distinguishes one generation from
- * another: which silhouettes it draws, how the seed is partitioned between
- * them, and how the eye cluster is fitted into whatever room a silhouette
- * leaves. It returns the three members a `Generation` needs — `layout`,
- * `render`, `background` — and the caller adds the `id`.
- *
- * Bands live here rather than on the shape because `gen1` and `gen2` draw six
- * of the same silhouettes and weight them differently — a `round` that carried
- * its own threshold could belong to only one of them.
- *
- * `fit` is the other half of the same argument. gen1 measures the cluster
- * against the body radius on one axis; gen2 measures it against a per-shape
- * face on both. That is not a refinement that can be applied retroactively —
- * it would move every gen1 blobatar — so it is a parameter, and each
- * generation names the one it froze.
- *
- * ## What a composed generation cannot vary
- *
- * Every numeric range the layout reads is hardcoded here: `body.r` 31–38,
- * `body.ratio` 0.92–1.08, `eye.rx` 0.075–0.105, `eye.gap` 0.1–0.24, and the
- * rest. gen1 and gen2 happen to share all of them, which is exactly why one
- * composer serves both — but it means a generation wanting a different body
- * range cannot be expressed by composing, only by extending `compose`. At that
- * point the ranges become part of the generation too, and this signature grows
- * a third parameter. That is a deliberate deferral, not an oversight: nothing
- * has needed it across two generations, and inventing the knob before there is
- * a second set of ranges would be guessing at its shape. See ADR-0007.
+ * The band table chooses and weights silhouettes. Each silhouette owns its
+ * geometry and safe face region; this module owns the shared body, eyes and SVG
+ * serialization. The seam is private, so it can deepen when a future shape
+ * proves the current definition insufficient without committing consumers to
+ * its lifecycle.
  */
 import type { Palette } from "../color";
 import { superellipse } from "../shape";
@@ -40,57 +18,7 @@ export interface Eye {
 
 export type Fit = (t: Traits, b: Body, face: Ellipse) => Eye[];
 
-/*
- * The two strategies are written out rather than factored into shared helpers,
- * and the duplication is the point: a consumer carrying one generation carries
- * one of these, and a `cluster()`/`pair()` boundary that exists only so the two
- * can share costs that consumer bytes for a sharing they never use.
- */
-
-/**
- * gen1: the cluster measured against the body radius, on one axis.
- *
- * `tight` is recovered from the face rather than stated twice — a shape whose
- * face is its whole body is one gen1 called unshrunk, and the spline shapes'
- * `min(radii) * 0.95` is exactly the shrink their face already describes.
- */
-export const bodyFit: Fit = (t, b, face) => {
-  const rx = b.rx;
-  const er0 = t.num("eye.rx", 0.075, 0.105) * rx;
-  const ratio = t.num("eye.ratio", 1.9, 3.2);
-  const scale = t.num("eye.scale", 0.78, 1.24);
-  const stretch = t.num("eye.stretch", 0.85, 1.18);
-  const clearance = t.num("eye.gap", 0.1, 0.24) * rx;
-  const wide = er0 * Math.max(1, scale);
-  const tall = er0 * ratio * Math.max(1, scale * stretch);
-  const gap0 = wide + rx * 0.03 + clearance;
-
-  const gx = t.jitter("gaze.x", 0.09) * rx;
-  const gy = t.num("gaze.y", -0.2, 0.08) * b.ry;
-  const tight = face.rx / rx;
-  const need = (Math.abs(gx) + gap0 + Math.hypot(wide, tall)) / rx;
-  const fit = need > tight * 0.9 ? (tight * 0.9) / need : 1;
-
-  const er = er0 * fit;
-  const eyeRy = er * ratio;
-  const gap = gap0 * fit;
-  const room = Math.max(0, Math.min(1, clearance / tall));
-  const bound = Math.min(12, (Math.asin(room) * 180) / Math.PI);
-  const lean = t.num("eye.lean", -1, 1) * bound;
-  const lean2 = Math.max(-12, Math.min(12, lean + t.jitter("eye.lean2", 3.5)));
-
-  return [
-    { cx: b.cx + gx - gap, cy: b.cy + gy, rx: er, ry: eyeRy, n: t.num("eye.n", 3.5, 6), rot: lean },
-    {
-      cx: b.cx + gx + gap,
-      cy: b.cy + gy + t.jitter("eye.dy", 0.04) * b.ry,
-      rx: er * scale, ry: eyeRy * scale * stretch,
-      n: t.num("eye.n", 3.5, 6), rot: lean2,
-    },
-  ];
-};
-
-/** gen2: the cluster measured against the shape's own face, on both axes. */
+/** Fits the eye cluster against the silhouette's face region on both axes. */
 export const faceFit: Fit = (t, b, face) => {
   const rx = b.rx;
   const er0 = t.num("eye.rx", 0.075, 0.105) * rx;
@@ -132,7 +60,7 @@ export const faceFit: Fit = (t, b, face) => {
   ];
 };
 
-/** `[shape, upper edge of its band in [0, 1)]`, in order. Frozen per generation. */
+/** `[shape, upper edge of its band in [0, 1)]`, in order. */
 export type Band = readonly [Shape, number];
 
 export function compose(bands: Band[], fit: Fit) {
@@ -196,8 +124,7 @@ export function compose(bands: Band[], fit: Fit) {
  * What a composed `layout` returns.
  *
  * `shape` is a `string` here rather than a union of names, because which names
- * are possible is a property of the band table a generation was composed with
- * and not of the composer. A generation that wants the narrower type states it
- * itself — see `ShapeName` in `blob.ts`.
+ * are possible is a property of the band table and not of the composer. The
+ * public `blob` entry narrows this to the package major's known vocabulary.
  */
 export type Layout = ReturnType<ReturnType<typeof compose>["layout"]>;

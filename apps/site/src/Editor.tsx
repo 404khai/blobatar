@@ -7,7 +7,6 @@ import { Segmented, SegmentedItem } from "@/components/ui/segmented";
 import { Snippet } from "@/components/ui/snippet";
 import { Install } from "@/components/ui/install";
 import { AXES, GROUPS, applies, round3, type Axis, type Group, type Shape } from "@/editor/axes";
-import { DEFAULT_GEN, GENERATIONS, GENS, sameShape, type Gen } from "@/generations";
 import { blobLayout, resolved } from "@/editor/resolved";
 import { snippet, type Api, type Motion } from "@/editor/snippet";
 import { NAMES } from "@/names";
@@ -38,7 +37,6 @@ export function Editor() {
   const [pinned, setPinned] = useState<Record<string, number>>({});
   const [api, setApi] = useState<Api>("react");
   const [motion, setMotion] = useState<Motion>("hover");
-  const [gen, setGen] = useState<Gen>(DEFAULT_GEN);
 
   /**
    * Every trait's current position, pinned or hashed — the same reader the
@@ -53,7 +51,7 @@ export function Editor() {
   // The resolved geometry, for the two things only it can answer: which
   // silhouette the name produced when `shape` is unpinned, and where the eye
   // cluster ended up when `fit` scaled it.
-  const layout = useMemo(() => blobLayout(name || " ", pinned, gen), [name, pinned, gen]);
+  const layout = useMemo(() => blobLayout(name || " ", pinned), [name, pinned]);
   const shape = layout.shape as Shape;
   const ghosts = useMemo(() => resolved(layout, t), [layout, t]);
 
@@ -97,32 +95,8 @@ export function Editor() {
       return next;
     });
 
-  /**
-   * Switching generation, with the one pin that cannot simply carry over.
-   *
-   * Every other pinned key means the same thing in both vocabularies —
-   * `eye.gap` is 0.1–0.24 of the body radius either way — but `shape` is a
-   * *band*, and the bands moved: 0.88 is a cloud under gen1 and a droplet under
-   * gen2. Carrying the number would silently change the silhouette; dropping
-   * the pin would silently discard a choice. So the silhouette is what carries,
-   * by name, and a pin only falls away when the shape it named does not exist
-   * in the generation being switched to.
-   */
-  const changeGen = (next: Gen) =>
-    setGen(prev => {
-      if (next === prev) return prev;
-      setPinned(p => {
-        if (!("shape" in p)) return p;
-        const now = sameShape(prev, next, p.shape!);
-        if (now) return { ...p, shape: now.at };
-        const { shape: _gone, ...rest } = p;
-        return rest;
-      });
-      return next;
-    });
-
   const count = Object.keys(pinned).length;
-  const code = snippet({ api, name, pinned, motion, gen });
+  const code = snippet({ api, name, pinned, motion });
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-24">
@@ -170,8 +144,6 @@ export function Editor() {
             pinned={pinned}
             motion={motion}
             setMotion={setMotion}
-            gen={gen}
-            setGen={changeGen}
             onShuffle={shuffle}
           />
         </div>
@@ -250,7 +222,6 @@ export function Editor() {
               key={group}
               group={group}
               shape={shape}
-              gen={gen}
               name={name}
               pinned={pinned}
               hue={t("hue") * 360}
@@ -273,8 +244,6 @@ function Preview({
   pinned,
   motion,
   setMotion,
-  gen,
-  setGen,
   onShuffle,
 }: {
   name: string;
@@ -282,8 +251,6 @@ function Preview({
   pinned: Record<string, number>;
   motion: Motion;
   setMotion: (m: Motion) => void;
-  gen: Gen;
-  setGen: (g: Gen) => void;
   onShuffle: () => void;
 }) {
   return (
@@ -338,7 +305,6 @@ function Preview({
         <Blobatar
           name={name || " "}
           traits={pinned}
-          generation={GENERATIONS[gen]}
           animate={motion}
           title={`Blobatar for ${name}`}
           className="editor-preview size-[min(34vmin,15rem)]"
@@ -347,33 +313,10 @@ function Preview({
         <Blobatar
           name={name || " "}
           traits={pinned}
-          generation={GENERATIONS[gen]}
           alt={`Blobatar for ${name}`}
           className="size-[min(34vmin,15rem)]"
         />
       )}
-
-      {/*
-        Beside motion rather than in the panel, because it is not an axis. Every
-        control in the panel writes one trait; this one changes what the traits
-        *mean* — the silhouette vocabulary, the bands, and which of the sliders
-        below exist at all. See ADR-0006.
-      */}
-      <div className="flex items-center gap-3">
-        <span className="text-muted text-xs lowercase">generation</span>
-        <Segmented
-          type="single"
-          value={String(gen)}
-          onValueChange={(v: string) => v && setGen(Number(v) as Gen)}
-          aria-label="Generation"
-        >
-          {GENS.map(g => (
-            <SegmentedItem key={g} value={String(g)}>
-              gen {g}
-            </SegmentedItem>
-          ))}
-        </Segmented>
-      </div>
 
       <div className="flex items-center gap-3">
         <span className="text-muted text-xs lowercase">motion</span>
@@ -397,7 +340,6 @@ function Preview({
 interface GroupProps {
   group: Group;
   shape: Shape;
-  gen: Gen;
   name: string;
   pinned: Record<string, number>;
   hue: number;
@@ -411,7 +353,6 @@ interface GroupProps {
 function GroupBlock({
   group,
   shape,
-  gen,
   name,
   pinned,
   hue,
@@ -421,7 +362,7 @@ function GroupBlock({
   onPin,
   onUnpin,
 }: GroupProps) {
-  const all = AXES[gen].filter(a => a.group === group);
+  const all = AXES.filter(a => a.group === group);
   const live = all.filter(a => applies(a, shape));
   const missing = all.filter(a => !applies(a, shape));
 
@@ -437,7 +378,6 @@ function GroupBlock({
             key={axis.key}
             name={name}
             traits={pinned}
-            gen={gen}
             value={pinned.shape}
             onPick={at => (at === null ? onUnpin("shape") : onChange("shape", at))}
           />

@@ -1,5 +1,9 @@
 # Generations
 
+> Superseded by ADR-0008. A generation remains the name of a frozen seed→look
+> mapping, but package majors now select one rather than exposing generations
+> as runtime library values.
+
 A **generation** is one frozen seed → look mapping: the silhouette vocabulary
 and its thresholds, every numeric range the layout reads a trait into, and the
 tone set. `gen1` is the original six shapes. Callers pin one with

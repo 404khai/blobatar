@@ -1,5 +1,13 @@
-import { blobatar } from "blobatar/blob";
-import { BadRequest, parseName, parseOptions } from "./params";
+import { blobatar as blobatar2, type BlobatarOptions } from "blobatar/blob";
+import { blobatar as blobatar1 } from "blobatar-v1/blob";
+import { BadRequest, parseName, parseOptions, type Generation } from "./params";
+
+type Renderer = (name: string, options?: BlobatarOptions) => string;
+
+const RENDERERS: Record<Generation, Renderer> = {
+  1: blobatar1,
+  2: blobatar2,
+};
 
 /** The one public path. Everything outside it is the site. */
 export const PREFIX = "/avatar/";
@@ -97,9 +105,9 @@ so new shapes arrive as a new generation rather than as a change to yours.
   /avatar/alain00?gen=1     round organic boxy nub cloud sun
   /avatar/alain00?gen=2     …and capsule triangle hexagon droplet
 
-An unversioned URL renders gen 1 and always will, so nothing you have
-already pasted anywhere needs revisiting — gen 2 is opt-in, and stays that
-way. Naming a generation makes the promise explicit, and it is the version
+An unversioned URL follows the current major and now renders gen 2. Existing
+URLs that must retain their old shapes should pin ?gen=1 before upgrading.
+Naming a generation makes the promise explicit, and it is the version
 served with a year-long immutable cache rather than a day: a pinned URL
 cannot come back different, so every cache between here and your reader is
 free to keep it.
@@ -208,7 +216,8 @@ export function avatar(request: Request): Response {
 
   let body: string;
   try {
-    body = blobatar(parseName(url.pathname, PREFIX), parseOptions(url.searchParams));
+    const { generation, options } = parseOptions(url.searchParams);
+    body = RENDERERS[generation](parseName(url.pathname, PREFIX), options);
   } catch (e) {
     if (e instanceof BadRequest) return text(`${e.message}\n\n${USAGE}`, 400);
     throw e;
@@ -219,7 +228,7 @@ export function avatar(request: Request): Response {
     "content-type": "image/svg+xml; charset=utf-8",
     // Read off the raw query rather than off the parsed options, because the
     // question is whether the *caller* pinned a generation, not which one they
-    // ended up with. An unversioned URL resolves to gen1 too, and it must not
+    // ended up with. An unversioned URL resolves to gen2 too, and it must not
     // inherit the cache of a promise it never asked for.
     "cache-control": url.searchParams.has("gen") ? PINNED : CACHE_CONTROL,
     etag: tag,

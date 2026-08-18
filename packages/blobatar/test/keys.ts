@@ -1,11 +1,10 @@
 /**
- * Every trait key gen1 reads, including the indexed families it only reaches
- * for some shapes.
+ * The trait keys shared by Blobatar 2's silhouette families.
  *
  * Now spread across `styles/compose.ts` (the body and eye ranges every
- * generation shares) and `styles/shapes.ts` (the per-silhouette families like
+ * style shares) and `styles/shapes.ts` (the per-silhouette families like
  * `nub.a0` and `cloud.r0`), which is exactly why this stays a hand-written
- * list: the keys a generation reads are a property of its band table, and no
+ * list: the keys a style reads are a property of its band table, and no
  * single module has them all any more.
  *
  * Kept as a list rather than derived, because the point of the tests that use
@@ -13,7 +12,7 @@
  * scraped from the implementation would agree with the implementation by
  * construction, including where the implementation is wrong.
  */
-export const BLOB_KEYS = [
+const BASE_KEYS = [
   "shape",
   "hue",
   "tone",
@@ -50,15 +49,10 @@ export const BLOB_KEYS = [
 ];
 
 /**
- * The same, for gen2.
- *
- * A separate list rather than a superset of the one above, for the reason the
- * one above is a list at all. gen2 shares most of gen1's keys — a seed's
- * `body.r` position is the same number in both — but it drops none and adds
- * five, and a union would hide which generation reads which.
+ * Every trait key Blobatar 2 reads, including shape-specific families.
  */
-export const BLOB2_KEYS = [
-  ...BLOB_KEYS,
+export const BLOB_KEYS = [
+  ...BASE_KEYS,
   "poly.round",
   "capsule.squat",
   "droplet.w",

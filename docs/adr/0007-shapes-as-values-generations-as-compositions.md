@@ -1,5 +1,9 @@
 # Shapes are importable values, generations are compositions over them
 
+> Superseded by ADR-0008. Shape composition remains an internal implementation
+> technique, but shapes, composers and generations are no longer public library
+> values.
+
 gen1 and gen2 were two hand-written style modules, `styles/blob.ts` (~300 lines)
 and `styles/blob2.ts` (~380), and six of the ten silhouettes existed in both. The
 copy was deliberate — ADR-0006 argued that gen1 is frozen forever, so gen2 must

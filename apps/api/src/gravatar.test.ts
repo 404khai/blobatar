@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { blobatar } from "blobatar/blob";
-import { gen1 } from "blobatar/generation";
 import { avatar } from "./avatar";
 
 /** How Gravatar addresses a person: MD5 of the lowercased, trimmed email. */
@@ -15,7 +14,7 @@ test("a real Gravatar URL renders by swapping only the host", async () => {
   const res = get(`/avatar/${HASH}?s=200&d=identicon&r=g`);
   expect(res.status).toBe(200);
   expect(res.headers.get("content-type")).toBe("image/svg+xml; charset=utf-8");
-  expect(await res.text()).toBe(blobatar(HASH, { size: 200, generation: gen1 }));
+  expect(await res.text()).toBe(blobatar(HASH, { size: 200 }));
 });
 
 test("the hash is the seed, so one person is one stable blobatar", async () => {
@@ -76,7 +75,7 @@ test("an undocumented parameter still fails, on this route too", () => {
 
 test("blobatar's own options compose onto a Gravatar URL", async () => {
   expect(await get(`/avatar/${HASH}?s=64&background=squircle`).text())
-    .toBe(blobatar(HASH, { size: 64, background: "squircle", generation: gen1 }));
+    .toBe(blobatar(HASH, { size: 64, background: "squircle" }));
 });
 
 test("the usage documents the drop-in", async () => {

@@ -1,6 +1,6 @@
 # blobatar
 
-Deterministic geometric blobatars from any string. No dependencies, ~3.7 KB gzipped.
+Deterministic geometric blobatars from any string. No dependencies, ~4.2 KB gzipped.
 
 ```ts
 import { blobatar } from "blobatar";
@@ -27,16 +27,10 @@ el.style.backgroundImage = `url("${blobatarUri(user.id)}")`;
 
 ## Shapes
 
-A soft body and two capsule eyes, drawn from a vocabulary of six silhouettes:
-`round`, `organic`, `boxy`, `nub`, `cloud`, `sun`. Weighted so rounds and pebbles
-are everyday and suns are a find. Transparent backdrop by default; the body is
-the blobatar.
-
-That is **gen1**, the default. **gen2** adds `capsule`, `triangle`, `hexagon`
-and `droplet` to the same six and reweights the lot — the four new ones read
-louder than a pebble, so between them they take under a fifth of the space, and
-rounds and pebbles still carry a wall. It is opt-in in this major; see
-[Generations](#what-it-guarantees) below.
+A soft body and two capsule eyes, drawn from ten silhouettes: `round`,
+`organic`, `boxy`, `nub`, `cloud`, `sun`, `capsule`, `triangle`, `hexagon` and
+`droplet`. They are weighted so rounds and pebbles are everyday and the louder
+shapes remain a find. Transparent backdrop by default; the body is the blobatar.
 
 The main entry also carries the palette and trait utilities. If all you do is
 render, import the renderer on its own and save about a kilobyte:
@@ -50,47 +44,20 @@ import { blobatar } from "blobatar/blob";
 **Determinism.** The same name always renders the same blobatar within a major
 version. Numeric ranges, the shape thresholds, the tone set and the expression
 roster are all part of that contract, and it is enforced rather than intended:
-`test/golden/gen1.txt` and `gen2.txt` each record 1312 renders and a shape
-histogram over 20,000 seeds, so moving any of them fails the build.
+`test/golden/gen2.txt` records 1312 renders and a shape histogram over 20,000
+seeds, so moving any of them fails the build.
 
 **Stability across versions.** Traits are addressed by string key rather than
 drawn from a sequential stream, so adding a trait in a later minor cannot
 disturb existing blobatars. Adding a shape or a tone _would_ — those move
 together, as a **generation**.
 
-Adding a silhouette is not additive: the shape thresholds partition [0, 1), so a
-new one has to take its share from the existing ones and every name in the moved
-region gets a different creature. New shapes therefore arrive as a new
-generation rather than as a change to yours. The default follows the major, so
-upgrading `blobatar@1` → `@2` is the moment you opt in — and every generation
-stays importable, so you can pin one and keep your users' blobatars through it:
-
-```ts
-import { blobatar } from "blobatar";
-import { gen1, gen2 } from "blobatar/generation";
-
-blobatar(user.email, { generation: gen1 }); // the original six, in any major
-blobatar(user.email, { generation: gen2 }); // …and capsule, triangle, hexagon, droplet
-```
-
-```tsx
-<Blobatar name={user.email} generation={gen2} />
-```
-
-| | silhouettes | default in |
-| --- | --- | --- |
-| `gen1` | round, organic, boxy, nub, cloud, sun | `0.x`, `1.x` |
-| `gen2` | …and capsule, triangle, hexagon, droplet | — |
-
-A generation is imported as a value for the same reason an expression is: pin
-nothing and you carry nothing. Measured, gen2 is about 610 B gzipped on top of
-the renderer, and none of it reaches a bundle that never names it.
-
-Roughly a third of names render byte-identical under both, which is not a
-coincidence and not a bug: a round body with room for its eyes is drawn by the
-same arithmetic in either vocabulary, and gen2 does not move a blobatar for the
-sake of moving it. The rest change, and every one of them is a decision you
-make by passing the option.
+Adding a silhouette is not additive: the shape thresholds partition [0, 1), so
+a new one has to take its share from the existing ones and every name in the
+moved region gets a different creature. New shapes therefore arrive only in a
+new package major. Upgrading `blobatar@1` → `@2` is the opt-in; applications that
+stay on v1 keep both its output and package size. A major contains one frozen
+generation, so the ordinary API remains just `blobatar(name, options)`.
 
 **Contrast.** Eyes clear 4.5:1 against the body at every hue and every tone —
 verified at 1° resolution in the test suite. Polarity flips automatically, so
@@ -157,40 +124,6 @@ major alongside the shape thresholds and the tone set.
 Trait names are not enumerated here on purpose: they follow the layout. Read the
 shared ones off `styles/compose.ts` and the per-silhouette ones off
 `styles/shapes.ts`, or let the editor write the map for you.
-
-## Composing your own generation
-
-The ten silhouettes are importable values, and a generation is a table of them
-plus a fit strategy. If you want three shapes rather than ten, compose three:
-
-```ts
-import { blobatar } from "blobatar/blob";
-import { compose, bodyFit, type Band } from "blobatar/compose";
-import { round, organic, sun } from "blobatar/shapes";
-
-// `[shape, upper edge in [0, 1)]`, in order — half rounds, four in ten pebbles,
-// one in ten a sun.
-const bands: Band[] = [[round, 0.5], [organic, 0.9], [sun, 1]];
-const mine = { id: 7, ...compose(bands, bodyFit) };
-
-blobatar(user.email, { generation: mine });
-```
-
-You carry the shapes you name and no others, so this measures *below* the
-default import rather than above it. Every containment guarantee still runs —
-the shapes are the same values gen1 and gen2 use, and their geometry is already
-proven.
-
-Two things to know. `id` must be unique to your generation and nothing can check
-it for you: `blobatar/react` memoizes on the serializable part of its options,
-and functions do not serialize, so the id is all that distinguishes two
-generations. Ids 1 and 2 are taken. And a composed generation is frozen the
-moment you ship it, exactly like ours — a band edge you nudge later is somebody's
-avatar changing identity.
-
-The numeric ranges (`body.r` 31–38, `eye.rx` 0.075–0.105, and the rest) are the
-composer's and cannot be varied per generation. See ADR-0007 for why, and for
-what would have to change.
 
 ## Animation
 

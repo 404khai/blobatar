@@ -10,7 +10,6 @@
  * inside the component would be testable only by rendering one.
  */
 import { KEY_ORDER } from "./axes";
-import { identifier, type Gen } from "@/generations";
 
 export type Api = "react" | "string";
 export type Motion = false | "hover" | "always";
@@ -22,16 +21,6 @@ export interface SnippetInput {
   /** The pinned traits. Empty means no `traits` at all in the output. */
   pinned: Record<string, number>;
   motion: Motion;
-  /**
-   * Which generation the preview is rendering.
-   *
-   * Emitted only when it is not the default. Pinning the default would be
-   * harmless and is not free: it puts a second import in front of every reader
-   * of a snippet that does not need one, and — for the caller who does want to
-   * pin gen1 across a major — it is a decision that belongs to them rather than
-   * a default this page silently makes. See ADR-0006.
-   */
-  gen: Gen;
 }
 
 /**
@@ -52,10 +41,9 @@ const key = (k: string) => (bare.test(k) ? k : JSON.stringify(k));
  * `AXES` and forgotten here, or one restored from a config someone hand-edited
  * — in the output instead of silently dropped.
  */
-function entries(pinned: Record<string, number>, gen: Gen) {
-  const order = KEY_ORDER[gen];
-  const known = order.filter(k => k in pinned);
-  const rest = Object.keys(pinned).filter(k => !order.includes(k));
+function entries(pinned: Record<string, number>) {
+  const known = KEY_ORDER.filter(k => k in pinned);
+  const rest = Object.keys(pinned).filter(k => !KEY_ORDER.includes(k));
   return [...known, ...rest].map(k => [k, pinned[k]!] as const);
 }
 
@@ -79,24 +67,21 @@ const attr = (value: string) =>
  */
 const nameNote = "// everything below comes from the name unless it is pinned";
 
-export function snippet({ api, name, pinned, motion, gen }: SnippetInput): string {
-  const traits = entries(pinned, gen);
+export function snippet({ api, name, pinned, motion }: SnippetInput): string {
+  const traits = entries(pinned);
   const seed = name || "blobatar";
-  const generation = identifier(gen);
 
   return api === "react"
-    ? react(seed, traits, motion, generation)
-    : string(seed, traits, motion, generation);
+    ? react(seed, traits, motion)
+    : string(seed, traits, motion);
 }
 
 function react(
   seed: string,
   traits: (readonly [string, number])[],
   motion: Motion,
-  generation: string | null,
 ) {
   const lines = [`import { Blobatar } from "blobatar/react";`];
-  if (generation) lines.push(`import { ${generation} } from "blobatar/generation";`);
   // The trade the library documents, stated where it is taken rather than in
   // prose beside the box: animating is what moves the blobatar out of a single
   // `<img>` and into a dozen inline SVG nodes.
@@ -109,10 +94,6 @@ function react(
   if (traits.length) lines.push(nameNote);
 
   lines.push(`<Blobatar`, `  name=${attr(seed)}`);
-  // Above `traits`, because it is the wider statement: the generation decides
-  // what the trait positions below even mean.
-  if (generation) lines.push(`  generation={${generation}}`);
-
   // One key inline, several over lines. A person writing `{ shape: 0.14 }`
   // does not break it across four lines, and a person writing six of them does
   // not leave it on one.
@@ -135,10 +116,8 @@ function string(
   seed: string,
   traits: (readonly [string, number])[],
   motion: Motion,
-  generation: string | null,
 ) {
   const lines = [`import { blobatar } from "blobatar";`];
-  if (generation) lines.push(`import { ${generation} } from "blobatar/generation";`);
   lines.push("");
 
   // `animate` is honored by `blobatar/react` only — the string API returns
@@ -153,10 +132,9 @@ function string(
   // words differ because they are read in different positions. See CONTEXT.md.
   const call = `const svg = blobatar(${JSON.stringify(seed)}`;
 
-  if (!traits.length && !generation) return [...lines, `${call});`].join("\n");
+  if (!traits.length) return [...lines, `${call});`].join("\n");
 
   lines.push(`${call}, {`);
-  if (generation) lines.push(`  generation: ${generation},`);
   if (traits.length) {
     lines.push(`  traits: {`);
     for (const [k, v] of traits) lines.push(`    ${key(k)}: ${v},`);

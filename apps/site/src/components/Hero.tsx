@@ -25,16 +25,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Snippet } from "@/components/ui/snippet";
-import {
-  DEFAULT_GEN,
-  GENERATIONS,
-  GENS,
-  SHAPES,
-  identifier,
-  sameShape,
-  type Gen,
-  type ShapeOption,
-} from "@/generations";
+import { SHAPES, type ShapeOption } from "@/shapes";
 import { Install } from "@/components/ui/install";
 import { EggMark, eggFor } from "@/eggs";
 import { cn } from "@/lib/utils";
@@ -52,9 +43,7 @@ type Bg = "none" | "squircle" | "circle" | "square";
 const HUES = [12, 40, 78, 140, 190, 225, 275, 320];
 
 /**
- * The silhouettes come from `@/generations`, keyed by generation, because there
- * is more than one vocabulary now and the editor picks from the same table.
- * `Shape` here is one option — a name and the trait position that selects it.
+ * One silhouette option: its name and the trait position that selects it.
  */
 type Shape = ShapeOption;
 
@@ -151,15 +140,10 @@ function snippet(
   hue: number | null,
   pose: Pose,
   shape: Shape | null,
-  gen: Gen,
 ) {
   const posed = pose.value !== idle;
-  // `null` for the default generation, which is the one the snippet stays
-  // quiet about — see `identifier`.
-  const generation = identifier(gen);
 
   const imports = [`import { Blobatar } from "blobatar/react";`];
-  if (generation) imports.push(`import { ${generation} } from "blobatar/generation";`);
   if (posed) imports.push(`import { ${pose.name} } from "blobatar/expression";`);
   imports.push(`import "blobatar/motion.css";`);
 
@@ -167,9 +151,6 @@ function snippet(
   // reads as configuration you are obliged to supply, which is the opposite of
   // what a one-prop library wants to advertise.
   const props = [`name=${attr(seed || "blobatar")}`];
-  // Above `traits`, because it is the wider statement: the generation decides
-  // what the trait position below even means.
-  if (generation) props.push(`generation={${generation}}`);
   if (shape) props.push(`traits={{ shape: ${shape.at} }}`);
   if (bg !== "none") props.push(`background="${bg}"`);
   if (hue !== null) props.push(`hue={${hue}}`);
@@ -198,7 +179,6 @@ export function Hero() {
   const [hue, setHue] = useState<number | null>(null);
   const [pose, setPose] = useState<Pose>(POSES[0]);
   const [shape, setShape] = useState<Shape | null>(null);
-  const [gen, setGen] = useState<Gen>(DEFAULT_GEN);
 
   /**
    * A reaction is a temporary override of the picked pose, not a replacement
@@ -244,22 +224,7 @@ export function Hero() {
   const shown = burst ?? pose.value;
   /** Whether the picked pose is one of the ones the row hides. */
   const extra = MORE.some((p) => p.name === pose.name);
-  const tuned =
-    bg !== "none" || hue !== null || pose.value !== idle || shape !== null || gen !== DEFAULT_GEN;
-
-  /**
-   * Switching vocabulary, carrying the pinned silhouette by name.
-   *
-   * The same number is a different creature in each generation, so keeping it
-   * would silently change what you picked and dropping it would silently throw
-   * the pick away. `sameShape` does neither: it finds the silhouette you chose
-   * in the vocabulary you switched to, and returns nothing only when that
-   * vocabulary genuinely has no such shape.
-   */
-  const changeGen = (next: Gen) => {
-    setShape(s => (s ? sameShape(gen, next, s.at) : null));
-    setGen(next);
-  };
+  const tuned = bg !== "none" || hue !== null || pose.value !== idle || shape !== null;
 
   /**
    * The burst pattern the library documents: an expression is a latched state,
@@ -282,7 +247,6 @@ export function Hero() {
   };
 
   const opts: BlobatarOptions = {
-    generation: GENERATIONS[gen],
     background: bg === "none" ? false : bg,
     hue: hue ?? undefined,
     expression: shown,
@@ -522,32 +486,6 @@ export function Hero() {
             >
               <div className="flex flex-col gap-5">
                 {/*
-                  Generation above shape, because it is the one control here
-                  that is not a trait: it decides what the vocabulary *is*, and
-                  therefore what every tile in the row below can even be. The
-                  same `0.885` is a cloud in one and a droplet in the other.
-
-                  It earns a place on a panel this deliberately small because
-                  the four silhouettes gen2 adds are otherwise unreachable from
-                  the landing page — the page would be advertising six shapes
-                  for a library that draws ten.
-                */}
-                <Field label="generation">
-                  <Segmented
-                    type="single"
-                    value={String(gen)}
-                    onValueChange={(v) => v && changeGen(Number(v) as Gen)}
-                    aria-label="Generation"
-                  >
-                    {GENS.map((g) => (
-                      <SegmentedItem key={g} value={String(g)} className="px-3">
-                        gen {g}
-                      </SegmentedItem>
-                    ))}
-                  </Segmented>
-                </Field>
-
-                {/*
                   Shape next: it is the trait that decides what creature this
                   is, and every control under it decorates that decision.
 
@@ -571,7 +509,7 @@ export function Hero() {
                       selected={shape === null}
                       onClick={() => setShape(null)}
                     />
-                    {SHAPES[gen].map((s) => (
+                    {SHAPES.map((s) => (
                       <ShapeTile
                         key={s.name}
                         label={s.name}
@@ -777,7 +715,7 @@ export function Hero() {
             <span>your config</span>
             <span className="font-mono normal-case">Blobatar.tsx</span>
           </div>
-          <Snippet code={snippet(seed, bg, hue, pose, shape, gen)} />
+          <Snippet code={snippet(seed, bg, hue, pose, shape)} />
           <p className="text-muted text-xs leading-relaxed">
             Every prop is optional except the name. Drop{" "}
             <code className="font-mono">animate</code> and the blobatar renders as a

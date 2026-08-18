@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { blobatar } from "blobatar";
-import { gen1, gen2, type Generation } from "blobatar/generation";
 import { snippet, type Api, type SnippetInput } from "./snippet";
-import { GENS, KEY_ORDER, round3, type Gen } from "./axes";
+import { KEY_ORDER, round3 } from "./axes";
 
 /**
  * The generator is the one piece of this page with a correctness property, so
@@ -17,14 +16,7 @@ import { GENS, KEY_ORDER, round3, type Gen } from "./axes";
 
 const NAME = "alain00";
 
-/**
- * The default generation, filled in so the cases below state only what they are
- * about. Emitting a generation is its own two tests at the bottom.
- */
-const snip = (input: Omit<SnippetInput, "gen"> & { gen?: Gen }) =>
-  snippet({ gen: 1, ...input });
-
-const GENERATIONS: Record<Gen, Generation> = { 1: gen1, 2: gen2 };
+const snip = (input: SnippetInput) => snippet(input);
 
 /** The `traits` literal from a generated snippet, evaluated. */
 function pasted(code: string): Record<string, number> {
@@ -78,7 +70,7 @@ describe("what it emits", () => {
 
     expect(Object.keys(pasted(code))).toEqual(
       ["shape", "eye.gap", "hue"].sort(
-        (a, b) => KEY_ORDER[1].indexOf(a) - KEY_ORDER[1].indexOf(b),
+        (a, b) => KEY_ORDER.indexOf(a) - KEY_ORDER.indexOf(b),
       ),
     );
   });
@@ -146,44 +138,16 @@ describe("paste it and you get the blobatar that was on screen", () => {
     { shape: 0.965 },
     { shape: 0.14, "eye.gap": 0.999, "eye.rx": 0.999 },
     { "body.n": 0, "eye.lean": 0.5, hue: 0.123, tone: 0.71 },
-    // Every key an axis can write, at a value that is not the default. gen2's
-    // list is a superset of gen1's, so this covers both.
-    Object.fromEntries(KEY_ORDER[2].map((k, i) => [k, round3(((i * 37) % 1000) / 1000)])),
+    // Every key an axis can write, at a value that is not the default.
+    Object.fromEntries(KEY_ORDER.map((k, i) => [k, round3(((i * 37) % 1000) / 1000)])),
   ];
 
   for (const [i, pinned] of cases.entries()) {
-    for (const gen of GENS) {
-      test(`case ${i}, gen ${gen}`, () => {
-        for (const api of ["react", "string"] as Api[]) {
-          const code = snip({ api, name: NAME, pinned, motion: "hover", gen });
-          expect(
-            blobatar(NAME, { traits: pasted(code), generation: GENERATIONS[gen] }),
-          ).toBe(blobatar(NAME, { traits: pinned, generation: GENERATIONS[gen] }));
-        }
-      });
-    }
+    test(`case ${i}`, () => {
+      for (const api of ["react", "string"] as Api[]) {
+        const code = snip({ api, name: NAME, pinned, motion: "hover" });
+        expect(blobatar(NAME, { traits: pasted(code) })).toBe(blobatar(NAME, { traits: pinned }));
+      }
+    });
   }
-});
-
-describe("the generation", () => {
-  test("the default is left out of the snippet entirely", () => {
-    for (const api of ["react", "string"] as Api[]) {
-      const code = snip({ api, name: NAME, pinned: {}, motion: false, gen: 1 });
-      expect(code).not.toContain("generation");
-      expect(code).not.toContain("blobatar/generation");
-    }
-  });
-
-  test("anything else is named, in the import as well as at the call", () => {
-    const react = snip({ api: "react", name: NAME, pinned: {}, motion: false, gen: 2 });
-    expect(react).toContain(`import { gen2 } from "blobatar/generation";`);
-    expect(react).toContain("generation={gen2}");
-
-    const string = snip({ api: "string", name: NAME, pinned: {}, motion: false, gen: 2 });
-    expect(string).toContain(`import { gen2 } from "blobatar/generation";`);
-    expect(string).toContain("generation: gen2,");
-    // The string API's no-traits shortcut is a bare call; a generation has to
-    // reopen the options object rather than fall through it.
-    expect(string).toContain("blobatar(\"alain00\", {");
-  });
 });

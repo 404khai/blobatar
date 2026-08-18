@@ -1,39 +1,29 @@
 import { describe, expect, test } from "bun:test";
-import { _layout } from "../src/blobatar";
 import { blobatar } from "../src/blobatar";
-import { superellipse, blobPath, polygon } from "../src/shape";
-import { gen1, gen2 } from "../src/generation";
+import { blobPath, polygon, superellipse } from "../src/shape";
+import { style } from "../src/styles/blob";
 import type { Layout } from "../src/styles/compose";
 import { traits } from "../src/traits";
-import { BLOB_KEYS, BLOB2_KEYS } from "./keys";
+import { BLOB_KEYS } from "./keys";
 
 /**
- * These are the checks that replace eyeballing the grid one cell at a time.
- * Staring at 400 blobatars tells you whether the ranges are *tasteful*; these
- * tell you whether any seed in the space is outright broken — an eye off the
- * cheek, a body clipped by the frame, two capsules fused into one.
+ * Geometric invariants that replace eyeballing the tuning grid one cell at a
+ * time. Taste is judged in aggregate; these checks reject broken geometry.
  */
 
 const SEEDS = Array.from({ length: 6000 }, (_, i) => `seed-${i}`);
 
-/** Signed containment: <= 1 is inside the superellipse. */
 const inside = (
   px: number,
   py: number,
   s: { cx: number; cy: number; rx: number; ry: number; n: number },
 ) => Math.pow(Math.abs((px - s.cx) / s.rx), s.n) + Math.pow(Math.abs((py - s.cy) / s.ry), s.n);
 
-/** The four corners of a rotated box — a conservative hull for a capsule. */
 function corners(e: { cx: number; cy: number; rx: number; ry: number; rot: number }) {
   const t = (e.rot * Math.PI) / 180;
   const c = Math.cos(t);
   const s = Math.sin(t);
-  return [
-    [1, 1],
-    [1, -1],
-    [-1, 1],
-    [-1, -1],
-  ].map(([sx, sy]) => [
+  return [[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([sx, sy]) => [
     e.cx + sx! * e.rx * c - sy! * e.ry * s,
     e.cy + sx! * e.rx * s + sy! * e.ry * c,
   ]);
@@ -45,149 +35,6 @@ describe("the frame", () => {
       const svg = blobatar(s, { background: false });
       for (const m of svg.matchAll(/ d="([^"]+)"/g)) {
         for (const n of m[1]!.match(/-?\d+\.?\d*/g)!.map(Number)) {
-          expect(n).toBeGreaterThanOrEqual(0);
-          expect(n).toBeLessThanOrEqual(100);
-        }
-      }
-    }
-  });
-});
-
-describe("blob", () => {
-  const layouts = SEEDS.map(s => gen1.layout(traits(s)) as Layout);
-
-  test("eyes sit inside the body core", () => {
-    for (const l of layouts) {
-      // For the spline shapes the core dips to its smallest sampled radius
-      // between vertices, so containment is measured against that, not the mean.
-      const shrink =
-        l.shape === "organic" || l.shape === "cloud" ? Math.min(...l.body.radii) * 0.95 : 1;
-      const core = {
-        cx: l.body.cx,
-        cy: l.body.cy,
-        rx: l.body.rx * shrink,
-        ry: l.body.ry * shrink,
-        // Understate squareness: a boxy body is roomier than the ellipse we test.
-        n: 2,
-      };
-      for (const e of l.eyes) {
-        for (const [x, y] of corners(e)) expect(inside(x!, y!, core)).toBeLessThan(1);
-      }
-    }
-  });
-
-  test("eyes never fuse into each other", () => {
-    for (const l of layouts) {
-      const [a, b] = l.eyes as [(typeof l.eyes)[0], (typeof l.eyes)[0]];
-      // Separating axis on x is conservative: clearing it proves no overlap.
-      const reach = (e: typeof a) => {
-        const t = (e.rot * Math.PI) / 180;
-        return Math.abs(e.rx * Math.cos(t)) + Math.abs(e.ry * Math.sin(t));
-      };
-      expect(Math.abs(b.cx - a.cx)).toBeGreaterThan(reach(a) + reach(b));
-    }
-  });
-
-  test("decoration stays attached to the body", () => {
-    for (const l of layouts) {
-      for (const p of l.petals) {
-        const d = Math.hypot(p.cx - l.body.cx, p.cy - l.body.cy);
-        // Overlapping the core is what makes the union read as one creature.
-        expect(d).toBeLessThan(l.body.rx * 0.95 + p.r);
-      }
-    }
-  });
-
-  test("every shape in the vocabulary is reachable", () => {
-    const seen = new Set(layouts.map(l => l.shape));
-    expect(seen).toEqual(new Set(["round", "organic", "boxy", "nub", "cloud", "sun"]));
-  });
-
-  test("common shapes stay common", () => {
-    const round = layouts.filter(l => l.shape === "round").length / layouts.length;
-    const sun = layouts.filter(l => l.shape === "sun").length / layouts.length;
-    expect(round).toBeGreaterThan(0.2);
-    expect(sun).toBeLessThan(0.12);
-  });
-});
-
-/**
- * The same invariants, under configuration rather than under seeds.
- *
- * This is the test that makes trait overrides safe to expose. Hashing spreads
- * values out, so 6000 seeds sample the interior of the space densely and its
- * corners barely at all — but a caller writing an override map goes straight to
- * the corners, because "biggest eyes, widest gap, roundest body" is the first
- * thing anyone tries. Every combination here is one an editor's sliders can
- * produce in a single drag.
- */
-describe("blob under trait overrides", () => {
-  /** All extremes, all midpoints, and every single-key extreme against them. */
-  const MAPS: Record<string, number>[] = [];
-  for (const v of [0, 0.5, 0.999999]) {
-    const all: Record<string, number> = {};
-    for (const k of BLOB_KEYS) all[k] = v;
-    MAPS.push(all);
-    // One key pushed to each end while the rest sit together — the pairwise
-    // corners that `fit` and the lean bound exist to survive.
-    for (const k of BLOB_KEYS) MAPS.push({ ...all, [k]: 0 }, { ...all, [k]: 0.999999 });
-  }
-  // And a deterministic scatter, for corners no single-key sweep reaches.
-  let s = 1;
-  for (let i = 0; i < 400; i++) {
-    const m: Record<string, number> = {};
-    for (const k of BLOB_KEYS) {
-      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-      m[k] = s / 4294967296;
-    }
-    MAPS.push(m);
-  }
-
-  const layouts = MAPS.map(m => gen1.layout(traits("cfg", true, m)) as Layout);
-
-  test("eyes sit inside the body core", () => {
-    for (const l of layouts) {
-      const shrink =
-        l.shape === "organic" || l.shape === "cloud" ? Math.min(...l.body.radii) * 0.95 : 1;
-      const core = {
-        cx: l.body.cx,
-        cy: l.body.cy,
-        rx: l.body.rx * shrink,
-        ry: l.body.ry * shrink,
-        n: 2,
-      };
-      for (const e of l.eyes) {
-        for (const [x, y] of corners(e)) expect(inside(x!, y!, core)).toBeLessThan(1);
-      }
-    }
-  });
-
-  test("eyes never fuse into each other", () => {
-    for (const l of layouts) {
-      const [a, b] = l.eyes as [(typeof l.eyes)[0], (typeof l.eyes)[0]];
-      const reach = (e: typeof a) => {
-        const t = (e.rot * Math.PI) / 180;
-        return Math.abs(e.rx * Math.cos(t)) + Math.abs(e.ry * Math.sin(t));
-      };
-      expect(Math.abs(b.cx - a.cx)).toBeGreaterThan(reach(a) + reach(b));
-    }
-  });
-
-  test("decoration stays attached to the body", () => {
-    for (const l of layouts) {
-      for (const p of l.petals) {
-        const d = Math.hypot(p.cx - l.body.cx, p.cy - l.body.cy);
-        expect(d).toBeLessThan(l.body.rx * 0.95 + p.r);
-      }
-    }
-  });
-
-  test("all geometry stays inside the viewBox", () => {
-    for (const m of MAPS) {
-      const svg = blobatar("cfg", { traits: m, background: false });
-      expect(svg).not.toContain("NaN");
-      for (const g of svg.matchAll(/ d="([^"]+)"/g)) {
-        for (const n of g[1]!.match(/-?\d+\.?\d*/g)!.map(Number)) {
           expect(n).toBeGreaterThanOrEqual(0);
           expect(n).toBeLessThanOrEqual(100);
         }
@@ -240,18 +87,18 @@ describe("path emission", () => {
 });
 
 /**
- * gen2's containment, which is a different proof from gen1's.
+ * Blobatar 2's containment, which is a different proof from the previous generation's.
  *
  * gen1 could measure the eye cluster against the body radius because all six of
- * its silhouettes were roughly round and roughly centred. Half of gen2's are
+ * its silhouettes were roughly round and roughly centred. Half of Blobatar 2's are
  * not — a triangle's usable interior is a fraction of its circumradius, a
  * capsule's is squat, a droplet's is not centred on the frame — so the layout
  * states a `face` and everything below checks that the face is honest: that it
  * really is inside the silhouette it claims to be inscribed in, shape by shape,
  * with the actual geometry rather than with a shared approximation.
  */
-describe("blob2", () => {
-  const layouts = SEEDS.map(s => gen2.layout(traits(s)) as Layout);
+describe("blob", () => {
+  const layouts = SEEDS.map(s => style.layout(traits(s)) as Layout);
 
   /** The rounded polygon's cut points, which the drawn outline strictly contains. */
   function cutHull(b: Layout["body"] & { sides: number; round: number }): [number, number][] {
@@ -372,7 +219,7 @@ describe("blob2", () => {
 
   test("the everyday shapes stay everyday and the loud ones stay rare", () => {
     const share = (s: string) => layouts.filter(l => l.shape === s).length / layouts.length;
-    // Four more silhouettes than gen1 and still not a uniform ten-way split:
+    // Four more silhouettes than the previous generation and still not a uniform ten-way split:
     // rounds and pebbles carry a wall of these, and a triangle is a find.
     expect(share("round") + share("organic")).toBeGreaterThan(0.4);
     expect(share("triangle")).toBeLessThan(0.04);
@@ -381,7 +228,7 @@ describe("blob2", () => {
 
   test("all geometry stays inside the viewBox", () => {
     for (const s of SEEDS) {
-      const svg = blobatar(s, { generation: gen2, background: false });
+      const svg = blobatar(s, { background: false });
       for (const m of svg.matchAll(/ d="([^"]+)"|<circle ([^>]+)>/g)) {
         const src = m[1] ?? m[2]!;
         for (const n of src.match(/-?\d+\.?\d*/g)!.map(Number)) {
@@ -395,36 +242,36 @@ describe("blob2", () => {
   /**
    * The same invariants under configuration rather than under seeds — the
    * corners a hashed sweep barely samples and an editor's sliders reach in one
-   * drag. Same construction as gen1's block above, over gen2's key list.
+   * drag. Same construction as the previous generation's block above, over Blobatar 2's key list.
    */
   describe("under trait overrides", () => {
     const MAPS: Record<string, number>[] = [];
     for (const v of [0, 0.5, 0.999999]) {
       const all: Record<string, number> = {};
-      for (const k of BLOB2_KEYS) all[k] = v;
+      for (const k of BLOB_KEYS) all[k] = v;
       MAPS.push(all);
-      for (const k of BLOB2_KEYS) MAPS.push({ ...all, [k]: 0 }, { ...all, [k]: 0.999999 });
+      for (const k of BLOB_KEYS) MAPS.push({ ...all, [k]: 0 }, { ...all, [k]: 0.999999 });
     }
     // Every shape band crossed with those extremes, since one `shape` value per
     // map would otherwise leave eight of the ten silhouettes untested here.
     for (const at of [0.1, 0.35, 0.55, 0.65, 0.75, 0.82, 0.89, 0.93, 0.96, 0.99]) {
       for (const v of [0, 0.5, 0.999999]) {
         const all: Record<string, number> = {};
-        for (const k of BLOB2_KEYS) all[k] = v;
+        for (const k of BLOB_KEYS) all[k] = v;
         MAPS.push({ ...all, shape: at });
       }
     }
     let s = 1;
     for (let i = 0; i < 400; i++) {
       const m: Record<string, number> = {};
-      for (const k of BLOB2_KEYS) {
+      for (const k of BLOB_KEYS) {
         s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
         m[k] = s / 4294967296;
       }
       MAPS.push(m);
     }
 
-    const cfg = MAPS.map(m => gen2.layout(traits("cfg", true, m)) as Layout);
+    const cfg = MAPS.map(m => style.layout(traits("cfg", true, m)) as Layout);
 
     test("eyes sit inside the face, and the face inside the body", () => {
       checkEyes(cfg);
@@ -432,7 +279,7 @@ describe("blob2", () => {
 
     test("all geometry stays inside the viewBox", () => {
       for (const m of MAPS) {
-        const svg = blobatar("cfg", { generation: gen2, traits: m, background: false });
+        const svg = blobatar("cfg", { traits: m, background: false });
         expect(svg).not.toContain("NaN");
         for (const g of svg.matchAll(/ d="([^"]+)"|<circle ([^>]+)>/g)) {
           for (const n of (g[1] ?? g[2]!).match(/-?\d+\.?\d*/g)!.map(Number)) {

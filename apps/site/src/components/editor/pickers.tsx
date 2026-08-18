@@ -1,14 +1,14 @@
 import { Blobatar } from "blobatar/react";
 import { palette } from "blobatar";
 import { TONES } from "@/editor/axes";
-import { GENERATIONS, SHAPES, type Gen } from "@/generations";
+import { SHAPES } from "@/shapes";
 import { cn } from "@/lib/utils";
 
 /**
  * The two categorical axes.
  *
  * Both are read by the layout as *bands* rather than as numbers — `shapeOf`
- * splits [0, 1) into the generation's silhouettes, `toneAt` into six swatches —
+ * splits [0, 1) into the package's silhouettes, `toneAt` into six swatches —
  * so a slider would be a control with invisible detents. A picker states the
  * bands, and pinning one writes its midpoint.
  *
@@ -23,14 +23,12 @@ const AUTO = "auto";
 export function ShapePicker({
   name,
   traits,
-  gen,
   value,
   onPick,
 }: {
   name: string;
   /** Everything else currently pinned, so the row restyles as you tune. */
   traits: Record<string, number>;
-  gen: Gen;
   value?: number;
   onPick: (at: number | null) => void;
 }) {
@@ -42,17 +40,15 @@ export function ShapePicker({
         label={AUTO}
         name={name}
         traits={rest}
-        gen={gen}
         selected={value === undefined}
         onClick={() => onPick(null)}
       />
-      {SHAPES[gen].map(s => (
+      {SHAPES.map(s => (
         <Tile
           key={s.name}
           label={s.name}
           name={name}
           traits={{ ...rest, shape: s.at }}
-          gen={gen}
           selected={value === s.at}
           onClick={() => onPick(s.at)}
         />
@@ -74,14 +70,12 @@ function Tile({
   label,
   name,
   traits,
-  gen,
   selected,
   onClick,
 }: {
   label: string;
   name: string;
   traits: Record<string, number>;
-  gen: Gen;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -98,7 +92,6 @@ function Tile({
       <Blobatar
         name={name || " "}
         traits={traits}
-        generation={GENERATIONS[gen]}
         alt=""
         className="size-9"
       />

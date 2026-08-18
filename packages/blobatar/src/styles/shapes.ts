@@ -1,12 +1,12 @@
 /**
- * The silhouette vocabulary, as independently importable values.
+ * The private silhouette vocabulary.
  *
  * A shape is everything the layout needs to draw one silhouette and nothing
  * about when to draw it: how much of the frame its core body takes, how it
  * patches that body, what room it leaves the eyes, what it decorates with, and
  * which path primitive traces it. What it deliberately does *not* carry is its
- * threshold — how often it comes up is a property of the generation that
- * includes it, not of the silhouette itself. See `compose.ts`.
+ * threshold — how often it comes up is a property of the package major's band
+ * table, not of the silhouette itself. See `blob.ts`.
  *
  * Shapes that are parameterizations of another share its implementation rather
  * than restating it: `boxy` is `round` with a squarer `n` and a tilt, `hexagon`
@@ -15,10 +15,9 @@
  * value — `{ ...round, core: 0.86 }` reads better and defeats tree-shaking
  * completely, measured at ~920 B for a single shape. See ADR-0007.
  *
- * These are the ten `gen1` and `gen2` are built from, and they are the ten a
- * caller composing their own generation draws from. Their geometry is already
- * proven contained: `test/geometry.test.ts` asserts the eye cluster stays
- * inside the body and the body inside the frame, for every shape here.
+ * These are Blobatar 2's ten silhouettes. `test/geometry.test.ts` asserts the
+ * eye cluster stays inside the body and the body inside the frame for all of
+ * them.
  */
 import { blobPath, polygon, superellipse } from "../shape";
 import type { Traits } from "../traits";

@@ -91,15 +91,18 @@ describe("configuring a blobatar", () => {
   });
 
   test("every shape in the vocabulary is reachable by band midpoint", () => {
-    // What an editor's six shape buttons write. The bands live in `shapeOf`,
-    // and these are the values that land in the middle of each.
+    // What the editor's shape buttons write: one midpoint per private band.
     const bands = [
-      [0.14, "round"],
-      [0.43, "organic"],
-      [0.65, "boxy"],
-      [0.78, "nub"],
-      [0.885, "cloud"],
+      [0.11, "round"],
+      [0.35, "organic"],
+      [0.54, "boxy"],
+      [0.65, "capsule"],
+      [0.745, "nub"],
+      [0.825, "cloud"],
+      [0.888, "droplet"],
+      [0.933, "hexagon"],
       [0.965, "sun"],
+      [0.99, "triangle"],
     ] as const;
     for (const [v, shape] of bands) {
       expect(blobLayout(SEED, { traits: { shape: v } }).shape).toBe(shape);

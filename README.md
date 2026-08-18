@@ -1,6 +1,6 @@
 # blobatar
 
-Deterministic geometric blobatars from any string. No dependencies, ~3.7 KB
+Deterministic geometric blobatars from any string. No dependencies, ~4.2 KB
 gzipped.
 
 ![A field of forty-odd blobatars, no two alike, each generated from an ordinary handle like alain, tove or kasper](./docs/media/crowd.png)
@@ -67,30 +67,7 @@ name stops mattering, which is how you build one fixed blobatar.
 
 Every value those options take, and what each one draws:
 
-![The six silhouettes labelled round, organic, boxy, nub, cloud and sun; the eight hue stops from 12 to 320 degrees; the thirteen expressions from idle through happy, sad and mad to love, shy and sick; the four backgrounds none, squircle, circle and square](./docs/media/sheet.png)
-
-### Your own vocabulary
-
-The ten silhouettes ship as importable values, and a generation is just a table
-of them weighted, plus a strategy for fitting the eyes. Want three shapes
-instead of ten? Compose three:
-
-```ts
-import { compose, bodyFit, type Band } from "blobatar/compose";
-import { round, organic, sun } from "blobatar/shapes";
-
-const bands: Band[] = [[round, 0.5], [organic, 0.9], [sun, 1]];
-const mine = { id: 7, ...compose(bands, bodyFit) };
-
-blobatar(user.email, { generation: mine });
-```
-
-You carry only the shapes you name, so this comes out *smaller* than the default
-import — and the containment guarantees still hold, because these are the same
-shape values `gen1` and `gen2` are built from. Pick an `id` nothing else uses,
-and treat your band table as frozen once you ship it: nudging an edge later
-changes somebody's avatar. See the [package
-README](./packages/blobatar/README.md#composing-your-own-generation).
+![The ten silhouettes from round and organic through capsule, triangle, hexagon and droplet; the eight hue stops from 12 to 320 degrees; the thirteen expressions from idle through happy, sad and mad to love, shy and sick; the four backgrounds none, squircle, circle and square](./docs/media/sheet.png)
 
 ### Animation and expressions
 
@@ -148,10 +125,10 @@ arrive as a new **generation** instead:
 | `gen=1` | round, organic, boxy, nub, cloud, sun |
 | `gen=2` | …and capsule, triangle, hexagon, droplet |
 
-An unversioned URL renders gen 1 forever, so nothing you have already pasted
-anywhere needs revisiting and gen 2 is something you ask for. Naming a
-generation also makes the promise explicit, and earns a year-long immutable
-cache rather than a day, since a pinned URL cannot come back different:
+An unversioned URL follows the current package major and now renders gen 2.
+Pin `?gen=1` on existing URLs that must keep the original six shapes. Naming a
+generation makes the promise explicit and earns a year-long immutable cache
+rather than a day, since a pinned URL cannot come back different:
 
 ```
 https://blobatar.dev/avatar/alain00?gen=1

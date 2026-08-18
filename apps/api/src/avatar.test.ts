@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { blobatar } from "blobatar/blob";
+import { blobatar as blobatar2 } from "blobatar/blob";
+import { blobatar as blobatar1 } from "blobatar-v1/blob";
 import { happy } from "blobatar/expression";
-import { gen1, gen2 } from "blobatar/generation";
 import { avatar } from "./avatar";
 
 const ORIGIN = "https://blobatar.dev";
@@ -11,14 +11,14 @@ test("a name renders the same markup the library would", async () => {
   const res = get("/avatar/alain00");
   expect(res.status).toBe(200);
   expect(res.headers.get("content-type")).toBe("image/svg+xml; charset=utf-8");
-  expect(await res.text()).toBe(blobatar("alain00", { generation: gen1 }));
+  expect(await res.text()).toBe(blobatar2("alain00"));
 });
 
 test("parameters reach the renderer", async () => {
   expect(await get("/avatar/alain?size=64&background=squircle").text())
-    .toBe(blobatar("alain", { size: 64, background: "squircle", generation: gen1 }));
+    .toBe(blobatar2("alain", { size: 64, background: "squircle" }));
   expect(await get("/avatar/alain?expression=happy").text())
-    .toBe(blobatar("alain", { expression: happy, generation: gen1 }));
+    .toBe(blobatar2("alain", { expression: happy }));
 });
 
 test("the endpoint is deterministic across requests", async () => {
@@ -111,19 +111,16 @@ test("the avatar route is served under a locked-down CSP", () => {
 // ---------------------------------------------------------------------------
 // Generations.
 
-test("an unversioned URL renders gen1, and says so only for a day", async () => {
+test("an unversioned URL renders gen2, and says so only for a day", async () => {
   const res = get("/avatar/alain");
   expect(res.headers.get("cache-control")).toBe(
     "public, max-age=86400, stale-while-revalidate=2592000",
   );
-  expect(await res.text()).toBe(blobatar("alain", { generation: gen1 }));
+  expect(await res.text()).toBe(blobatar2("alain"));
 });
 
-test("pinning the generation renders the same thing, cached forever", async () => {
-  const res = get("/avatar/alain?gen=1");
-  // Byte-identical to the unversioned URL. The parameter is a promise about the
-  // future, not a different picture — if these ever diverge, every unversioned
-  // `<img>` already in somebody's README has quietly moved.
+test("pinning gen2 renders the default, cached forever", async () => {
+  const res = get("/avatar/alain?gen=2");
   expect(await res.text()).toBe(await get("/avatar/alain").text());
   expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
 });
@@ -135,7 +132,7 @@ test("an unknown generation is a 400, not a silent fallback", async () => {
 });
 
 test("gen composes with every other parameter", async () => {
-  expect(await get("/avatar/alain?gen=1&size=64&expression=happy").text())
+  expect(await get("/avatar/alain?gen=2&size=64&expression=happy").text())
     .toBe(await get("/avatar/alain?size=64&expression=happy").text());
 });
 
@@ -145,14 +142,20 @@ test("blobatars are embeddable cross-origin", () => {
 
 test("unicode and email names round-trip through the path", async () => {
   expect(await get("/avatar/alain%40example.com").text())
-    .toBe(blobatar("alain@example.com", { generation: gen1 }));
-  expect(await get("/avatar/%F0%9F%A6%8A").text()).toBe(blobatar("🦊", { generation: gen1 }));
+    .toBe(blobatar2("alain@example.com"));
+  expect(await get("/avatar/%F0%9F%A6%8A").text()).toBe(blobatar2("🦊"));
 });
 
-test("gen 2 renders gen 2, and is cached forever too", async () => {
+test("gen 1 renders the v1 package, and is cached forever", async () => {
+  const res = get("/avatar/nova?gen=1");
+  expect(await res.text()).toBe(blobatar1("nova"));
+  expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+});
+
+test("gen 2 renders gen 2, and is cached forever", async () => {
   const res = get("/avatar/nova?gen=2");
   const svg = await res.text();
-  expect(svg).toBe(blobatar("nova", { generation: gen2 }));
+  expect(svg).toBe(blobatar2("nova"));
   // `nova` rather than `alain`, because a third of seeds render byte-identical
   // under both — a round with room for its eyes is drawn by the same arithmetic
   // in either vocabulary, and gen2 does not move it for the sake of moving it.
@@ -161,6 +164,6 @@ test("gen 2 renders gen 2, and is cached forever too", async () => {
   expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
 });
 
-test("gen 2 is opt-in — the unversioned URL is still gen 1", async () => {
-  expect(await get("/avatar/nova").text()).toBe(await get("/avatar/nova?gen=1").text());
+test("gen 2 is the default", async () => {
+  expect(await get("/avatar/nova").text()).toBe(await get("/avatar/nova?gen=2").text());
 });

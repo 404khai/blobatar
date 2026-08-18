@@ -1,6 +1,5 @@
 import type { BlobatarOptions } from "blobatar/blob";
 import type { Expression } from "blobatar/expression";
-import { gen1, gen2, type Generation } from "blobatar/generation";
 import {
   happy, idle, love, mad, sad, scared, shy, sick, sleepy, smug, surprised, unsure, wink,
 } from "blobatar/expression";
@@ -32,10 +31,17 @@ const EXPRESSIONS: Record<string, Expression> = {
  * answering — that is the entire promise `?gen=` makes, and removing one would
  * break it more thoroughly than never having offered it.
  */
+export type Generation = 1 | 2;
+
 const GENERATIONS: Record<string, Generation> = {
-  1: gen1,
-  2: gen2,
+  1: 1,
+  2: 2,
 };
+
+export interface RenderRequest {
+  generation: Generation;
+  options: BlobatarOptions;
+}
 
 /**
  * Backgrounds, including the spelling `false` has in a URL.
@@ -120,7 +126,7 @@ function oneOf<T>(raw: string, key: string, table: Record<string, T>): T {
  * an endpoint anyone can link is the wrong place to hand out either. Both stay
  * available to anyone importing the library, which is where they belong.
  */
-export function parseOptions(params: URLSearchParams): BlobatarOptions {
+export function parseOptions(params: URLSearchParams): RenderRequest {
   for (const key of params.keys()) {
     if (!KNOWN.includes(key)) {
       throw new BadRequest(`unknown parameter "${key}" — expected one of ${KNOWN.join(", ")}`);
@@ -152,23 +158,7 @@ export function parseOptions(params: URLSearchParams): BlobatarOptions {
     const n = Number(size.trim() === "" ? NaN : size);
     if (Number.isFinite(n)) opts.size = Math.round(Math.min(MAX_SIZE, Math.max(MIN_SIZE, n)));
   }
-  /*
-   * Pinned explicitly when the URL names no generation, rather than left unset
-   * to inherit the library's default.
-   *
-   * These are not the same thing and stopped being the same thing at
-   * `blobatar@2.0.0`, when the library's default moved to gen2. The endpoint's
-   * default cannot move with it: `/avatar/<seed>` with no query is the URL
-   * people paste into a profile page and never revisit, and it renders gen1
-   * forever — that promise is older than gen2 and is the reason `?gen=` exists
-   * at all.
-   *
-   * So an unset `generation` here would be a library upgrade silently
-   * rewriting every unversioned URL ever pasted. `avatar.test.ts` has two tests
-   * that fail if this line is removed; they are not redundant with each other,
-   * and neither is decoration.
-   */
-  opts.generation = gen === null ? gen1 : oneOf(gen, "gen", GENERATIONS);
+  const generation = gen === null ? 2 : oneOf(gen, "gen", GENERATIONS);
   if (background !== null) opts.background = oneOf(background, "background", BACKGROUNDS);
   // 360 is admitted alongside 0 rather than excluded as a duplicate: hue is a
   // circle, callers compute into it, and rejecting the value that a full turn
@@ -182,7 +172,7 @@ export function parseOptions(params: URLSearchParams): BlobatarOptions {
     }
     opts.title = title;
   }
-  return opts;
+  return { generation, options: opts };
 }
 
 /** Everything a Gravatar URL may end in. Recognised, then discarded. */

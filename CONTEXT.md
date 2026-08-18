@@ -38,35 +38,27 @@ One frozen seed→look mapping: a silhouette vocabulary and its thresholds, ever
 numeric range the layout reads a trait into, and the tone set. Those move
 together because they are observed together — a caller cannot tell which of them
 changed, only that their user's blobatar is now somebody else's. `gen1` is the
-original six. Adding a silhouette is **not additive**, since a new band has to
-take its share from the existing ones, which is the whole reason the word
-exists. `gen2` is the original six plus `capsule`, `triangle`, `hexagon` and
-`droplet`. Pinned as a value (`{ generation: gen1 }`) or as `?gen=1` on the
-endpoint; the library's default follows the major, the endpoint's does not — so
-in `0.x` and `1.x` the default is gen1 and gen2 is opt-in either way.
-Built as `compose(bands, fit)` over shape values rather than hand-written, which
-is what makes a generation something a *caller* can also build.
-See ADR-0006 and ADR-0007.
+original six. Adding a silhouette is **not additive**, since it takes probability
+from existing silhouettes, which is the whole reason the word exists. `gen2` is
+the original six plus `capsule`, `triangle`, `hexagon` and `droplet`.
+The package major selects one generation; generation is not a library option.
+The endpoint can pin one with `?gen=`, and otherwise serves its current default.
 _Avoid_: version, edition, variant. _Version_ is the package's, and the two move
-on different schedules by design.
+on different schedules: a package major adopts one generation, while an endpoint
+query names one directly.
 
 **Shape**:
-A silhouette, as an importable value from `blobatar/shapes` — what it draws, how
-much of the frame it takes, what room it leaves the eyes. Ten of them, and the
-same value is used by every generation that includes it: gen1's `round` and
-gen2's `round` are not two implementations, they are one.
-A shape deliberately does **not** carry its own threshold; how often it comes up
-belongs to the generation. See ADR-0007.
-_Avoid_: using _shape_ for the *name* of one. The name is a `ShapeName`
-(`"round"`, `"sun"`), which is what `l.shape` and the `shape` trait resolve to;
-the shape is the thing that draws it.
+A silhouette in the vocabulary: round, organic, boxy, nub, cloud, sun, capsule,
+triangle, hexagon, or droplet. How often a shape appears belongs to the
+generation, not to the shape.
+_Avoid_: variant, form.
 
 **Silhouette name**:
 Which silhouette a blobatar takes. In gen1: `round`, `organic`, `boxy`, `nub`,
 `cloud`, `sun`. In gen2: those six under the same names, plus `capsule`,
 `triangle`, `hexagon` and `droplet`. **Derived, never set directly.** There is
 no `shape` option; a caller who wants a particular silhouette overrides the
-`shape` _trait_, and the generation's own thresholds turn it into a shape — so
+`shape` _trait_, and the current generation turns it into a silhouette — so
 the same 0.88 is a cloud under gen1 and a droplet under gen2.
 _Avoid_: variant, form. There is no variant axis: a `character` family existed
 until 0.1.0 and was removed. A vocabulary belongs to a generation, and a later
@@ -86,10 +78,9 @@ two edges.
 
 **Fit**:
 How a generation fits the eye cluster into the room a silhouette leaves.
-`bodyFit` measures against the body radius on one axis, `faceFit` against the
-shape's own face on both. A parameter rather than a fix: gen1 froze `bodyFit`,
-and applying the better one retroactively would move every existing gen1
-blobatar. See ADR-0007.
+The current generation measures against the shape's own face on both axes.
+It is an internal part of the frozen mapping, not a public strategy option.
+See ADR-0007 for the superseded design that exposed it.
 
 **Trait**:
 A named value pulled from the seed's hash by string key (`"hue"`, `"body.r"`),
@@ -195,7 +186,9 @@ _Avoid_: demo, docs.
 The HTTP surface (`apps/api`) — `GET /avatar/<name>` — and the standalone Worker
 serving it, which anyone can deploy to their own Cloudflare account. `apps/site`
 imports it rather than copying it, so there is one endpoint with two deployments
-(ADR-0005).
+(ADR-0005). With no `gen` query it serves the current generation and may change
+when that default changes; an explicit supported `?gen=` names an immutable
+generation. Unknown generations are rejected.
 _Avoid_: server, API, image service.
 
 **Tuning grid**:

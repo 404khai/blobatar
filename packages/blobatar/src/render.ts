@@ -1,19 +1,10 @@
 import type { Animate } from "./animate";
 import { palette as buildPalette, type Palette } from "./color";
 import type { Expression, Posable } from "./expression";
-import type { Generation } from "./generation";
 import { superellipse } from "./shape";
 import { traits, type TraitOverrides, type Traits } from "./traits";
 
 export interface BlobatarOptions {
-  /**
-   * Which frozen seed → look mapping to render under.
-   *
-   * Omitted, this is the default generation for the major you are on — which
-   * moves when the major does. Naming one pins it, so a name renders the same
-   * blobatar across an upgrade that changes the default. See `generation.ts`.
-   */
-  generation?: Generation;
   /** Emits width/height attributes. Omit to let CSS size it (the viewBox always scales). */
   size?: number;
   /** Overrides the default backdrop. `false` renders transparent. */
@@ -229,23 +220,9 @@ export interface Motion {
  */
 export type MotionFactory = (t: Traits, p: Palette) => Motion;
 
-/**
- * The generation actually rendering, which is the bound one unless the caller
- * named another.
- *
- * The cast is the same one `posed` makes a line later: `L` is opaque here, and
- * a generation's layout type is its own business — what the renderer needs from
- * it is that `render` accepts whatever `layout` returned, which holds for any
- * single generation and is exactly what this expression preserves. Mixing two
- * is not reachable: they arrive as one value.
- */
-const chosen = <L>(style: Style<L>, opts: BlobatarOptions) =>
-  (opts.generation ?? style) as Style<L>;
-
-/** Binds the default generation into an `blobatar(name, opts)` function. */
-export function makeBlobatar<L>(fallback: Style<L>) {
+/** Binds one package major's frozen style into `blobatar(name, opts)`. */
+export function makeBlobatar<L>(style: Style<L>) {
   return (name: string, opts: BlobatarOptions = {}): string => {
-    const style = chosen(fallback, opts);
     const { t, palette } = resolve(name, opts);
     const p = tinted(palette, opts.expression);
     const dim = opts.size ? ` width="${opts.size}" height="${opts.size}"` : "";
@@ -283,13 +260,12 @@ export function makeBlobatar<L>(fallback: Style<L>) {
  *
  * `test/expression.test.ts` pins the invariant directly.
  */
-export function makeParts<L>(fallback: Style<L>) {
+export function makeParts<L>(style: Style<L>) {
   return (
     name: string,
     opts: BlobatarOptions = {},
     motion?: MotionFactory,
   ) => {
-    const style = chosen(fallback, opts);
     const { t, palette: p } = resolve(name, opts);
     const mo = motion?.(t, p);
     const pose = posed(style.layout(t), opts, mo);

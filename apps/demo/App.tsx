@@ -5,7 +5,7 @@ import {
   type Animate,
   type BlobatarOptions,
 } from "blobatar";
-import { gen1, gen2, type Generation } from "blobatar/generation";
+import { layout } from "blobatar/blob";
 import {
   happy,
   idle,
@@ -38,31 +38,17 @@ const COLS = 20;
 const ROWS = 20;
 
 /**
- * The generations, and the silhouettes each one can be filtered to.
- *
- * The filter list is per generation for the obvious reason and one less obvious
- * one: `shape` here is a *name*, so switching generation keeps the filter on
- * `cloud` if both have one and falls back to `all` if they do not, which is
- * what you want when you are comparing the same silhouette across two
- * vocabularies.
+ * Blobatar 2's silhouettes, including `all` for an unfiltered grid.
  */
-const GENERATIONS: Record<string, Generation> = { "gen 1": gen1, "gen 2": gen2 };
-
-const SHAPES: Record<string, readonly string[]> = {
-  "gen 1": ["all", "round", "organic", "boxy", "nub", "cloud", "sun"],
-  "gen 2": [
-    "all", "round", "organic", "boxy", "capsule", "nub",
-    "cloud", "droplet", "hexagon", "sun", "triangle",
-  ],
-};
+const SHAPES = [
+  "all", "round", "organic", "boxy", "capsule", "nub",
+  "cloud", "droplet", "hexagon", "sun", "triangle",
+] as const;
 
 /**
- * A generation's silhouette for a seed. `Generation` promises only `Posable`,
- * and both of the ones here happen to name their silhouette `shape` — the same
- * narrowing the golden corpus makes, for the same reason.
+ * The package major's silhouette for a seed, without paying for a palette.
  */
-const silhouetteOf = (gen: Generation, seed: string) =>
-  (gen.layout(traits(seed)) as unknown as { shape: string }).shape;
+const silhouetteOf = (seed: string) => layout(traits(seed)).shape;
 
 /**
  * The `a|b` entries are not expressions — they are the comparisons the roster
@@ -104,7 +90,6 @@ export function App() {
   const [prefix, setPrefix] = useState("user-");
   const [page, setPage] = useState(0);
   const [bg, setBg] = useState<Bg>("default");
-  const [gen, setGen] = useState("gen 1");
   const [shape, setShape] = useState("all");
   const [hue, setHue] = useState<number | "">("");
   const [focus, setFocus] = useState<string | null>(null);
@@ -114,12 +99,11 @@ export function App() {
 
   const opts: BlobatarOptions = useMemo(
     () => ({
-      generation: GENERATIONS[gen],
       background: bg === "default" ? undefined : bg === "none" ? false : bg,
       hue: hue === "" ? undefined : hue,
       expression: EXPRESSIONS[expr] ?? undefined,
     }),
-    [gen, bg, hue, expr],
+    [bg, hue, expr],
   );
 
   const pair = PAIRS[expr];
@@ -133,7 +117,6 @@ export function App() {
   // so a rare silhouette still fills a whole page.
   const seeds = useMemo(() => {
     const out: string[] = [];
-    const style = GENERATIONS[gen]!;
     const wanted = shape !== "all" ? shape : null;
     for (
       let i = page * count;
@@ -141,10 +124,10 @@ export function App() {
       i++
     ) {
       const seed = `${prefix}${i}`;
-      if (!wanted || silhouetteOf(style, seed) === wanted) out.push(seed);
+      if (!wanted || silhouetteOf(seed) === wanted) out.push(seed);
     }
     return out;
-  }, [prefix, page, shape, count, gen]);
+  }, [prefix, page, shape, count]);
 
   const stats = useMemo(() => {
     const sizes = seeds.map((s) => blobatar(s, opts).length);
@@ -164,29 +147,12 @@ export function App() {
         <h1>blobatar</h1>
         <div className="controls">
           <label>
-            generation
-            <select
-              value={gen}
-              onChange={(e) => {
-                const next = e.target.value;
-                setGen(next);
-                // Keep the filter if the new vocabulary has that silhouette.
-                setShape((s) => (SHAPES[next]!.includes(s) ? s : "all"));
-                setPage(0);
-              }}
-            >
-              {Object.keys(GENERATIONS).map((g) => (
-                <option key={g}>{g}</option>
-              ))}
-            </select>
-          </label>
-          <label>
             shape
             <select
               value={shape}
               onChange={(e) => (setShape(e.target.value), setPage(0))}
             >
-              {SHAPES[gen]!.map((s) => (
+              {SHAPES.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
@@ -362,7 +328,7 @@ export function App() {
               <strong>{focus}</strong>
               <span>
                 {blobatar(focus, opts).length} bytes ·{" "}
-                {silhouetteOf(GENERATIONS[gen]!, focus)}
+                {silhouetteOf(focus)}
               </span>
               <div className="swatches">
                 {[

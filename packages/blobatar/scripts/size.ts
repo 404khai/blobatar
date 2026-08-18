@@ -56,25 +56,15 @@ const ENTRIES: {
     // existed only to keep two of them apart: the palette's variant-keyed ramp
     // and floor tables, the `expressive` flag, and the `variant` argument
     // threaded through `resolve`.
-    // Raised from 3700 by 23 B for the generation seam — `makeBlobatar` and
-    // `makeParts` reading `opts.generation` instead of closing over one style.
-    // That is the whole core-side cost of the mechanism; everything else about
-    // a generation is paid by the consumer who imports one, which is the point
-    // of it being a passed-in value rather than an option naming a table.
-    // Raised from 3730 by 147 B when gen1 stopped being a hand-written style
-    // module and became `compose(bands, fit)` over `blobatar/shapes` (ADR-0007).
-    // That is the honest price of the composable design on the majority case,
-    // and it was measured, not estimated — the spike's +108 was measured on a
-    // consumer that composed inline and skipped `generation.ts` entirely, which
-    // no real default import does. The floor for that inline form is 3805; the
-    // 22 B between it and this row is `generation.ts`'s own weight, which is
-    // what buys `gen2` shaking out of this bundle at all.
-    //
-    // What it buys: `blob + gen2` fell 324 B, a second generation costs 606 B
-    // instead of 1058, and ten silhouettes became importable values a caller
-    // can compose. What it costs is this row, and only this row.
+    // Blobatar 2 binds its ten-shape style directly. The private composer keeps
+    // silhouette implementations local without retaining a runtime generation
+    // branch or any historical mapping in this graph (ADR-0008).
+    // Measured against published v0.2.0's six-shape renderer: 3657 → 4247 B
+    // gzip, +590 B (+16.1%). The abandoned runtime-generation version measured
+    // 4286 B, so making the package major the seam recovers 39 B as well as the
+    // public API complexity.
     name: "blob only",
-    budget: 3870,
+    budget: 4300,
     external: [] as string[],
     source: `import { blobatar } from "../../src/blob";
              globalThis.x = blobatar(String(globalThis.seed));`,
@@ -83,14 +73,14 @@ const ENTRIES: {
     // The barrel. Costs more than `blob only` above because it also carries the
     // colour and trait utilities, which a consumer who only renders never touches.
     name: "barrel",
-    budget: 3870,
+    budget: 4300,
     external: [],
     source: `import { blobatar } from "../../src/index";
              globalThis.x = blobatar(String(globalThis.seed));`,
   },
   {
     name: "uri",
-    budget: 3960,
+    budget: 4380,
     external: [],
     source: `import { blobatarUri } from "../../src/uri";
              globalThis.x = blobatarUri(String(globalThis.seed));`,
@@ -114,7 +104,7 @@ const ENTRIES: {
     // or not, so the stylesheet's `fill` rules always resolve to something
     // correct — a `var()` with nothing behind it makes `fill` inherit black.
     name: "react",
-    budget: 4850,
+    budget: 5250,
     external: ["react"],
     source: `import { Blobatar } from "../../src/react";
              globalThis.x = Blobatar;`,
@@ -126,107 +116,11 @@ const ENTRIES: {
     // Measured: +343 B for the first expression (the shared serializer and bake,
     // paid once) and +36 B for each one after it. Importing all three is 4098.
     name: "blob + happy",
-    budget: 4200,
+    budget: 4620,
     external: [],
     source: `import { blobatar } from "../../src/blob";
              import { happy } from "../../src/expression";
              globalThis.x = blobatar(String(globalThis.seed), { expression: happy });`,
-  },
-  {
-    /*
-     * What pinning a generation costs: 16 B over "blob only", because in this
-     * major `gen1` *is* the default and the bundler sees one copy of it.
-     *
-     * The number to watch is this one minus "blob only". It is near zero today
-     * and it is what a *second* generation will actually cost, since that one
-     * brings its own bands, its own `CORE` and its own decoration branches.
-     * This entry exists to have been measuring it from before there was
-     * anything to measure.
-     *
-     * One caveat this cannot see: entries are bundled standalone in `dist` (see
-     * `scripts/build.ts` for why code splitting is unavailable), so a consumer
-     * importing both `blobatar` and `blobatar/generation` from the published
-     * package gets the shared core twice. The fixtures here bundle from source
-     * and dedupe, which measures the mechanism rather than the packaging. That
-     * duplication resolves itself at the next major, when `gen1` leaves the
-     * core and pinning it stops overlapping with the default at all.
-     */
-    name: "blob + gen1",
-    budget: 3880,
-    external: [],
-    source: `import { blobatar } from "../../src/blob";
-             import { gen1 } from "../../src/generation";
-             globalThis.x = blobatar(String(globalThis.seed), { generation: gen1 });`,
-  },
-  {
-    /*
-     * And what a *second* generation costs, which is the number the entry above
-     * exists to be compared against.
-     *
-     * `blob + gen1` is 16 B over `blob only` because gen1 is this major's
-     * default and the bundler sees one copy of it. This row is the same import
-     * with gen2 in it, so the delta between the two is gen2's own weight: its
-     * band table, its `CORE` and `face` tables, four more decoration branches,
-     * and the rounded-polygon primitive that only it reaches.
-     *
-     * Measured: 606 B gz, down from 1084 when gen2 was its own hand-written
-     * module. The drop is the six silhouettes it shares with gen1 now being
-     * literally the same values rather than a second copy of them — what is
-     * left is gen2's own band table, `faceFit`, the four silhouettes only it
-     * draws, and the rounded-polygon primitive nothing else reaches.
-     *
-     * That delta is the argument for a generation being a passed-in value. A
-     * consumer who never names one pays none of it — `blob only` above is
-     * unmoved by this file existing at all — and a consumer who pins gen1 still
-     * lands within 30 B of it. The alternative, an option naming a table, would
-     * have put every future vocabulary in every bundle.
-     *
-     * That second property is not free, and this row is the only thing that
-     * checks it. A generation is now `{ id, ...compose(bands, fit) }` — a
-     * spread of a *call result*, and a bundler will not assume a call is
-     * side-effect-free, so without help `gen2` survives into a bundle that only
-     * ever imported `gen1`.
-     *
-     * The help has to be an IIFE — `/* @__PURE__ *\/ (() => ({ id, ...compose(…) }))()`
-     * — and *not* the obvious `{ id, .../* @__PURE__ *\/ compose(…) }`. Both
-     * were measured: the IIFE holds this row 606 B above `blob + gen1`, and the
-     * annotation-on-the-call form puts the two rows at exactly 4433 B each,
-     * which is the tell that gen2 is in every bundle. Same failure the old
-     * `{ id: 2, ...blob2 }` namespace spread caused, same row caught it.
-     */
-    name: "blob + gen2",
-    budget: 4490,
-    external: [],
-    source: `import { blobatar } from "../../src/blob";
-             import { gen2 } from "../../src/generation";
-             globalThis.x = blobatar(String(globalThis.seed), { generation: gen2 });`,
-  },
-  {
-    /*
-     * What composing your own generation costs — the capability `blobatar/shapes`
-     * and `blobatar/compose` exist to provide (ADR-0007).
-     *
-     * Three silhouettes, a band table and gen1's fit. It lands *below* the
-     * default import rather than above it, which is the point: a caller who
-     * wants three shapes carries three, not ten.
-     *
-     * It is not lower still, and the reason is worth stating: `blobatar` is
-     * `makeBlobatar(gen1)`, so passing `{ generation }` renders through the
-     * default and this bundle carries gen1's band table and `bodyFit` too. A
-     * consumer-composed generation cannot yet be the *only* one in a bundle,
-     * because the factory that would let it be is not public API. That is a
-     * deliberate deferral — see ADR-0007 — and it is why there is no
-     * "gen2 only" row here: it is not reachable either.
-     */
-    name: "blob + custom",
-    budget: 3900,
-    external: [],
-    source: `import { blobatar } from "../../src/blob";
-             import { compose, bodyFit, type Band } from "../../src/styles/compose";
-             import { round, organic, sun } from "../../src/styles/shapes";
-             const bands: Band[] = [[round, 0.5], [organic, 0.9], [sun, 1]];
-             const mine = { id: 7, ...compose(bands, bodyFit) };
-             globalThis.x = blobatar(String(globalThis.seed), { generation: mine });`,
   },
   {
     name: "traits only",

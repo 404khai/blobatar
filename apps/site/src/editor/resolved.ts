@@ -12,24 +12,11 @@
  * as a ghost. That is the difference between "this slider is broken" and "I am
  * at the edge of what fits".
  *
- * The ranges below are copied out of `styles/compose.ts`, where they moved when
- * generations became compositions — they are hardcoded in the composer rather
- * than carried per generation, which is what makes one copy here able to serve
- * both. That is a real coupling
- * and worth stating: they are frozen per generation and public per ADR 0003 — a
- * stated trait position is *relative* to them — so this is duplicating a
- * constant that already cannot move within one. If it moves anyway, the ghost
- * drifts; nothing renders wrong and nothing throws.
- *
- * One copy serves both generations, which is a fact rather than an assumption
- * worth checking: gen2 reads `eye.rx` over the same 0.075–0.105 of the body
- * radius, and builds its gap the same way out of `eye.gap` over 0.1–0.24. What
- * gen2 changed is the *region* the cluster is fitted into, not the ranges it is
- * fitted from — so `fit` is a different number and the arithmetic that reads it
- * back out is the same. `axes.test.ts` asserts it against both.
+ * The ranges below are copied from the private composer. Trait positions are
+ * relative to them and frozen within the package major, so a package test pins
+ * this readback against the actual layout.
  */
 import { _layout, type Traits } from "blobatar";
-import { GENERATIONS, type Gen } from "@/generations";
 
 /**
  * `_layout` returns a union across variants and `shape` discriminates it.
@@ -41,8 +28,7 @@ export type BlobLayout = Extract<ReturnType<typeof _layout>, { shape: unknown }>
 export const blobLayout = (
   name: string,
   traits: Record<string, number>,
-  gen: Gen,
-) => _layout(name, { traits, generation: GENERATIONS[gen] }) as BlobLayout;
+) => _layout(name, { traits }) as BlobLayout;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
@@ -54,14 +40,9 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
  * so eye *size* and eye *separation* are the pair that can land short; lean,
  * roundness and squareness are unaffected by it.
  *
- * What comes back is where the blobatar was *drawn*, which under gen1 is also
- * the position you could pin to get the same blobatar without any clamping —
- * its `fit` is stated in one axis, so the resolved position is a fixed point of
- * it. gen2 states it in two, and shrinking the cluster relaxes the second one a
- * little, so pinning the ghost there lands within a few percent rather than
- * exactly. Both are the right answer to the question the ghost is asked, which
- * is "why has this slider stopped moving"; only the second is not also a
- * round-trip. `axes.test.ts` pins the difference.
+ * Pinning the ghost lands within a few percent rather than exactly because
+ * shrinking the cluster relaxes its two-axis constraint. It is still the right
+ * answer to "why has this slider stopped moving"; `axes.test.ts` pins it.
  */
 export function resolved(l: BlobLayout, t: Traits): Record<string, number> {
   const rx = l.body.rx;
