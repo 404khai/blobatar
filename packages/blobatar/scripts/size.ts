@@ -63,8 +63,16 @@ const ENTRIES: {
     // gzip, +590 B (+16.1%). The abandoned runtime-generation version measured
     // 4286 B, so making the package major the seam recovers 39 B as well as the
     // public API complexity.
+    // Raised from 4300 by 110 B when the capsule and droplet stopped being
+    // approximated. Both drew a union whose parts crossed rather than met — a
+    // rounded box behind two cap circles, a soft diamond stabbed into a ball —
+    // and both showed the crease. `box` and `taper` in `shape.ts` are what the
+    // exactness costs: a stadium needs a run at full height for its caps to meet
+    // along their diameters, and a taper has to be the tangents from its apex to
+    // the body ellipse. Measured against the arc-drawn single-outline version of
+    // the same two shapes, which is a further 108 B for an identical render.
     name: "blob only",
-    budget: 4300,
+    budget: 4410,
     external: [] as string[],
     source: `import { blobatar } from "../../src/blob";
              globalThis.x = blobatar(String(globalThis.seed));`,
@@ -73,14 +81,14 @@ const ENTRIES: {
     // The barrel. Costs more than `blob only` above because it also carries the
     // colour and trait utilities, which a consumer who only renders never touches.
     name: "barrel",
-    budget: 4300,
+    budget: 4400,
     external: [],
     source: `import { blobatar } from "../../src/index";
              globalThis.x = blobatar(String(globalThis.seed));`,
   },
   {
     name: "uri",
-    budget: 4380,
+    budget: 4490,
     external: [],
     source: `import { blobatarUri } from "../../src/uri";
              globalThis.x = blobatarUri(String(globalThis.seed));`,
@@ -104,7 +112,7 @@ const ENTRIES: {
     // or not, so the stylesheet's `fill` rules always resolve to something
     // correct — a `var()` with nothing behind it makes `fill` inherit black.
     name: "react",
-    budget: 5250,
+    budget: 5370,
     external: ["react"],
     source: `import { Blobatar } from "../../src/react";
              globalThis.x = Blobatar;`,
@@ -116,7 +124,7 @@ const ENTRIES: {
     // Measured: +343 B for the first expression (the shared serializer and bake,
     // paid once) and +36 B for each one after it. Importing all three is 4098.
     name: "blob + happy",
-    budget: 4620,
+    budget: 4740,
     external: [],
     source: `import { blobatar } from "../../src/blob";
              import { happy } from "../../src/expression";

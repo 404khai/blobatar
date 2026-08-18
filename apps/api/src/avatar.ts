@@ -107,10 +107,13 @@ so new shapes arrive as a new generation rather than as a change to yours.
 
 An unversioned URL follows the current major and now renders gen 2. Existing
 URLs that must retain their old shapes should pin ?gen=1 before upgrading.
-Naming a generation makes the promise explicit, and it is the version
-served with a year-long immutable cache rather than a day: a pinned URL
-cannot come back different, so every cache between here and your reader is
-free to keep it.
+
+A generation that has appeared in a URL keeps answering. The list only ever
+grows — a pinned generation is never retired, redirected to a newer
+vocabulary, or answered with a placeholder. That is also why a pinned URL is
+served with a year-long immutable cache rather than a day: it cannot come
+back different, so every cache between here and your reader is free to keep
+it.
 
 Replacing Gravatar
 ------------------

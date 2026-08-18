@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { blobatar } from "blobatar";
+import { blobatar, type BlobatarOptions } from "blobatar";
 import { snippet, type Api, type SnippetInput } from "./snippet";
 import { KEY_ORDER, round3 } from "./axes";
 
@@ -122,6 +122,50 @@ describe("what it emits", () => {
     expect(code).toContain("// animate is a blobatar/react option");
   });
 
+  test("the endpoint spelling is a url, with the generation pinned", () => {
+    const code = snip({ api: "http", name: NAME, pinned: {}, motion: false });
+    // Nothing pinned and no motion is a URL and nothing else: a comment
+    // explaining a URL that is right there is one nobody reads.
+    expect(code).toBe(`https://blobatar.dev/avatar/${NAME}?gen=2`);
+  });
+
+  test("a name that needs encoding gets it, since it is a path segment", () => {
+    const code = snip({ api: "http", name: "alain@example.com", pinned: {}, motion: false });
+    expect(code).toContain("/avatar/alain%40example.com?");
+  });
+
+  test("the endpoint carries hue and tone, in the units a url spells them in", () => {
+    const code = snip({
+      api: "http",
+      name: NAME,
+      pinned: { hue: 0.824, tone: 0.49 },
+      motion: false,
+    });
+
+    // Panel order, like every other snippet — and degrees there where the panel
+    // holds a position, exact rather than rounded: 0.824 x 360.
+    expect(code).toContain("?gen=2&tone=0.49&hue=296.64");
+    expect(code).not.toContain("no url spelling");
+  });
+
+  test("axes the endpoint cannot spell are named rather than dropped quietly", () => {
+    const code = snip({
+      api: "http",
+      name: NAME,
+      pinned: { shape: 0.14, "eye.gap": 0.5, hue: 0.5 },
+      motion: false,
+    });
+
+    expect(code).toContain("# no url spelling for shape, eye.gap — from the name");
+    expect(code).toContain("hue=180");
+    expect(code).not.toContain("shape=");
+  });
+
+  test("the endpoint drops `animate` out loud too", () => {
+    const code = snip({ api: "http", name: NAME, pinned: {}, motion: "always" });
+    expect(code).toContain("static svg");
+  });
+
   test("an empty name falls back rather than emitting nothing", () => {
     const code = snip({ api: "react", name: "", pinned: {}, motion: false });
     expect(code).toContain(`name="blobatar"`);
@@ -148,6 +192,48 @@ describe("paste it and you get the blobatar that was on screen", () => {
         const code = snip({ api, name: NAME, pinned, motion: "hover" });
         expect(blobatar(NAME, { traits: pasted(code) })).toBe(blobatar(NAME, { traits: pinned }));
       }
+    });
+  }
+});
+
+/**
+ * The endpoint spelling gets the same acceptance test: read the URL back the
+ * way the endpoint does — name from the path, `hue` and `tone` from the query,
+ * both straight into the library options they name — and what renders has to be
+ * the preview.
+ *
+ * Deliberately not importing the Worker's `parseOptions` to do it. That would
+ * make a site test fail when the endpoint's validation changes, which is not
+ * what is being checked here: what this owns is that the URL it emits carries
+ * the right numbers in the units a URL spells them in. The parser is the
+ * endpoint's, and it has its own tests.
+ *
+ * `hue` and `tone` are the whole set a URL can carry, so those are the cases.
+ * The rest of the panel has no URL spelling by design, which the "named rather
+ * than dropped quietly" test above is what covers.
+ */
+describe("paste the url and you get the blobatar that was on screen", () => {
+  const colours: Record<string, number>[] = [
+    {},
+    { hue: 0.824 },
+    { tone: 0.71 },
+    { hue: 0.123, tone: 0.965 },
+    { hue: 0.999, tone: 0.1 },
+  ];
+
+  for (const [i, pinned] of colours.entries()) {
+    test(`case ${i}`, () => {
+      const code = snip({ api: "http", name: NAME, pinned, motion: false });
+      const url = new URL(code.slice(code.lastIndexOf("https://")));
+      const q = url.searchParams;
+      const opts: BlobatarOptions = {};
+      if (q.has("hue")) opts.hue = Number(q.get("hue"));
+      if (q.has("tone")) opts.tone = Number(q.get("tone"));
+
+      expect(q.get("gen")).toBe("2");
+      expect(
+        blobatar(decodeURIComponent(url.pathname.replace("/avatar/", "")), opts),
+      ).toBe(blobatar(NAME, { traits: pinned }));
     });
   }
 });

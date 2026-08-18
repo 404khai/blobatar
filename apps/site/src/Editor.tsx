@@ -99,7 +99,17 @@ export function Editor() {
   const code = snippet({ api, name, pinned, motion });
 
   return (
-    <main className="mx-auto max-w-6xl px-6 pb-24">
+    /*
+      A screen tall on a wide layout, and the page itself does not scroll: the
+      preview, the snippet and the panel are one working surface, and a page
+      that scrolls as a whole moves the blobatar you are tuning off the top of
+      it. The only scroller is the panel — twenty-odd controls will not fit on a
+      laptop and are not meant to, while everything in the left column is sized
+      to what is left over. Narrow keeps the ordinary document scroll, where
+      nothing can be beside anything and a screen-tall shell would just be a
+      window inside a window.
+    */
+    <main className="mx-auto flex max-w-6xl flex-col px-6 pb-24 lg:h-svh lg:overflow-hidden lg:pb-6">
       <header className="flex items-center justify-between gap-4 py-6">
         <a
           href="/"
@@ -127,7 +137,7 @@ export function Editor() {
       */}
       <div
         className={cn(
-          "grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-start lg:gap-x-14 lg:gap-y-8",
+          "grid gap-10 lg:min-h-0 lg:flex-1 lg:grid-cols-[0.95fr_1.05fr] lg:items-start lg:gap-x-14 lg:gap-y-8",
           // `auto` then `1fr`, and it is load-bearing: the panel spans both rows
           // and is a screen tall, so with default row sizing that height gets
           // shared between them and the snippet drifts half a screen below the
@@ -163,7 +173,18 @@ export function Editor() {
           and everything above scrolls sideways — with the `overflow-x-auto` on
           the code block never getting a chance to do its job.
         */}
-        <div className="order-3 flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-start-2">
+        {/*
+          `h-full` with `overflow-hidden` on a wide screen: the column takes the
+          height the row gives it rather than the height its content wants, which
+          is what puts the shrinking on the code box below instead of pushing the
+          install line off the bottom of a page that has nowhere to scroll to.
+        */}
+        <div
+          className={cn(
+            "order-3 flex min-w-0 flex-col gap-3",
+            "lg:col-start-1 lg:row-start-2 lg:h-full lg:min-h-0 lg:overflow-hidden",
+          )}
+        >
           <div className="text-muted flex items-baseline justify-between gap-4 text-xs lowercase">
             <span>your config</span>
             <Segmented
@@ -174,10 +195,20 @@ export function Editor() {
             >
               <SegmentedItem value="react">react</SegmentedItem>
               <SegmentedItem value="string">string</SegmentedItem>
+              <SegmentedItem value="http">http</SegmentedItem>
             </Segmented>
           </div>
 
-          <Snippet code={code} />
+          {/*
+            The one element in this column that gives. `min-h-0` and nothing
+            else: every other item here refuses to shrink below its text, so the
+            code box is what absorbs a short viewport — scrolling its own
+            overflow instead of pushing the install line off a page that has
+            nowhere to scroll to. Deliberately not `flex-1`: it takes the height
+            its code wants and no more, or a seven-line snippet becomes a
+            half-screen of empty box on a tall display.
+          */}
+          <Snippet code={code} className="lg:min-h-0" />
 
           <p className="text-muted text-xs leading-relaxed">
             {count === 0
@@ -189,15 +220,15 @@ export function Editor() {
         </div>
 
         {/*
-          Its own scroll on a wide screen, so the preview and the snippet stay
-          put while you work down the panel — the whole argument for the two
-          columns is that the thing you are tuning never moves.
+          The page's only scroller on a wide screen, so the preview and the
+          snippet stay put while you work down the panel — the whole argument
+          for the two columns is that the thing you are tuning never moves.
         */}
         <div
           className={cn(
             "border-line bg-raised/60 order-2 flex min-w-0 flex-col gap-6 rounded-2xl border p-5",
             "lg:col-start-2 lg:row-span-2 lg:row-start-1",
-            "lg:sticky lg:top-6 lg:max-h-[calc(100svh-3rem)] lg:overflow-y-auto",
+            "lg:self-stretch lg:min-h-0 lg:overflow-y-auto",
           )}
         >
           <div className="flex items-center justify-between gap-4">
@@ -295,6 +326,11 @@ function Preview({
       </div>
 
       {/*
+        A `vh` term alongside the `vmin` one, because the wide layout is a
+        screen tall and does not scroll: on a short laptop the blobatar is what
+        gives first, so that the snippet and the install line under it stay on
+        screen rather than being clipped by a preview sized off the width.
+
         Two elements rather than one with a variable `animate`, and the union in
         `BlobatarProps` is why: a static blobatar is an `<img>` and an animated
         one is inline SVG, so `alt` and `onLoad` stop meaning anything the
@@ -307,14 +343,14 @@ function Preview({
           traits={pinned}
           animate={motion}
           title={`Blobatar for ${name}`}
-          className="editor-preview size-[min(34vmin,15rem)]"
+          className="editor-preview size-[min(15rem,34vmin,28vh)]"
         />
       ) : (
         <Blobatar
           name={name || " "}
           traits={pinned}
           alt={`Blobatar for ${name}`}
-          className="size-[min(34vmin,15rem)]"
+          className="size-[min(15rem,34vmin,28vh)]"
         />
       )}
 

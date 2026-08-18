@@ -19,7 +19,7 @@
  * eye cluster stays inside the body and the body inside the frame for all of
  * them.
  */
-import { blobPath, polygon, superellipse } from "../shape";
+import { blobPath, box, polygon, taper } from "../shape";
 import type { Traits } from "../traits";
 
 export interface Body {
@@ -31,7 +31,8 @@ export interface Body {
 export interface Ellipse { cx: number; cy: number; rx: number; ry: number }
 export interface Deco {
   petals: { cx: number; cy: number; r: number }[];
-  extra: Parameters<typeof superellipse>[0][];
+  /** Extra outlines unioned with the core body, already traced. */
+  extra: string[];
 }
 
 export interface Shape {
@@ -55,7 +56,7 @@ export interface Shape {
 }
 
 // ---------------------------------------------------------------------------
-// The shared implementations. Four path calls serve all ten shapes.
+// The shared implementations. Five path calls serve all ten shapes.
 
 const poly = (b: Body) => polygon(b as Body & { sides: number; round: number });
 const spline = (b: Body) => blobPath(b.cx, b.cy, b.rx, b.ry, b.radii, b.rot);
@@ -90,7 +91,7 @@ export const capsule: Shape = {
   decorate: (_t, b, out) => {
     for (const s of [-1, 1]) out.petals.push({ cx: b.cx + s * (b.rx - b.ry), cy: b.cy, r: b.ry });
   },
-  path: b => superellipse({ ...b, rx: b.rx - b.ry, n: 6 }),
+  path: b => box(b.cx, b.cy, b.rx - b.ry, b.ry),
 };
 
 export const nub: Shape = {
@@ -126,15 +127,13 @@ export const cloud: Shape = {
 
 export const droplet: Shape = {
   name: "droplet", core: 0.78,
-  body: (_t, b) => { b.cy += 0.22 * b.ry; },
+  // Shifted down by what the taper adds above, so the whole silhouette — head
+  // and point together — sits centred in the frame rather than the head alone.
+  // `n` is pinned to a true ellipse, which is the curve the taper is tangent to.
+  body: (_t, b) => { b.cy += 0.22 * b.ry; b.n = 2; },
   face: b => ({ cx: b.cx, cy: b.cy + b.ry * 0.05, rx: b.rx * 0.88, ry: b.ry * 0.88 }),
   decorate: (t, b, out) => {
-    out.extra.push({
-      cx: b.cx, cy: b.cy - b.ry * 0.35,
-      rx: b.rx * t.num("droplet.w", 0.5, 0.64),
-      ry: b.ry * t.num("droplet.tip", 1.05, 1.3),
-      n: t.num("droplet.n", 1.25, 1.5),
-    });
+    out.extra.push(taper(b.cx, b.cy, b.rx, b.ry, t.num("droplet.tip", 1.4, 1.65)));
   },
 };
 

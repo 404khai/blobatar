@@ -316,13 +316,20 @@ type Row = { cells: Cell[]; size: number };
  * the bands are frozen per major but their boundaries are where a retune lands.
  */
 const SHAPES = [
-  { label: "round", at: 0.14 },
-  { label: "organic", at: 0.43 },
-  { label: "boxy", at: 0.65 },
-  { label: "nub", at: 0.78 },
-  { label: "cloud", at: 0.885 },
+  { label: "round", at: 0.11 },
+  { label: "organic", at: 0.35 },
+  { label: "boxy", at: 0.54 },
+  { label: "capsule", at: 0.65 },
+  { label: "nub", at: 0.745 },
+  { label: "cloud", at: 0.825 },
+  { label: "droplet", at: 0.888 },
+  { label: "hexagon", at: 0.933 },
   { label: "sun", at: 0.965 },
+  { label: "triangle", at: 0.99 },
 ] as const;
+
+/** Ten cells at this size overrun the sheet, so the roster is split in two. */
+const SHAPE_ROWS = [SHAPES.slice(0, 5), SHAPES.slice(5)];
 
 /** Eight stops around the wheel, the same set the site's hue picker offers. */
 const HUES = [12, 40, 78, 140, 190, 225, 275, 320];
@@ -353,14 +360,14 @@ const EXPRESSION_ROWS = [EXPRESSIONS.slice(0, 7), EXPRESSIONS.slice(7)];
 const BACKGROUNDS = ["none", "squircle", "circle", "square"] as const;
 
 const SHEET_ROWS: Row[] = [
-  {
+  ...SHAPE_ROWS.map((row, r) => ({
     size: 88,
-    cells: SHAPES.map((s, i) => ({
+    cells: row.map((s, i) => ({
       label: s.label,
       name: "shape",
-      opts: { traits: { shape: s.at }, hue: HUES[i + 1] },
+      opts: { traits: { shape: s.at }, hue: HUES[(r * 5 + i + 1) % HUES.length] },
     })),
-  },
+  })),
   {
     size: 88,
     cells: HUES.map((h) => ({ label: `hue=${h}`, name: "hue", opts: { hue: h } })),

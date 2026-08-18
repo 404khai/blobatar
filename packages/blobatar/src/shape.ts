@@ -184,3 +184,52 @@ export function polygon({ cx, cy, rx, ry, sides, round = 0.3, rot = 0 }: Polygon
   }
   return d + "Z";
 }
+
+/**
+ * The straight run of a capsule, as a plain box.
+ *
+ * Drawn with the two cap circles the capsule already decorates with, the union
+ * is an exact stadium: the box reaches full height everywhere, so each cap
+ * meets it along its own diameter and there is no crease. A superellipse cannot
+ * stand in — its corners round by a fraction of the whole radius, so it pinches
+ * away from the caps and the join shows.
+ */
+export function box(cx: number, cy: number, rx: number, ry: number): string {
+  const l = r2(cx - rx);
+  const r = r2(cx + rx);
+  return `M${l} ${r2(cy - ry)}H${r}V${r2(cy + ry)}H${l}Z`;
+}
+
+/**
+ * The taper of a droplet: the two tangents from an apex to the body ellipse.
+ *
+ * Drawn with that ellipse, the union is a teardrop. A tangent meets the curve
+ * without a corner, so the taper grows out of the head at every `tip` rather
+ * than being stuck on — which is the whole reason this takes the body's radii
+ * instead of drawing a cone of its own. `tip` is how far the apex sits above
+ * the centre in units of `ry`, and so also how far down the sides the flanks
+ * take hold: a taller apex has its tangent points further round.
+ *
+ * The point is eased with a quadratic through the apex, so the drawn tip stops
+ * just short of it — no needle at small sizes, and `tip` bounds the silhouette
+ * rather than touching it.
+ */
+export function taper(cx: number, cy: number, rx: number, ry: number, tip: number): string {
+  // In the circle the ellipse is an affine image of, the tangent points sit at
+  // angle acos(1/tip) from the apex direction. Affine maps preserve tangency,
+  // so scaling those two points by rx and ry is exact, not an approximation.
+  const t = Math.max(1.05, tip);
+  const tx = rx * Math.sqrt(1 - 1 / (t * t));
+  const ty = cy - ry / t;
+  const apex = cy - t * ry;
+  // How far up each flank the eased point takes over. Small, so the flanks stay
+  // straight enough to read as a taper.
+  const px = tx * 0.14;
+  const py = ty + 0.86 * (apex - ty);
+  return (
+    `M${r2(cx - tx)} ${r2(ty)}` +
+    `L${r2(cx - px)} ${r2(py)}` +
+    `Q${r2(cx)} ${r2(apex)} ${r2(cx + px)} ${r2(py)}` +
+    `L${r2(cx + tx)} ${r2(ty)}Z`
+  );
+}

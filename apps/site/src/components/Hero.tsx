@@ -295,7 +295,7 @@ export function Hero() {
 
           <p className="text-muted mt-5 max-w-md text-balance text-base leading-relaxed">
             Deterministic geometric blobatars from any string. No dependencies,
-            about 3.7&nbsp;KB.
+            about 4.4&nbsp;KB.
           </p>
         </div>
 

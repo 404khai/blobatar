@@ -14,13 +14,18 @@ import { cn } from "@/lib/utils";
  * come first so that a `//` inside a string, or a keyword inside a comment,
  * is already consumed by the time the later branches are tried.
  *
+ * Two comment spellings, because the editor emits a URL as well as code: `#`
+ * for that one, and `//` only where a scheme is not in front of it. Without the
+ * lookbehind `https://blobatar.dev/…` is a comment to the rest of the line, and
+ * the endpoint snippet renders as one long italic muted string.
+ *
  * The property-name branch has to come *before* the general string one for the
  * same reason in miniature: `"eye.gap"` is a key and `"blobatar/react"` is a
  * string, and the only thing that separates them is the colon after. A single
  * string branch first would swallow both and there would be no second chance.
  */
 const TOKEN =
-  /(\/\/[^\n]*)|("[^"]*")(?=\s*:)|("[^"]*")|\b(import|from|const)\b|(<\/?[A-Z][A-Za-z0-9]*)|([a-zA-Z][A-Za-z0-9]*)(?=\s*[=:])|\b(\d+\.?\d*)\b/g;
+  /((?<!:)\/\/[^\n]*|#[^\n]*)|("[^"]*")(?=\s*:)|("[^"]*")|\b(import|from|const)\b|(<\/?[A-Z][A-Za-z0-9]*)|([a-zA-Z][A-Za-z0-9]*)(?=\s*[=:])|\b(\d+\.?\d*)\b/g;
 
 const CLASS = [
   "text-muted italic", // comment
@@ -84,7 +89,14 @@ export function Snippet({ code, className }: { code: string; className?: string 
         {copied ? <CheckIcon /> : <CopyIcon />}
       </button>
 
-      <pre className="overflow-x-auto p-5 pr-14 font-mono text-[0.8rem] leading-[1.7]">
+      {/*
+        `h-full` so the box can be handed a height by a flex parent — the
+        editor's column does exactly that — and `overflow-auto` rather than
+        `overflow-x-auto` so that when it is, the code scrolls inside the box
+        instead of out of it. Neither does anything where the parent's height is
+        the content's, which is every other place this is used.
+      */}
+      <pre className="h-full overflow-auto p-5 pr-14 font-mono text-[0.8rem] leading-[1.7]">
         <code>{highlight(code)}</code>
       </pre>
     </div>

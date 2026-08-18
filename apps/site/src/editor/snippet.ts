@@ -11,7 +11,7 @@
  */
 import { KEY_ORDER } from "./axes";
 
-export type Api = "react" | "string";
+export type Api = "react" | "string" | "http";
 export type Motion = false | "hover" | "always";
 
 export interface SnippetInput {
@@ -73,7 +73,9 @@ export function snippet({ api, name, pinned, motion }: SnippetInput): string {
 
   return api === "react"
     ? react(seed, traits, motion)
-    : string(seed, traits, motion);
+    : api === "string"
+      ? string(seed, traits, motion)
+      : http(seed, traits, motion);
 }
 
 function react(
@@ -142,5 +144,71 @@ function string(
   }
   lines.push(`});`);
 
+  return lines.join("\n");
+}
+
+/**
+ * The endpoint, and the one API here that cannot carry everything the panel
+ * pins.
+ *
+ * A URL's surface is `hue`, `tone`, `size`, `background`, `expression` and
+ * `gen` — there is no spelling for a silhouette or an eye gap, and there should
+ * not be: those are a geometry vocabulary, and putting forty trait positions in
+ * a query string would make every one of them a public parameter of a service
+ * anybody can link. So this emits what survives, and names what does not
+ * directly above the URL. A snippet that quietly rendered a different blobatar
+ * than the preview would be worse than one that says which axes it dropped.
+ *
+ * `gen` is pinned, unlike in the two library snippets, and for the mirror of
+ * the reason they do not: there, the installed major selects the vocabulary and
+ * the lockfile holds it still. A URL has no lockfile — an unversioned one
+ * follows whatever the endpoint currently serves — so naming the generation is
+ * how a pasted link keeps rendering the blobatar that was on screen. It is also
+ * what earns the year-long immutable cache. See the endpoint's usage text.
+ */
+const ENDPOINT = "https://blobatar.dev/avatar/";
+
+/** The generation the editor previews, which is the package it is built on. */
+const GEN = 2;
+
+/**
+ * The pinned keys a URL can carry, in the units it spells them in.
+ *
+ * `hue` is degrees there and a position here — the library reads the trait as
+ * `t.num("hue", 0, 360)`, so the conversion is the multiply and nothing else.
+ * Two decimals is exact rather than approximate: pinning rounds to three, and
+ * any three-decimal position times 360 lands on a multiple of 0.36.
+ */
+const URL_UNITS: Record<string, (v: number) => string> = {
+  hue: v => String(Math.round(v * 36000) / 100),
+  tone: String,
+};
+
+function http(
+  seed: string,
+  traits: (readonly [string, number])[],
+  motion: Motion,
+) {
+  const query = [`gen=${GEN}`];
+  const dropped: string[] = [];
+  for (const [k, v] of traits) {
+    const unit = URL_UNITS[k];
+    if (unit) query.push(`${k}=${unit(v)}`);
+    else dropped.push(k);
+  }
+
+  // Only what the URL cannot say for itself. There is no line explaining `gen`
+  // or the name, because both are right there in the URL being explained — a
+  // comment on every snippet is a comment nobody reads by the third one. What
+  // is left is the two things a reader cannot see: the axes that did not fit,
+  // and the motion the endpoint will not serve.
+  //
+  // Short lines on purpose: this box is the narrow column on the page, and a
+  // note that needs scrolling sideways to finish is another one nobody reads.
+  const lines: string[] = [];
+  if (dropped.length) lines.push(`# no url spelling for ${dropped.join(", ")} — from the name`);
+  if (motion) lines.push(`# static svg — animate is a blobatar/react option`);
+
+  lines.push(`${ENDPOINT}${encodeURIComponent(seed)}?${query.join("&")}`);
   return lines.join("\n");
 }

@@ -1,6 +1,6 @@
 # blobatar
 
-Deterministic geometric blobatars from any string. No dependencies, ~4.2 KB gzipped.
+Deterministic geometric blobatars from any string. No dependencies, ~4.4 KB gzipped.
 
 ```ts
 import { blobatar } from "blobatar";

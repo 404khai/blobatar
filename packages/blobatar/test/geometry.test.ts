@@ -199,11 +199,16 @@ describe("blob", () => {
         const d = Math.hypot(p.cx - l.body.cx, p.cy - l.body.cy);
         expect(d).toBeLessThan(l.body.rx * 0.95 + p.r);
       }
-      // The droplet's taper is the one part that is meant to leave the core, so
-      // it is checked the other way round: its *base* has to stay buried, or
-      // the union comes apart into a blob with a diamond floating above it.
-      for (const s of l.extra) {
-        expect(inside(s.cx, s.cy, { ...l.body, n: 2 })).toBeLessThan(1);
+      // The droplet's taper is the one part meant to leave the core, so it is
+      // checked the other way round: it starts at a tangent point, which has to
+      // sit *on* the body ellipse. Off it either way and the union comes apart
+      // — a gap below, or the crease that a cone stuck onto a ball shows.
+      for (const d of l.extra) {
+        const [x, y] = d.slice(1, d.indexOf("L")).split(" ").map(Number) as [number, number];
+        expect(inside(x, y, { ...l.body, n: 2 })).toBeCloseTo(1, 2);
+        // …and the curve it is tangent to has to be the one actually drawn, so
+        // the body it hangs off stays a true ellipse rather than a squarer one.
+        expect(l.body.n).toBe(2);
       }
     }
   });

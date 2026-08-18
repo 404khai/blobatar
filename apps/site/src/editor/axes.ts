@@ -133,9 +133,9 @@ export const AXES: Axis[] = BASE_AXES.map(a =>
       kind: "slider",
       when: ["triangle", "hexagon"],
     },
-    { key: "droplet.w", label: "tip width", group: "decoration", kind: "slider", when: ["droplet"] },
+    // One knob, because the taper is tangent to the body: how high the apex
+    // reaches is also how wide its base is and how sharp its point comes out.
     { key: "droplet.tip", label: "tip length", group: "decoration", kind: "slider", when: ["droplet"] },
-    { key: "droplet.n", label: "tip sharpness", group: "decoration", kind: "slider", when: ["droplet"] },
 ]);
 
 /** Snippet key order. Panel order, so the two never disagree. */

@@ -108,7 +108,7 @@ export function compose(bands: Band[], fit: Fit) {
     const body =
       `<g fill="${p.head}">` +
       l.petals.map(d => `<circle cx="${r2(d.cx)}" cy="${r2(d.cy)}" r="${r2(d.r)}"/>`).join("") +
-      l.extra.map(s => `<path d="${superellipse(s)}"/>`).join("") +
+      l.extra.map(d => `<path d="${d}"/>`).join("") +
       `<path d="${l.draw ? l.draw(l.body) : superellipse(l.body)}"/>` +
       `</g>` +
       `<g fill="${p.eye}"${mo ? ` class="mo-eyes"` : ""}>` +

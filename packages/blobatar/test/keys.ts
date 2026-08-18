@@ -55,7 +55,5 @@ export const BLOB_KEYS = [
   ...BASE_KEYS,
   "poly.round",
   "capsule.squat",
-  "droplet.w",
   "droplet.tip",
-  "droplet.n",
 ];

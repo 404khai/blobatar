@@ -1,6 +1,6 @@
 # blobatar
 
-Deterministic geometric blobatars from any string. No dependencies, ~4.2 KB
+Deterministic geometric blobatars from any string. No dependencies, ~4.4 KB
 gzipped.
 
 ![A field of forty-odd blobatars, no two alike, each generated from an ordinary handle like alain, tove or kasper](./docs/media/crowd.png)
@@ -126,14 +126,21 @@ arrive as a new **generation** instead:
 | `gen=2` | …and capsule, triangle, hexagon, droplet |
 
 An unversioned URL follows the current package major and now renders gen 2.
-Pin `?gen=1` on existing URLs that must keep the original six shapes. Naming a
-generation makes the promise explicit and earns a year-long immutable cache
-rather than a day, since a pinned URL cannot come back different:
+Pin `?gen=1` on existing URLs that must keep the original six shapes:
 
 ```
 https://blobatar.dev/avatar/alain00?gen=1
 https://blobatar.dev/avatar/alain00?gen=2
 ```
+
+A generation that has appeared in a URL keeps answering. The list only ever
+grows: `gen=1` will not be retired, redirected to a newer vocabulary, or
+answered with a placeholder, because a URL that renders someone's face is
+usually written down somewhere its author no longer controls. That is what
+naming a generation buys, and it is why a pinned URL earns a year-long
+immutable cache rather than a day — it cannot come back different. The cost
+falls on the endpoint, which depends on every frozen package major it still
+serves; the library itself carries only the current one.
 
 `GET /avatar/` returns the whole parameter list as plain text, which is the
 reference this section is a summary of.
