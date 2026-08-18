@@ -5,13 +5,14 @@
   "scripts": {
     "dev": "bun --hot server.ts",
     "build": "bun build.ts",
+    "preview": "bun run build && wrangler dev",
+    "deploy": "bun --filter blobatar build && bun run build && wrangler deploy",
     "check": "bun test"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.23",
     "@radix-ui/react-slider": "^1.4.7",
     "@radix-ui/react-toggle-group": "^1.1.2",
-    "@vercel/analytics": "^2.0.1",
     "blobatar": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -24,6 +25,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
-    "bun-plugin-tailwind": "latest"
+    "bun-plugin-tailwind": "latest",
+    "wrangler": "^4"
   }
 }

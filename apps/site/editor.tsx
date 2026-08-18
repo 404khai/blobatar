@@ -1,5 +1,4 @@
 import { createRoot } from "react-dom/client";
-import { Analytics } from "@vercel/analytics/react";
 import { Editor } from "./src/Editor";
 // Before the page's own stylesheet, exactly as `frontend.tsx` does it:
 // `styles.css` cancels the library's hover reaction and both rules are
@@ -19,9 +18,4 @@ import "./styles.css";
  * delaying interactivity, which is a trade a page you *read* can make and a page
  * that is nothing but controls cannot.
  */
-createRoot(document.getElementById("root")!).render(
-  <>
-    <Editor />
-    <Analytics />
-  </>,
-);
+createRoot(document.getElementById("root")!).render(<Editor />);

@@ -1,5 +1,4 @@
 import { createRoot, hydrateRoot } from "react-dom/client";
-import { Analytics } from "@vercel/analytics/react";
 import { App } from "./src/App";
 // Required — nothing animates without it, and the hero is `animate="always"`.
 //
@@ -9,17 +8,12 @@ import { App } from "./src/App";
 import "blobatar/motion.css";
 import "./styles.css";
 
-// `<Analytics />` renders nothing — it injects Vercel's `/_vercel/insights`
-// script, which only exists once the site is deployed. Locally it falls back to
-// the debug script and logs to the console instead of sending anything.
+// Nothing here injects an analytics script. Cloudflare Web Analytics is
+// enabled on the zone and its beacon is inserted at the edge, so the measuring
+// costs this bundle nothing and there is no token to keep in the repo.
 const root = document.getElementById("root")!;
 
-const tree = (
-  <>
-    <App />
-    <Analytics />
-  </>
-);
+const tree = <App />;
 
 /*
  * Which of the two depends on who served the page, and the check is for markup

@@ -84,3 +84,18 @@ jobs:
       # apart into two different libraries.
       - name: Build the site
         run: bun run build:site
+
+      - name: Site and endpoint tests
+        run: bun --filter site test
+
+      # Bundles `blobatar` the way a deploy does: through the workspace symlink
+      # and therefore through the real `exports` map, not the tsconfig alias to
+      # source that `build:site` above uses. Breaking an export path fails here
+      # rather than in production.
+      #
+      # It also proves the asset directory exists and the routes parse, which is
+      # everything about the deploy that can be checked without performing one.
+      - name: Worker bundles against the published exports
+        run: |
+          bun --filter blobatar build
+          cd apps/site && bunx wrangler deploy --dry-run --outdir /tmp/site-dry
