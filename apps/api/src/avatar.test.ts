@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { blobatar } from "blobatar/blob";
 import { happy } from "blobatar/expression";
 import { avatar } from "./avatar";
-import worker from "./index";
 
 const ORIGIN = "https://blobatar.dev";
 const get = (path: string, init?: RequestInit) => avatar(new Request(ORIGIN + path, init));
@@ -115,23 +114,4 @@ test("blobatars are embeddable cross-origin", () => {
 test("unicode and email names round-trip through the path", async () => {
   expect(await get("/avatar/alain%40example.com").text()).toBe(blobatar("alain@example.com"));
   expect(await get("/avatar/%F0%9F%A6%8A").text()).toBe(blobatar("🦊"));
-});
-
-// ---------------------------------------------------------------------------
-// The Worker entry: everything outside /avatar/ is the site.
-
-const ASSETS = { fetch: async (r: Request) => new Response(`asset:${new URL(r.url).pathname}`) };
-const fetchIt = (path: string) => worker.fetch(new Request(ORIGIN + path), { ASSETS });
-
-test("the site is served by the asset pipeline, not the Worker", async () => {
-  for (const path of ["/", "/editor", "/og.png", "/robots.txt", "/llms.txt", "/fonts/geist-variable.woff2"]) {
-    expect(await (await fetchIt(path)).text()).toBe(`asset:${path}`);
-  }
-});
-
-test("only /avatar/ reaches the renderer", async () => {
-  expect(await (await fetchIt("/avatar/alain")).text()).toBe(blobatar("alain"));
-  // A page whose path merely starts with the word is still the site.
-  expect(await (await fetchIt("/avatars")).text()).toBe("asset:/avatars");
-  expect(await (await fetchIt("/avatar.svg")).text()).toBe("asset:/avatar.svg");
 });

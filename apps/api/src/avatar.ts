@@ -136,6 +136,15 @@ const text = (body: string, status: number) =>
   });
 
 /**
+ * The help text, as a response.
+ *
+ * Exported because a standalone deploy has no site behind it. `apps/api` serves
+ * this at `/` and at every path it does not recognise; `apps/site` serves the
+ * landing page there instead, and only ever reaches `avatar` below.
+ */
+export const usage = (status = 200) => text(USAGE, status);
+
+/**
  * The endpoint, as a function of one Request.
  *
  * Deliberately free of Workers-specific APIs — no `caches.default`, no `env`,

@@ -1,4 +1,4 @@
-import { PREFIX, avatar } from "./avatar";
+import { PREFIX, avatar } from "../../api/src/avatar";
 
 /**
  * blobatar.dev, whole.
@@ -6,6 +6,11 @@ import { PREFIX, avatar } from "./avatar";
  * The static site and the avatar endpoint are one Worker on one domain because
  * they are one thing to deploy and one thing to reason about. Splitting them
  * across two platforms is what produced an afternoon of DNS archaeology.
+ *
+ * The endpoint itself lives in `apps/api`, which is the same Worker without the
+ * site attached and the thing the Deploy to Cloudflare button publishes. It is
+ * imported rather than copied so that the endpoint anyone can host and the
+ * endpoint blobatar.dev serves cannot drift into two different answers.
  *
  * `run_worker_first` in `wrangler.jsonc` limits what reaches this function to
  * `/avatar/*`, so the site is served by Cloudflare's asset pipeline without a

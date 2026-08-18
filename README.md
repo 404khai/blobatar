@@ -86,20 +86,79 @@ import "blobatar/motion.css"; // required — nothing animates without it
 animated one is inline SVG. Use `"hover"` in a grid and `"always"` for the
 single-blobatar case. Motion respects `prefers-reduced-motion`.
 
+## Over HTTP
+
+No install and no build step — a URL that renders one:
+
+```html
+<img src="https://blobatar.dev/avatar/alain00?size=48" width="48" height="48" alt="">
+```
+
+The path segment is the name, percent-encoded, and the query string is the
+options under the names the library gives them — `size` (or `s`), `background`,
+`hue`, `tone`, `expression`, `title`:
+
+```
+https://blobatar.dev/avatar/alain%40example.com?size=64&background=squircle
+https://blobatar.dev/avatar/team-rocket?expression=smug
+```
+
+Gravatar's `d`, `f` and `r` are accepted and ignored, so an existing Gravatar
+URL becomes a blobatar by changing the host and nothing else:
+
+```diff
+- https://www.gravatar.com/avatar/<hash>?s=200&d=identicon
++ https://blobatar.dev/avatar/<hash>?s=200&d=identicon
+```
+
+The hash is used as the name. It is one-way, so the email cannot be recovered —
+but it is itself derived from the email, so each person still gets one stable
+blobatar of their own. It will not be the same one `/avatar/<email>` gives:
+pick one scheme per application.
+
+`GET /avatar/` returns the whole parameter list as plain text, which is the
+reference this section is a summary of.
+
+### Deploy your own
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Alain00/blobatar/tree/main/apps/api)
+
+`blobatar.dev/avatar` is free to use, but it is one small Worker rather than
+something you have an agreement with, and it is rate-limited. If avatars are
+load-bearing for you, run the endpoint yourself. The button clones
+[`apps/api`](./apps/api) into your GitHub or GitLab account and deploys it to
+your Cloudflare account — no configuration, no card, about a minute — and you
+get:
+
+```
+https://blobatar-api.<your-subdomain>.workers.dev/avatar/<name>
+```
+
+Attach your own hostname afterwards in the Cloudflare dashboard, or as a
+`routes` entry in `wrangler.jsonc`, and every push to your clone redeploys.
+
+It stays inside the Workers free plan for anything short of real scale:
+100,000 requests a day, and a blobatar costs 12µs of CPU against the 10ms
+allowed per request and 357 gzipped bytes to send. There is no database, no
+bucket and no state — the avatar is a pure function of the URL, which is also
+why every cache between you and it does the actual work.
+
 **[Full docs — options table, guarantees, and how it works →](./packages/blobatar/README.md)**
 
 ## Workspace
 
-| Path                | What it is                                               |
-| ------------------- | -------------------------------------------------------- |
-| `packages/blobatar` | The library. [Docs here](./packages/blobatar/README.md). |
-| `apps/site`         | The landing page. Static, dark-only.                     |
-| `apps/demo`         | The tuning grid — the internal design tool, not a demo.  |
+| Path                | What it is                                                        |
+| ------------------- | ----------------------------------------------------------------- |
+| `packages/blobatar` | The library. [Docs here](./packages/blobatar/README.md).          |
+| `apps/api`          | The HTTP endpoint, deployable on its own. Serves `/avatar/<name>`. |
+| `apps/site`         | The landing page, plus `apps/api` behind blobatar.dev.            |
+| `apps/demo`         | The tuning grid — the internal design tool, not a demo.           |
 
 ```sh
 bun install
 bun dev        # tuning grid   → localhost:3001
 bun site       # landing page  → localhost:3000
+bun api        # the endpoint  → localhost:8787/avatar/alain
 bun test       # library tests
 bun run check  # tests + size budgets
 bun run media  # redraw the README images (needs Chrome + ImageMagick)

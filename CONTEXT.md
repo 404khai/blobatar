@@ -139,8 +139,16 @@ A workspace member under `apps/` — never published, and always consumes
 `blobatar` through its public `exports` map rather than by relative path.
 
 **Site**:
-The public landing page (`apps/site`). Static, dark-only, editorial.
+The public landing page (`apps/site`). Static, dark-only, editorial. Also the
+deployable that puts the endpoint on blobatar.dev.
 _Avoid_: demo, docs.
+
+**Endpoint**:
+The HTTP surface (`apps/api`) — `GET /avatar/<name>` — and the standalone Worker
+serving it, which anyone can deploy to their own Cloudflare account. `apps/site`
+imports it rather than copying it, so there is one endpoint with two deployments
+(ADR-0005).
+_Avoid_: server, API, image service.
 
 **Tuning grid**:
 The internal design tool (`apps/demo`) that renders blobatars in aggregate so

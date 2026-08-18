@@ -85,8 +85,17 @@ jobs:
       - name: Build the site
         run: bun run build:site
 
-      - name: Site and endpoint tests
+      - name: Site tests
         run: bun --filter site test
+
+      # `apps/api` is the exception to the alias above: it has no `blobatar/*`
+      # paths, so its tests resolve the library through `exports` and need the
+      # build first. That is deliberate — it is the endpoint anyone can deploy,
+      # and it should be tested against what they will install.
+      - name: Endpoint tests, against the built package
+        run: |
+          bun --filter blobatar build
+          bun --filter blobatar-api test
 
       # Bundles `blobatar` the way a deploy does: through the workspace symlink
       # and therefore through the real `exports` map, not the tsconfig alias to
@@ -95,7 +104,7 @@ jobs:
       #
       # It also proves the asset directory exists and the routes parse, which is
       # everything about the deploy that can be checked without performing one.
-      - name: Worker bundles against the published exports
+      - name: Workers bundle against the published exports
         run: |
-          bun --filter blobatar build
           cd apps/site && bunx wrangler deploy --dry-run --outdir /tmp/site-dry
+          cd ../api && bunx wrangler deploy --dry-run --outdir /tmp/api-dry

@@ -6,9 +6,12 @@
   "scripts": {
     "dev": "bun --filter demo dev",
     "site": "bun --filter site dev",
+    "//api": "The library build first, both here and in `deploy:api`. `apps/api` resolves `blobatar` through its `exports` map — built JS that is not in the repo — so unlike the site, which aliases the library to source, it cannot start against a fresh clone.",
+    "api": "bun --filter blobatar build && bun --filter blobatar-api dev",
     "build:site": "bun --filter site build",
     "preview": "bun --filter site preview",
     "deploy": "bun --filter site deploy",
+    "deploy:api": "bun --filter blobatar build && bun --filter blobatar-api deploy",
     "test": "bun --filter blobatar test",
     "size": "bun --filter blobatar size",
     "media": "bun scripts/media.ts",
