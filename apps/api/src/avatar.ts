@@ -80,7 +80,7 @@ Parameters (all optional, named as the library names them):
   expression  idle | happy | sad | mad | surprised | wink | sleepy
               | smug | unsure | scared | love | shy | sick
   title       accessible name, 128 characters or fewer
-  gen         which shape vocabulary to render under — see below
+  gen         1 | 2 — which shape vocabulary to render under, see below
 
 Examples:
 
@@ -94,13 +94,15 @@ A generation is one frozen name-to-blobatar mapping. Adding a shape is not
 additive — a new silhouette has to take its share from the existing ones —
 so new shapes arrive as a new generation rather than as a change to yours.
 
-  /avatar/alain00?gen=1
+  /avatar/alain00?gen=1     round organic boxy nub cloud sun
+  /avatar/alain00?gen=2     …and capsule triangle hexagon droplet
 
 An unversioned URL renders gen 1 and always will, so nothing you have
-already pasted anywhere needs revisiting. Naming it makes the promise
-explicit, and it is the version served with a year-long immutable cache
-rather than a day: a pinned URL cannot come back different, so every cache
-between here and your reader is free to keep it.
+already pasted anywhere needs revisiting — gen 2 is opt-in, and stays that
+way. Naming a generation makes the promise explicit, and it is the version
+served with a year-long immutable cache rather than a day: a pinned URL
+cannot come back different, so every cache between here and your reader is
+free to keep it.
 
 Replacing Gravatar
 ------------------

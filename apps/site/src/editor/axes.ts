@@ -16,36 +16,25 @@
  */
 
 /**
- * The six silhouettes of **gen1**. `shapeOf` in `styles/blob.ts` owns the
- * thresholds.
- *
- * Per-generation, now that there is such a thing: a later generation has its
- * own vocabulary and its own bands, and this file describes one of them. The
- * editor renders the default generation, which in this major is gen1 — so
- * nothing here needs a switch yet. It will the moment there are two, and the
- * shape of that change is this list and `applies` below becoming a lookup
- * rather than a constant.
+ * The generation tables live in `@/generations`, because the landing hero picks
+ * a silhouette too and the two pages must not disagree about what `0.888` is.
+ * Re-exported rather than re-imported at every call site: this file is still
+ * where the panel's vocabulary is looked up from, and `applies` below reads the
+ * same `Shape` names.
  */
-export type Shape = "round" | "organic" | "boxy" | "nub" | "cloud" | "sun";
+export {
+  DEFAULT_GEN,
+  GENERATIONS,
+  GENS,
+  SHAPES,
+  identifier,
+  sameShape,
+  type Gen,
+  type Shape,
+  type ShapeOption,
+} from "@/generations";
 
-/**
- * Each shape as the position in [0, 1) that selects it.
- *
- * **Copied from `packages/blobatar/test/traits.test.ts`**, under "every shape in
- * the vocabulary is reachable by band midpoint", rather than derived from
- * `shapeOf`'s thresholds. The bands are frozen per generation but their
- * boundaries are exactly where a retune would land, and a copy means that
- * retune fails a test in the package — `test/golden/gen1.txt` names it directly
- * now — instead of silently moving every config anyone saved off this page.
- */
-export const SHAPES: { name: Shape; at: number }[] = [
-  { name: "round", at: 0.14 },
-  { name: "organic", at: 0.43 },
-  { name: "boxy", at: 0.65 },
-  { name: "nub", at: 0.78 },
-  { name: "cloud", at: 0.885 },
-  { name: "sun", at: 0.965 },
-];
+import type { Gen, Shape } from "@/generations";
 
 /**
  * The tone set, same treatment.
@@ -106,8 +95,13 @@ export interface Axis {
  * what it is made of, then how it is decorated. A pinned map that reads
  * top-to-bottom the way the panel does is one fewer thing to reconcile when
  * someone comes back to code they generated a month ago.
+ *
+ * gen2's list is gen1's plus its four new silhouettes' controls, and one
+ * widening: `body.rot` is read on a triangle and a hexagon there as well as on
+ * a boxy body, because a polygon can turn — a vertex is `(rx·cos a, ry·sin a)`,
+ * so rotating one never costs it any of its frame.
  */
-export const AXES: Axis[] = [
+const GEN1_AXES: Axis[] = [
   { key: "shape", label: "silhouette", group: "shape", kind: "shape" },
 
   { key: "body.r", label: "size", group: "body", kind: "slider" },
@@ -141,8 +135,32 @@ export const AXES: Axis[] = [
   { key: "nub.r0", label: "nub size", group: "decoration", kind: "slider", when: ["nub"] },
 ];
 
+export const AXES: Record<Gen, Axis[]> = {
+  1: GEN1_AXES,
+  2: GEN1_AXES.map(a =>
+    a.key === "body.rot" ? { ...a, when: ["boxy", "triangle", "hexagon"] as Shape[] } : a,
+  ).concat([
+    // `capsule.squat` sits in `body` rather than in `decoration`: it is how tall
+    // the body is, not something attached to it.
+    { key: "capsule.squat", label: "squat", group: "body", kind: "slider", when: ["capsule"] },
+    {
+      key: "poly.round",
+      label: "corner rounding",
+      group: "body",
+      kind: "slider",
+      when: ["triangle", "hexagon"],
+    },
+    { key: "droplet.w", label: "tip width", group: "decoration", kind: "slider", when: ["droplet"] },
+    { key: "droplet.tip", label: "tip length", group: "decoration", kind: "slider", when: ["droplet"] },
+    { key: "droplet.n", label: "tip sharpness", group: "decoration", kind: "slider", when: ["droplet"] },
+  ]),
+};
+
 /** Snippet key order. Panel order, so the two never disagree. */
-export const KEY_ORDER = AXES.map(a => a.key);
+export const KEY_ORDER: Record<Gen, string[]> = {
+  1: AXES[1].map(a => a.key),
+  2: AXES[2].map(a => a.key),
+};
 
 /** Whether an axis applies to the silhouette currently on screen. */
 export const applies = (axis: Axis, shape: Shape) =>

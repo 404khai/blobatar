@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { blobatar } from "blobatar/blob";
 import { happy } from "blobatar/expression";
-import { gen1 } from "blobatar/generation";
+import { gen1, gen2 } from "blobatar/generation";
 import { avatar } from "./avatar";
 
 const ORIGIN = "https://blobatar.dev";
@@ -146,4 +146,20 @@ test("blobatars are embeddable cross-origin", () => {
 test("unicode and email names round-trip through the path", async () => {
   expect(await get("/avatar/alain%40example.com").text()).toBe(blobatar("alain@example.com"));
   expect(await get("/avatar/%F0%9F%A6%8A").text()).toBe(blobatar("🦊"));
+});
+
+test("gen 2 renders gen 2, and is cached forever too", async () => {
+  const res = get("/avatar/nova?gen=2");
+  const svg = await res.text();
+  expect(svg).toBe(blobatar("nova", { generation: gen2 }));
+  // `nova` rather than `alain`, because a third of seeds render byte-identical
+  // under both — a round with room for its eyes is drawn by the same arithmetic
+  // in either vocabulary, and gen2 does not move it for the sake of moving it.
+  // So this needs a seed that actually lands somewhere gen1 could not reach.
+  expect(svg).not.toBe(await get("/avatar/nova?gen=1").text());
+  expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+});
+
+test("gen 2 is opt-in — the unversioned URL is still gen 1", async () => {
+  expect(await get("/avatar/nova").text()).toBe(await get("/avatar/nova?gen=1").text());
 });

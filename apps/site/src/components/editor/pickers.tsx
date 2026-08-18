@@ -1,15 +1,16 @@
 import { Blobatar } from "blobatar/react";
 import { palette } from "blobatar";
-import { SHAPES, TONES } from "@/editor/axes";
+import { TONES } from "@/editor/axes";
+import { GENERATIONS, SHAPES, type Gen } from "@/generations";
 import { cn } from "@/lib/utils";
 
 /**
  * The two categorical axes.
  *
  * Both are read by the layout as *bands* rather than as numbers — `shapeOf`
- * splits [0, 1) into six silhouettes, `toneAt` into six swatches — so a slider
- * would be a control with five invisible detents. A picker states the bands,
- * and pinning one writes its midpoint.
+ * splits [0, 1) into the generation's silhouettes, `toneAt` into six swatches —
+ * so a slider would be a control with invisible detents. A picker states the
+ * bands, and pinning one writes its midpoint.
  *
  * Neither is a `<select>`, and for the reason the hero's shape row gives: "nub"
  * and "pale neutral" are words for things nobody has seen yet. Both rows show
@@ -22,12 +23,14 @@ const AUTO = "auto";
 export function ShapePicker({
   name,
   traits,
+  gen,
   value,
   onPick,
 }: {
   name: string;
   /** Everything else currently pinned, so the row restyles as you tune. */
   traits: Record<string, number>;
+  gen: Gen;
   value?: number;
   onPick: (at: number | null) => void;
 }) {
@@ -39,15 +42,17 @@ export function ShapePicker({
         label={AUTO}
         name={name}
         traits={rest}
+        gen={gen}
         selected={value === undefined}
         onClick={() => onPick(null)}
       />
-      {SHAPES.map(s => (
+      {SHAPES[gen].map(s => (
         <Tile
           key={s.name}
           label={s.name}
           name={name}
           traits={{ ...rest, shape: s.at }}
+          gen={gen}
           selected={value === s.at}
           onClick={() => onPick(s.at)}
         />
@@ -69,12 +74,14 @@ function Tile({
   label,
   name,
   traits,
+  gen,
   selected,
   onClick,
 }: {
   label: string;
   name: string;
   traits: Record<string, number>;
+  gen: Gen;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -88,7 +95,13 @@ function Tile({
         selected ? "bg-line/70" : "hover:bg-line/30",
       )}
     >
-      <Blobatar name={name || " "} traits={traits} alt="" className="size-9" />
+      <Blobatar
+        name={name || " "}
+        traits={traits}
+        generation={GENERATIONS[gen]}
+        alt=""
+        className="size-9"
+      />
       <span
         className={cn(
           "font-mono text-[0.6rem] lowercase transition-colors",

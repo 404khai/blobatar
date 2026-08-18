@@ -40,21 +40,26 @@ together because they are observed together — a caller cannot tell which of th
 changed, only that their user's blobatar is now somebody else's. `gen1` is the
 original six. Adding a silhouette is **not additive**, since a new band has to
 take its share from the existing ones, which is the whole reason the word
-exists. Pinned as a value (`{ generation: gen1 }`) or as `?gen=1` on the
-endpoint; the library's default follows the major, the endpoint's does not.
+exists. `gen2` is the original six plus `capsule`, `triangle`, `hexagon` and
+`droplet`. Pinned as a value (`{ generation: gen1 }`) or as `?gen=1` on the
+endpoint; the library's default follows the major, the endpoint's does not — so
+in `0.x` and `1.x` the default is gen1 and gen2 is opt-in either way.
 See ADR-0006.
 _Avoid_: version, edition, variant. _Version_ is the package's, and the two move
 on different schedules by design.
 
 **Shape**:
-Which silhouette a blobatar takes — in gen1, `round`, `organic`, `boxy`, `nub`,
-`cloud`, or `sun`. **Derived, never set directly.** There is no `shape` option; a caller who
-wants a particular silhouette overrides the `shape` _trait_, and the same
-thresholds turn it into a shape.
+Which silhouette a blobatar takes. In gen1: `round`, `organic`, `boxy`, `nub`,
+`cloud`, `sun`. In gen2: those six under the same names, plus `capsule`,
+`triangle`, `hexagon` and `droplet`. **Derived, never set directly.** There is
+no `shape` option; a caller who wants a particular silhouette overrides the
+`shape` _trait_, and the generation's own thresholds turn it into a shape — so
+the same 0.88 is a cloud under gen1 and a droplet under gen2.
 _Avoid_: variant, form. There is no variant axis: a `character` family existed
-until 0.1.0 and was removed. The vocabulary of six is gen1's, and a later
-generation replaces it wholesale rather than adding to it — which is a
-different axis from the one `character` was. The specs and ADRs under `docs/` predate that and still discuss it; they are
+until 0.1.0 and was removed. A vocabulary belongs to a generation, and a later
+generation replaces it wholesale rather than adding to it — gen2 keeps six of
+gen1's names because they are the same silhouettes, not because it inherited
+them. That is a different axis from the one `character` was. The specs and ADRs under `docs/` predate that and still discuss it; they are
 kept as written, since a decision record that quietly changes is worth nothing.
 
 **Trait**:

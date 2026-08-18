@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { _layout, _parts, blobatar } from "../src/blobatar";
 import { happy } from "../src/expression";
-import { gen1, type Generation } from "../src/generation";
+import { gen1, gen2, type Generation } from "../src/generation";
 import type { Palette } from "../src/color";
 import type { Traits } from "../src/traits";
 import { SEEDS } from "./golden/corpus";
@@ -80,12 +80,35 @@ describe("generation", () => {
     expect(_layout("alain", { generation: marker })).toMatchObject({ eyes: [{ cx: 40 }] });
   });
 
+  test("gen2 is reachable, seeded, and not the default", () => {
+    // Byte-identical for a third of seeds — a round with room for its eyes is
+    // drawn by the same arithmetic in both vocabularies — so this asserts on a
+    // seed that lands somewhere gen1 has no band for.
+    const svg = blobatar("nova", { generation: gen2 });
+    expect(svg).not.toBe(blobatar("nova"));
+    expect(svg).not.toBe(blobatar("nova", { generation: gen1 }));
+    expect(svg).not.toBe(blobatar("other", { generation: gen2 }));
+    // The default follows the major, and this major's is gen1 (ADR-0006).
+    expect(blobatar("nova")).toBe(blobatar("nova", { generation: gen1 }));
+  });
+
+  test("gen2 reaches four silhouettes gen1 cannot draw", () => {
+    // The point of the generation, stated as the thing a caller can observe:
+    // trait positions that were `sun` or `cloud` under gen1 are now shapes that
+    // did not exist, and they render as different markup.
+    for (const at of [0.65, 0.888, 0.933, 0.99]) {
+      expect(blobatar("alain", { traits: { shape: at }, generation: gen2 })).not.toBe(
+        blobatar("alain", { traits: { shape: at }, generation: gen1 }),
+      );
+    }
+  });
+
   test("every generation carries a distinct id", () => {
     // `blobatar/react` memoizes on `JSON.stringify` of its options, which drops
     // functions — so two generations differing only in their layout serialize
     // identically and the id is the only thing that tells them apart. A
     // duplicate here is a silently stale component, not a type error.
-    const ids = [gen1.id, marker.id];
+    const ids = [gen1.id, gen2.id, marker.id];
     expect(new Set(ids).size).toBe(ids.length);
   });
 });

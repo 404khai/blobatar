@@ -147,6 +147,41 @@ const ENTRIES: {
              globalThis.x = blobatar(String(globalThis.seed), { generation: gen1 });`,
   },
   {
+    /*
+     * And what a *second* generation costs, which is the number the entry above
+     * exists to be compared against.
+     *
+     * `blob + gen1` is 16 B over `blob only` because gen1 is this major's
+     * default and the bundler sees one copy of it. This row is the same import
+     * with gen2 in it, so the delta between the two is gen2's own weight: its
+     * band table, its `CORE` and `face` tables, four more decoration branches,
+     * and the rounded-polygon primitive that only it reaches.
+     *
+     * Measured: 1084 B gz, near enough all of it `styles/blob2.ts` and the
+     * rounded-polygon primitive nothing else reaches.
+     *
+     * That delta is the argument for a generation being a passed-in value. A
+     * consumer who never names one pays none of it — `blob only` above is
+     * unmoved by this file existing at all — and a consumer who pins gen1 still
+     * lands within 30 B of it. The alternative, an option naming a table, would
+     * have put every future vocabulary in every bundle.
+     *
+     * That second property is not free, and it is why `gen1` and `gen2` are
+     * built by naming their three members rather than by spreading their style
+     * module. `{ id: 2, ...blob2 }` is the form that reads best and it costs
+     * gen1 a *kilobyte*: a spread of a namespace object is not something the
+     * bundler will call side-effect-free, so `gen2` survives into a bundle that
+     * only ever imported `gen1`. This row is what caught it — `blob + gen1`
+     * jumped to 4777 B, which is this row's number, which is the tell.
+     */
+    name: "blob + gen2",
+    budget: 4800,
+    external: [],
+    source: `import { blobatar } from "../../src/blob";
+             import { gen2 } from "../../src/generation";
+             globalThis.x = blobatar(String(globalThis.seed), { generation: gen2 });`,
+  },
+  {
     name: "traits only",
     budget: 600,
     external: [],

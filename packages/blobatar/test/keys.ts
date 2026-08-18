@@ -42,3 +42,20 @@ export const BLOB_KEYS = [
   "nub.r0",
   "nub.r1",
 ];
+
+/**
+ * The same, for `styles/blob2.ts`.
+ *
+ * A separate list rather than a superset of the one above, for the reason the
+ * one above is a list at all. gen2 shares most of gen1's keys — a seed's
+ * `body.r` position is the same number in both — but it drops none and adds
+ * five, and a union would hide which generation reads which.
+ */
+export const BLOB2_KEYS = [
+  ...BLOB_KEYS,
+  "poly.round",
+  "capsule.squat",
+  "droplet.w",
+  "droplet.tip",
+  "droplet.n",
+];

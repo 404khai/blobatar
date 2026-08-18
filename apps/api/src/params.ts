@@ -1,6 +1,6 @@
 import type { BlobatarOptions } from "blobatar/blob";
 import type { Expression } from "blobatar/expression";
-import { gen1, type Generation } from "blobatar/generation";
+import { gen1, gen2, type Generation } from "blobatar/generation";
 import {
   happy, idle, love, mad, sad, scared, shy, sick, sleepy, smug, surprised, unsure, wink,
 } from "blobatar/expression";
@@ -34,6 +34,7 @@ const EXPRESSIONS: Record<string, Expression> = {
  */
 const GENERATIONS: Record<string, Generation> = {
   1: gen1,
+  2: gen2,
 };
 
 /**

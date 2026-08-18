@@ -23,7 +23,7 @@ export function hash(markup: string): string {
   return new Bun.CryptoHasher("sha256").update(markup).digest("hex").slice(0, 16);
 }
 
-const HEADER = `# blobatar — gen1 golden fixture
+const HEADER = (gen: string) => `# blobatar — ${gen} golden fixture
 #
 # Every line here is a promise: this seed renders this markup, and it always
 # will. A diff in this file is a *breaking change* — it means somebody's avatar
@@ -34,12 +34,15 @@ const HEADER = `# blobatar — gen1 golden fixture
 # Regenerate deliberately, never as a reflex:
 #   bun scripts/golden.ts --write`;
 
-export function serialize(parts: Record<Section, [string, string | number][]>): string {
+export function serialize(
+  parts: Record<Section, [string, string | number][]>,
+  gen: string,
+): string {
   const section = (name: Section) =>
     `[${name}]\n` + parts[name].map(([k, v]) => `${k}\t${v}`).join("\n");
 
   return (
-    `${HEADER}\n\n` +
+    `${HEADER(gen)}\n\n` +
     (["histogram", "markup", "hashes"] as const).map(section).join("\n\n") +
     "\n"
   );

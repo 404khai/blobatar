@@ -7,28 +7,43 @@
  * same seed, across versions, forever. Without it a one-character edit to
  * `shapeOf` changes every existing user's avatar and CI stays green.
  *
+ * One block per generation, over the same corpus. gen1's is the one that says
+ * the seam worked: gen2 shares the hash, the palette, the expressions and the
+ * whole renderer with it, so any of those moving under gen2's feet would have
+ * to show up here as gen1 moving too.
+ *
  * A failure here is not a test to update. See `test/golden/format.ts`.
  */
 
 import { describe, expect, test } from "bun:test";
-import { HISTOGRAM_SEEDS, cases, histogram, markup } from "./golden/corpus";
+import { HISTOGRAM_SEEDS, RECORDED, cases, histogram, markup } from "./golden/corpus";
 import { hash, parse } from "./golden/format";
 
-const fixture = parse(await Bun.file(`${import.meta.dir}/golden/gen1.txt`).text());
+/**
+ * Read up front, so a missing fixture fails as a missing fixture rather than as
+ * every assertion in one generation's block at once.
+ */
+const fixtures = await Promise.all(
+  RECORDED.map(async ({ gen, file }) => ({
+    gen,
+    file,
+    fixture: parse(await Bun.file(`${import.meta.dir}/golden/${file}.txt`).text()),
+  })),
+);
 
 /** A failure lists names, not a thousand hashes. */
 const report = (moved: string[], total: number) =>
   `${moved.length} of ${total} moved — e.g. ${moved.slice(0, 5).join(", ")}` +
   (moved.length > 5 ? `, …` : "");
 
-describe("gen1 is frozen", () => {
+for (const { gen, file, fixture } of fixtures) describe(`${file} is frozen`, () => {
   /*
    * First, because it is the section that names the cause. A markup hash tells
    * you a seed moved; a count tells you which band moved and in which
    * direction, which is usually the whole diagnosis.
    */
   test("the shape distribution is unchanged", () => {
-    const counts = histogram();
+    const counts = histogram(gen);
 
     expect(counts.map(([shape]) => String(shape))).toEqual([...fixture.histogram.keys()]);
 
@@ -44,7 +59,7 @@ describe("gen1 is frozen", () => {
   });
 
   test("the recorded renders are byte-identical", () => {
-    const now = markup();
+    const now = markup(gen);
     expect(now.map(([label]) => label)).toEqual([...fixture.markup.keys()]);
 
     for (const [label, svg] of now) {
@@ -59,7 +74,7 @@ describe("gen1 is frozen", () => {
     const unrecorded: string[] = [];
     let total = 0;
 
-    for (const [label, svg] of cases()) {
+    for (const [label, svg] of cases(gen)) {
       total++;
       const was = fixture.hashes.get(label);
       if (was === undefined) unrecorded.push(label);
@@ -76,8 +91,8 @@ describe("gen1 is frozen", () => {
     ).toBe("every case is recorded");
 
     expect(
-      moved.length === 0 ? "gen1 is unchanged" : `gen1 moved: ${report(moved, total)}`,
-    ).toBe("gen1 is unchanged");
+      moved.length === 0 ? `${file} is unchanged` : `${file} moved: ${report(moved, total)}`,
+    ).toBe(`${file} is unchanged`);
 
     expect(fixture.hashes.size).toBe(total);
   });

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { blobatar } from "blobatar";
-import { snippet, type Api } from "./snippet";
-import { KEY_ORDER, round3 } from "./axes";
+import { gen1, gen2, type Generation } from "blobatar/generation";
+import { snippet, type Api, type SnippetInput } from "./snippet";
+import { GENS, KEY_ORDER, round3, type Gen } from "./axes";
 
 /**
  * The generator is the one piece of this page with a correctness property, so
@@ -16,6 +17,15 @@ import { KEY_ORDER, round3 } from "./axes";
 
 const NAME = "alain00";
 
+/**
+ * The default generation, filled in so the cases below state only what they are
+ * about. Emitting a generation is its own two tests at the bottom.
+ */
+const snip = (input: Omit<SnippetInput, "gen"> & { gen?: Gen }) =>
+  snippet({ gen: 1, ...input });
+
+const GENERATIONS: Record<Gen, Generation> = { 1: gen1, 2: gen2 };
+
 /** The `traits` literal from a generated snippet, evaluated. */
 function pasted(code: string): Record<string, number> {
   const body = code.match(/traits[=:]\s*\{\{?([\s\S]*?)\}\}?[,\n]/);
@@ -29,13 +39,13 @@ function pasted(code: string): Record<string, number> {
 describe("what it emits", () => {
   test("no traits prop at all when nothing is pinned", () => {
     for (const api of ["react", "string"] as Api[]) {
-      const code = snippet({ api, name: NAME, pinned: {}, motion: false });
+      const code = snip({ api, name: NAME, pinned: {}, motion: false });
       expect(code).not.toContain("traits");
     }
   });
 
   test("only the pinned keys, never the whole map", () => {
-    const code = snippet({
+    const code = snip({
       api: "react",
       name: NAME,
       pinned: { shape: 0.965, "eye.gap": 0.8 },
@@ -47,7 +57,7 @@ describe("what it emits", () => {
   });
 
   test("keys are quoted only where they have to be", () => {
-    const code = snippet({
+    const code = snip({
       api: "react",
       name: NAME,
       pinned: { shape: 0.14, "eye.gap": 0.5 },
@@ -59,7 +69,7 @@ describe("what it emits", () => {
   });
 
   test("keys come out in panel order, whatever order they were pinned in", () => {
-    const code = snippet({
+    const code = snip({
       api: "react",
       name: NAME,
       pinned: { "eye.gap": 0.5, hue: 0.2, shape: 0.14 },
@@ -67,13 +77,15 @@ describe("what it emits", () => {
     });
 
     expect(Object.keys(pasted(code))).toEqual(
-      ["shape", "eye.gap", "hue"].sort((a, b) => KEY_ORDER.indexOf(a) - KEY_ORDER.indexOf(b)),
+      ["shape", "eye.gap", "hue"].sort(
+        (a, b) => KEY_ORDER[1].indexOf(a) - KEY_ORDER[1].indexOf(b),
+      ),
     );
   });
 
   test("a single key stays on one line, several do not", () => {
-    const one = snippet({ api: "react", name: NAME, pinned: { shape: 0.14 }, motion: false });
-    const two = snippet({
+    const one = snip({ api: "react", name: NAME, pinned: { shape: 0.14 }, motion: false });
+    const two = snip({
       api: "react",
       name: NAME,
       pinned: { shape: 0.14, hue: 0.2 },
@@ -87,8 +99,8 @@ describe("what it emits", () => {
   test("the React prop is `name` and the string API's argument is a seed", () => {
     // Same value, different word by position — get this backwards and the
     // snippet does not compile. See CONTEXT.md.
-    const react = snippet({ api: "react", name: NAME, pinned: {}, motion: false });
-    const string = snippet({ api: "string", name: NAME, pinned: {}, motion: false });
+    const react = snip({ api: "react", name: NAME, pinned: {}, motion: false });
+    const string = snip({ api: "string", name: NAME, pinned: {}, motion: false });
 
     expect(react).toContain(`name="${NAME}"`);
     expect(react).toContain(`from "blobatar/react"`);
@@ -99,12 +111,12 @@ describe("what it emits", () => {
   test("a name that cannot be written as a JSX attribute becomes an expression", () => {
     // JSX attribute strings have no escapes, so `name="say "hi""` is not a
     // thing that can exist.
-    const code = snippet({ api: "react", name: 'say "hi"', pinned: {}, motion: false });
+    const code = snip({ api: "react", name: 'say "hi"', pinned: {}, motion: false });
     expect(code).toContain('name={"say \\"hi\\""}');
   });
 
   test("animating says so, in the import as well as the prop", () => {
-    const code = snippet({ api: "react", name: NAME, pinned: {}, motion: "hover" });
+    const code = snip({ api: "react", name: NAME, pinned: {}, motion: "hover" });
     expect(code).toContain(`import "blobatar/motion.css"`);
     expect(code).toContain(`animate="hover"`);
     expect(code).toContain("inline SVG");
@@ -113,13 +125,13 @@ describe("what it emits", () => {
   test("the string API drops `animate` out loud rather than silently", () => {
     // `blobatar()` returns static markup whatever it is passed — animation is a
     // `blobatar/react` option. Emitting it would be a snippet that lies.
-    const code = snippet({ api: "string", name: NAME, pinned: {}, motion: "always" });
+    const code = snip({ api: "string", name: NAME, pinned: {}, motion: "always" });
     expect(code).not.toContain("animate:");
     expect(code).toContain("// animate is a blobatar/react option");
   });
 
   test("an empty name falls back rather than emitting nothing", () => {
-    const code = snippet({ api: "react", name: "", pinned: {}, motion: false });
+    const code = snip({ api: "react", name: "", pinned: {}, motion: false });
     expect(code).toContain(`name="blobatar"`);
   });
 });
@@ -134,18 +146,44 @@ describe("paste it and you get the blobatar that was on screen", () => {
     { shape: 0.965 },
     { shape: 0.14, "eye.gap": 0.999, "eye.rx": 0.999 },
     { "body.n": 0, "eye.lean": 0.5, hue: 0.123, tone: 0.71 },
-    // Every key an axis can write, at a value that is not the default.
-    Object.fromEntries(KEY_ORDER.map((k, i) => [k, round3((i * 37) % 1000 / 1000)])),
+    // Every key an axis can write, at a value that is not the default. gen2's
+    // list is a superset of gen1's, so this covers both.
+    Object.fromEntries(KEY_ORDER[2].map((k, i) => [k, round3(((i * 37) % 1000) / 1000)])),
   ];
 
   for (const [i, pinned] of cases.entries()) {
-    test(`case ${i}`, () => {
-      for (const api of ["react", "string"] as Api[]) {
-        const code = snippet({ api, name: NAME, pinned, motion: "hover" });
-        expect(blobatar(NAME, { traits: pasted(code) })).toBe(
-          blobatar(NAME, { traits: pinned }),
-        );
-      }
-    });
+    for (const gen of GENS) {
+      test(`case ${i}, gen ${gen}`, () => {
+        for (const api of ["react", "string"] as Api[]) {
+          const code = snip({ api, name: NAME, pinned, motion: "hover", gen });
+          expect(
+            blobatar(NAME, { traits: pasted(code), generation: GENERATIONS[gen] }),
+          ).toBe(blobatar(NAME, { traits: pinned, generation: GENERATIONS[gen] }));
+        }
+      });
+    }
   }
+});
+
+describe("the generation", () => {
+  test("the default is left out of the snippet entirely", () => {
+    for (const api of ["react", "string"] as Api[]) {
+      const code = snip({ api, name: NAME, pinned: {}, motion: false, gen: 1 });
+      expect(code).not.toContain("generation");
+      expect(code).not.toContain("blobatar/generation");
+    }
+  });
+
+  test("anything else is named, in the import as well as at the call", () => {
+    const react = snip({ api: "react", name: NAME, pinned: {}, motion: false, gen: 2 });
+    expect(react).toContain(`import { gen2 } from "blobatar/generation";`);
+    expect(react).toContain("generation={gen2}");
+
+    const string = snip({ api: "string", name: NAME, pinned: {}, motion: false, gen: 2 });
+    expect(string).toContain(`import { gen2 } from "blobatar/generation";`);
+    expect(string).toContain("generation: gen2,");
+    // The string API's no-traits shortcut is a bare call; a generation has to
+    // reopen the options object rather than fall through it.
+    expect(string).toContain("blobatar(\"alain00\", {");
+  });
 });

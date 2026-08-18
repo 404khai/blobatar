@@ -93,6 +93,36 @@ inherit the cache of a promise it never made.
 `GENERATIONS` in `params.ts` only ever grows. A generation that has appeared in
 a URL has to keep answering — that is the entire promise `?gen=` makes.
 
+## gen2, and why it is not the default
+
+gen2 is the first exercise of all of the above: the original six under their own
+names plus `capsule`, `triangle`, `hexagon` and `droplet`, frozen in
+`test/golden/gen2.txt` the same way gen1 is, reachable as `{ generation: gen2 }`
+and `?gen=2`.
+
+**It does not become the default here.** The rule above says the default follows
+the major, and the package is on `0.2`; moving it now would be the break this
+whole document exists to make schedulable, taken on nobody's schedule. So gen1
+stays the default through `0.x` and `1.x`, and gen2 becomes it at `2.0.0`. The
+endpoint's unversioned URL never moves at all, which was already decided.
+
+Two things the mechanism showed that the design had not predicted:
+
+*Sharing a bundle is not free, and the fix is in how the value is built.*
+`gen1` and `gen2` were `{ id, ...styleModule }`, which reads best and is what
+the seam's own tests demonstrate. A spread of a namespace object is not
+something a bundler will call side-effect-free, so `gen2` survived into every
+bundle that imported only `gen1` — the "pin gen1, carry only gen1" promise, off
+by a kilobyte. Naming the three members explicitly restores it. The `blob + gen1`
+row in `scripts/size.ts` existed precisely to have been measuring this from
+before there was anything to measure, and it is what caught it.
+
+*A third of names do not move.* A round body with room for its eyes is drawn by
+the same arithmetic under both vocabularies, so it comes out byte-identical.
+Nothing promises otherwise and it is the right behaviour — a generation is
+permission to change a blobatar, not an obligation to — but it is worth knowing
+before writing a test that asserts two generations differ on an arbitrary seed.
+
 **Revisit when** there are three or four generations. Every one of them is code
 in the deployed Worker and a public path in the package forever, and at some
 point the honest move is to stop adding vocabularies and start a second library.

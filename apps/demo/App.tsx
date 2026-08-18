@@ -5,7 +5,7 @@ import {
   type Animate,
   type BlobatarOptions,
 } from "blobatar";
-import { layout } from "blobatar/blob";
+import { gen1, gen2, type Generation } from "blobatar/generation";
 import {
   happy,
   idle,
@@ -36,15 +36,33 @@ import { Blobatar } from "blobatar/react";
 
 const COLS = 20;
 const ROWS = 20;
-const SHAPES = [
-  "all",
-  "round",
-  "organic",
-  "boxy",
-  "nub",
-  "cloud",
-  "sun",
-] as const;
+
+/**
+ * The generations, and the silhouettes each one can be filtered to.
+ *
+ * The filter list is per generation for the obvious reason and one less obvious
+ * one: `shape` here is a *name*, so switching generation keeps the filter on
+ * `cloud` if both have one and falls back to `all` if they do not, which is
+ * what you want when you are comparing the same silhouette across two
+ * vocabularies.
+ */
+const GENERATIONS: Record<string, Generation> = { "gen 1": gen1, "gen 2": gen2 };
+
+const SHAPES: Record<string, readonly string[]> = {
+  "gen 1": ["all", "round", "organic", "boxy", "nub", "cloud", "sun"],
+  "gen 2": [
+    "all", "round", "organic", "boxy", "capsule", "nub",
+    "cloud", "droplet", "hexagon", "sun", "triangle",
+  ],
+};
+
+/**
+ * A generation's silhouette for a seed. `Generation` promises only `Posable`,
+ * and both of the ones here happen to name their silhouette `shape` — the same
+ * narrowing the golden corpus makes, for the same reason.
+ */
+const silhouetteOf = (gen: Generation, seed: string) =>
+  (gen.layout(traits(seed)) as unknown as { shape: string }).shape;
 
 /**
  * The `a|b` entries are not expressions — they are the comparisons the roster
@@ -86,7 +104,8 @@ export function App() {
   const [prefix, setPrefix] = useState("user-");
   const [page, setPage] = useState(0);
   const [bg, setBg] = useState<Bg>("default");
-  const [shape, setShape] = useState<(typeof SHAPES)[number]>("all");
+  const [gen, setGen] = useState("gen 1");
+  const [shape, setShape] = useState("all");
   const [hue, setHue] = useState<number | "">("");
   const [focus, setFocus] = useState<string | null>(null);
   const [animate, setAnimate] = useState<Animate | "">("");
@@ -95,11 +114,12 @@ export function App() {
 
   const opts: BlobatarOptions = useMemo(
     () => ({
+      generation: GENERATIONS[gen],
       background: bg === "default" ? undefined : bg === "none" ? false : bg,
       hue: hue === "" ? undefined : hue,
       expression: EXPRESSIONS[expr] ?? undefined,
     }),
-    [bg, hue, expr],
+    [gen, bg, hue, expr],
   );
 
   const pair = PAIRS[expr];
@@ -113,6 +133,7 @@ export function App() {
   // so a rare silhouette still fills a whole page.
   const seeds = useMemo(() => {
     const out: string[] = [];
+    const style = GENERATIONS[gen]!;
     const wanted = shape !== "all" ? shape : null;
     for (
       let i = page * count;
@@ -120,10 +141,10 @@ export function App() {
       i++
     ) {
       const seed = `${prefix}${i}`;
-      if (!wanted || layout(traits(seed)).shape === wanted) out.push(seed);
+      if (!wanted || silhouetteOf(style, seed) === wanted) out.push(seed);
     }
     return out;
-  }, [prefix, page, shape, count]);
+  }, [prefix, page, shape, count, gen]);
 
   const stats = useMemo(() => {
     const sizes = seeds.map((s) => blobatar(s, opts).length);
@@ -143,15 +164,29 @@ export function App() {
         <h1>blobatar</h1>
         <div className="controls">
           <label>
+            generation
+            <select
+              value={gen}
+              onChange={(e) => {
+                const next = e.target.value;
+                setGen(next);
+                // Keep the filter if the new vocabulary has that silhouette.
+                setShape((s) => (SHAPES[next]!.includes(s) ? s : "all"));
+                setPage(0);
+              }}
+            >
+              {Object.keys(GENERATIONS).map((g) => (
+                <option key={g}>{g}</option>
+              ))}
+            </select>
+          </label>
+          <label>
             shape
             <select
               value={shape}
-              onChange={(e) => (
-                setShape(e.target.value as typeof shape),
-                setPage(0)
-              )}
+              onChange={(e) => (setShape(e.target.value), setPage(0))}
             >
-              {SHAPES.map((s) => (
+              {SHAPES[gen]!.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
@@ -206,9 +241,11 @@ export function App() {
             expression
             <select
               value={expr}
-              onChange={(e) => setExpr(e.target.value as ExprMode)}
+              onChange={(e) =>
+                setExpr(e.target.value as keyof typeof EXPRESSIONS)
+              }
             >
-              {EXPRESSIONS.map((e) => (
+              {Object.keys(EXPRESSIONS).map((e) => (
                 <option key={e}>{e}</option>
               ))}
             </select>
@@ -325,7 +362,7 @@ export function App() {
               <strong>{focus}</strong>
               <span>
                 {blobatar(focus, opts).length} bytes ·{" "}
-                {layout(traits(focus)).shape}
+                {silhouetteOf(GENERATIONS[gen]!, focus)}
               </span>
               <div className="swatches">
                 {[

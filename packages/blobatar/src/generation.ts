@@ -1,6 +1,7 @@
 import type { Posable } from "./expression";
 import type { Style } from "./render";
 import * as blob from "./styles/blob";
+import * as blob2 from "./styles/blob2";
 
 /**
  * One frozen seed → look mapping.
@@ -49,4 +50,27 @@ export type Generation = Style<Posable> & {
  * upgrade that moves the default. Frozen by `test/golden/gen1.txt`, where a
  * diff is a breaking change rather than a test to update.
  */
-export const gen1: Generation = { id: 1, ...blob };
+export const gen1: Generation = {
+  id: 1,
+  layout: blob.layout,
+  render: blob.render,
+  background: blob.background,
+};
+
+/**
+ * The original six plus four: `capsule`, `triangle`, `hexagon` and `droplet`.
+ *
+ * Not the default in `blobatar@0.x`. Moving the default is a major bump, per
+ * ADR-0006, so this ships importable-and-opt-in — `{ generation: gen2 }` in the
+ * library, `?gen=2` on the endpoint — and becomes the default at `2.0.0`.
+ *
+ * Its weighting is not gen1's stretched over ten bands. See `shapeOf` in
+ * `styles/blob2.ts` for what the extra four cost the everyday shapes, and
+ * `test/golden/gen2.txt` for the histogram they actually produce.
+ */
+export const gen2: Generation = {
+  id: 2,
+  layout: blob2.layout,
+  render: blob2.render,
+  background: blob2.background,
+};

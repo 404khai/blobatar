@@ -32,6 +32,12 @@ A soft body and two capsule eyes, drawn from a vocabulary of six silhouettes:
 are everyday and suns are a find. Transparent backdrop by default; the body is
 the blobatar.
 
+That is **gen1**, the default. **gen2** adds `capsule`, `triangle`, `hexagon`
+and `droplet` to the same six and reweights the lot — the four new ones read
+louder than a pebble, so between them they take under a fifth of the space, and
+rounds and pebbles still carry a wall. It is opt-in in this major; see
+[Generations](#what-it-guarantees) below.
+
 The main entry also carries the palette and trait utilities. If all you do is
 render, import the renderer on its own and save about a kilobyte:
 
@@ -44,8 +50,8 @@ import { blobatar } from "blobatar/blob";
 **Determinism.** The same name always renders the same blobatar within a major
 version. Numeric ranges, the shape thresholds, the tone set and the expression
 roster are all part of that contract, and it is enforced rather than intended:
-`test/golden/gen1.txt` records 1312 renders and a shape histogram over 20,000
-seeds, so moving any of them fails the build.
+`test/golden/gen1.txt` and `gen2.txt` each record 1312 renders and a shape
+histogram over 20,000 seeds, so moving any of them fails the build.
 
 **Stability across versions.** Traits are addressed by string key rather than
 drawn from a sequential stream, so adding a trait in a later minor cannot
@@ -61,17 +67,30 @@ stays importable, so you can pin one and keep your users' blobatars through it:
 
 ```ts
 import { blobatar } from "blobatar";
-import { gen1 } from "blobatar/generation";
+import { gen1, gen2 } from "blobatar/generation";
 
 blobatar(user.email, { generation: gen1 }); // the original six, in any major
+blobatar(user.email, { generation: gen2 }); // …and capsule, triangle, hexagon, droplet
 ```
 
 ```tsx
-<Blobatar name={user.email} generation={gen1} />
+<Blobatar name={user.email} generation={gen2} />
 ```
 
+| | silhouettes | default in |
+| --- | --- | --- |
+| `gen1` | round, organic, boxy, nub, cloud, sun | `0.x`, `1.x` |
+| `gen2` | …and capsule, triangle, hexagon, droplet | — |
+
 A generation is imported as a value for the same reason an expression is: pin
-nothing and you carry nothing.
+nothing and you carry nothing. Measured, gen2 is about 1.1 kB gzipped on top of
+the renderer, and none of it reaches a bundle that never names it.
+
+Roughly a third of names render byte-identical under both, which is not a
+coincidence and not a bug: a round body with room for its eyes is drawn by the
+same arithmetic in either vocabulary, and gen2 does not move a blobatar for the
+sake of moving it. The rest change, and every one of them is a decision you
+make by passing the option.
 
 **Contrast.** Eyes clear 4.5:1 against the body at every hue and every tone —
 verified at 1° resolution in the test suite. Polarity flips automatically, so

@@ -116,15 +116,23 @@ but it is itself derived from the email, so each person still gets one stable
 blobatar of their own. It will not be the same one `/avatar/<email>` gives:
 pick one scheme per application.
 
-`gen` pins the shape vocabulary. New silhouettes cannot be added without
+`gen` picks the shape vocabulary. New silhouettes cannot be added without
 reshuffling existing ones — the thresholds partition a single range — so they
-arrive as a new **generation** instead, and an unversioned URL renders gen 1
-forever. Nothing you have already pasted anywhere needs revisiting; naming it
-makes the promise explicit, and earns a year-long immutable cache rather than a
-day, since a pinned URL cannot come back different:
+arrive as a new **generation** instead:
+
+| | silhouettes |
+| --- | --- |
+| `gen=1` | round, organic, boxy, nub, cloud, sun |
+| `gen=2` | …and capsule, triangle, hexagon, droplet |
+
+An unversioned URL renders gen 1 forever, so nothing you have already pasted
+anywhere needs revisiting and gen 2 is something you ask for. Naming a
+generation also makes the promise explicit, and earns a year-long immutable
+cache rather than a day, since a pinned URL cannot come back different:
 
 ```
 https://blobatar.dev/avatar/alain00?gen=1
+https://blobatar.dev/avatar/alain00?gen=2
 ```
 
 `GET /avatar/` returns the whole parameter list as plain text, which is the

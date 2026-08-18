@@ -117,3 +117,70 @@ export function blobPath(
 
   return d + "Z";
 }
+
+export interface Polygon {
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  /** How many sides. 3 is a triangle, 6 a hexagon. */
+  sides: number;
+  /**
+   * Corner rounding, 0 (sharp) to 1 (every edge cut back to its own midpoint, so
+   * the outline is all curve and no straight run).
+   */
+  round?: number;
+  /** Degrees, clockwise. 0 puts a vertex at the top. */
+  rot?: number;
+}
+
+/**
+ * A regular polygon with rounded corners.
+ *
+ * The third primitive, and it is here because neither of the other two reaches
+ * a flat-sided shape. `superellipse` interpolates between an ellipse and a
+ * rectangle and has no odd-sided member at all — its n knob cannot produce a
+ * triangle — and `blobPath` is a Catmull-Rom spline, which passes through its
+ * vertices smoothly and so rounds a corner away rather than turning it.
+ *
+ * Corners are cut back along both adjoining edges by `round` and joined with a
+ * quadratic through the vertex itself, which puts the whole outline inside the
+ * polygon's convex hull for free: a quadratic never leaves the triangle of its
+ * three points. At `round: 1` the cuts meet at the edge midpoints, the straight
+ * runs vanish, and what is left is a smooth n-lobed shape rather than a polygon
+ * — which is the top of the useful range, not a degenerate case.
+ *
+ * `rx` and `ry` are the circumradius on each axis, so the shape squashes with
+ * the body like everything else here rather than staying stubbornly regular.
+ */
+export function polygon({ cx, cy, rx, ry, sides, round = 0.3, rot = 0 }: Polygon): string {
+  // Halved because the cut is taken from both ends of every edge: at round = 1
+  // each end reaches the midpoint and they meet exactly, so anything above that
+  // would have the two cuts cross and the outline fold back on itself.
+  const k = round > 0 ? (round < 1 ? round / 2 : 0.5) : 0;
+  // −90° so a vertex sits at the top: a triangle points up and rests on a flat
+  // edge, which is the orientation anybody who asks for a triangle means.
+  const t0 = (rot * Math.PI) / 180 - Math.PI / 2;
+  const v: [number, number][] = Array.from({ length: sides }, (_, i) => {
+    const a = t0 + (2 * Math.PI * i) / sides;
+    return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)];
+  });
+
+  const at = (i: number) => v[((i % sides) + sides) % sides]!;
+  /** The cut point on the edge leaving vertex `i` toward vertex `j`. */
+  const cut = (i: number, j: number) => {
+    const [x0, y0] = at(i);
+    const [x1, y1] = at(j);
+    return `${r2(x0 + (x1 - x0) * k)} ${r2(y0 + (y1 - y0) * k)}`;
+  };
+
+  let d = `M${cut(0, -1)}`;
+  for (let i = 0; i < sides; i++) {
+    const [x, y] = at(i);
+    d += `Q${r2(x)} ${r2(y)} ${cut(i, i + 1)}`;
+    // The straight run to the next corner's cut. Omitted when the cuts meet, so
+    // a fully rounded polygon does not emit `sides` zero-length lines.
+    if (k < 0.5) d += `L${cut(i + 1, i)}`;
+  }
+  return d + "Z";
+}

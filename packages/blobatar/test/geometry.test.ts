@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { _layout } from "../src/blobatar";
 import { blobatar } from "../src/blobatar";
-import { superellipse, blobPath } from "../src/shape";
+import { superellipse, blobPath, polygon } from "../src/shape";
 import * as blob from "../src/styles/blob";
+import * as blob2 from "../src/styles/blob2";
+import { gen2 } from "../src/generation";
 import { traits } from "../src/traits";
-import { BLOB_KEYS } from "./keys";
+import { BLOB_KEYS, BLOB2_KEYS } from "./keys";
 
 /**
  * These are the checks that replace eyeballing the grid one cell at a time.
@@ -235,5 +237,253 @@ describe("path emission", () => {
       expect(+v).toBeGreaterThan(50 - 20 * 1.5);
       expect(+v).toBeLessThan(50 + 20 * 1.5);
     }
+  });
+});
+
+/**
+ * gen2's containment, which is a different proof from gen1's.
+ *
+ * gen1 could measure the eye cluster against the body radius because all six of
+ * its silhouettes were roughly round and roughly centred. Half of gen2's are
+ * not — a triangle's usable interior is a fraction of its circumradius, a
+ * capsule's is squat, a droplet's is not centred on the frame — so the layout
+ * states a `face` and everything below checks that the face is honest: that it
+ * really is inside the silhouette it claims to be inscribed in, shape by shape,
+ * with the actual geometry rather than with a shared approximation.
+ */
+describe("blob2", () => {
+  const layouts = SEEDS.map(s => blob2.layout(traits(s)));
+
+  /** The rounded polygon's cut points, which the drawn outline strictly contains. */
+  function cutHull(b: blob2.Layout["body"]): [number, number][] {
+    const k = b.round > 0 ? (b.round < 1 ? b.round / 2 : 0.5) : 0;
+    const t0 = (b.rot * Math.PI) / 180 - Math.PI / 2;
+    const v = Array.from({ length: b.sides }, (_, i) => {
+      const a = t0 + (2 * Math.PI * i) / b.sides;
+      return [b.cx + b.rx * Math.cos(a), b.cy + b.ry * Math.sin(a)] as [number, number];
+    });
+    const at = (i: number) => v[((i % b.sides) + b.sides) % b.sides]!;
+    const out: [number, number][] = [];
+    for (let i = 0; i < b.sides; i++) {
+      for (const j of [i - 1, i + 1]) {
+        const [x0, y0] = at(i);
+        const [x1, y1] = at(j);
+        out.push([x0 + (x1 - x0) * k, y0 + (y1 - y0) * k]);
+      }
+    }
+    // Angular sort, so the cut points come back as a traversable convex polygon
+    // rather than in vertex-pair order.
+    return out.sort(
+      (a, c) => Math.atan2(a[1] - b.cy, a[0] - b.cx) - Math.atan2(c[1] - b.cy, c[0] - b.cx),
+    );
+  }
+
+  const inConvex = (px: number, py: number, poly: [number, number][]) => {
+    let neg = false;
+    let pos = false;
+    for (let i = 0; i < poly.length; i++) {
+      const [x0, y0] = poly[i]!;
+      const [x1, y1] = poly[(i + 1) % poly.length]!;
+      const cross = (x1 - x0) * (py - y0) - (y1 - y0) * (px - x0);
+      if (cross > 1e-9) pos = true;
+      if (cross < -1e-9) neg = true;
+    }
+    return !(pos && neg);
+  };
+
+  /** Distance from a point to the segment joining a capsule's two cap centres. */
+  const toSpine = (px: number, py: number, l: blob2.Layout) => {
+    const half = l.body.rx - l.body.ry;
+    const dx = Math.max(0, Math.abs(px - l.body.cx) - half);
+    return Math.hypot(dx, py - l.body.cy);
+  };
+
+  /**
+   * Whether a point is inside the drawn silhouette. Conservative everywhere: the
+   * shapes that union extra parts are tested against the core alone, and the
+   * spline shapes against their smallest sampled radius.
+   */
+  function inBody(px: number, py: number, l: blob2.Layout) {
+    const b = l.body;
+    if (l.shape === "triangle" || l.shape === "hexagon") return inConvex(px, py, cutHull(b));
+    if (l.shape === "capsule") return toSpine(px, py, l) <= b.ry;
+    const shrink =
+      l.shape === "organic" || l.shape === "cloud" ? Math.min(...b.radii) * 0.95 : 1;
+    // Understate squareness: a boxy body is roomier than the ellipse we test.
+    return inside(px, py, { cx: b.cx, cy: b.cy, rx: b.rx * shrink, ry: b.ry * shrink, n: 2 }) < 1;
+  }
+
+  const checkEyes = (ls: blob2.Layout[]) => {
+    for (const l of ls) {
+      for (const e of l.eyes) {
+        for (const [x, y] of corners(e)) {
+          // First against the face, which is what the layout's `fit` promises…
+          expect(inside(x!, y!, { ...l.face, n: 2 })).toBeLessThan(1);
+          // …and then against the silhouette itself, which is what the face is
+          // only a claim about. This is the assertion that catches a face table
+          // retuned past what the shape can actually hold.
+          expect(inBody(x!, y!, l)).toBe(true);
+        }
+      }
+    }
+  };
+
+  test("eyes sit inside the face, and the face inside the body", () => {
+    checkEyes(layouts);
+  });
+
+  test("eyes never fuse into each other", () => {
+    for (const l of layouts) {
+      const [a, b] = l.eyes as [(typeof l.eyes)[0], (typeof l.eyes)[0]];
+      const reach = (e: typeof a) => {
+        const t = (e.rot * Math.PI) / 180;
+        return Math.abs(e.rx * Math.cos(t)) + Math.abs(e.ry * Math.sin(t));
+      };
+      expect(Math.abs(b.cx - a.cx)).toBeGreaterThan(reach(a) + reach(b));
+    }
+  });
+
+  test("decoration stays attached to the body", () => {
+    for (const l of layouts) {
+      for (const p of l.petals) {
+        const d = Math.hypot(p.cx - l.body.cx, p.cy - l.body.cy);
+        expect(d).toBeLessThan(l.body.rx * 0.95 + p.r);
+      }
+      // The droplet's taper is the one part that is meant to leave the core, so
+      // it is checked the other way round: its *base* has to stay buried, or
+      // the union comes apart into a blob with a diamond floating above it.
+      for (const s of l.extra) {
+        expect(inside(s.cx, s.cy, { ...l.body, n: 2 })).toBeLessThan(1);
+      }
+    }
+  });
+
+  test("every shape in the vocabulary is reachable", () => {
+    expect(new Set(layouts.map(l => l.shape))).toEqual(
+      new Set([
+        "round", "organic", "boxy", "nub", "cloud", "sun",
+        "capsule", "triangle", "hexagon", "droplet",
+      ]),
+    );
+  });
+
+  test("the everyday shapes stay everyday and the loud ones stay rare", () => {
+    const share = (s: string) => layouts.filter(l => l.shape === s).length / layouts.length;
+    // Four more silhouettes than gen1 and still not a uniform ten-way split:
+    // rounds and pebbles carry a wall of these, and a triangle is a find.
+    expect(share("round") + share("organic")).toBeGreaterThan(0.4);
+    expect(share("triangle")).toBeLessThan(0.04);
+    expect(share("sun") + share("hexagon") + share("droplet")).toBeLessThan(0.16);
+  });
+
+  test("all geometry stays inside the viewBox", () => {
+    for (const s of SEEDS) {
+      const svg = blobatar(s, { generation: gen2, background: false });
+      for (const m of svg.matchAll(/ d="([^"]+)"|<circle ([^>]+)>/g)) {
+        const src = m[1] ?? m[2]!;
+        for (const n of src.match(/-?\d+\.?\d*/g)!.map(Number)) {
+          expect(n).toBeGreaterThanOrEqual(-0.01);
+          expect(n).toBeLessThanOrEqual(100.01);
+        }
+      }
+    }
+  });
+
+  /**
+   * The same invariants under configuration rather than under seeds — the
+   * corners a hashed sweep barely samples and an editor's sliders reach in one
+   * drag. Same construction as gen1's block above, over gen2's key list.
+   */
+  describe("under trait overrides", () => {
+    const MAPS: Record<string, number>[] = [];
+    for (const v of [0, 0.5, 0.999999]) {
+      const all: Record<string, number> = {};
+      for (const k of BLOB2_KEYS) all[k] = v;
+      MAPS.push(all);
+      for (const k of BLOB2_KEYS) MAPS.push({ ...all, [k]: 0 }, { ...all, [k]: 0.999999 });
+    }
+    // Every shape band crossed with those extremes, since one `shape` value per
+    // map would otherwise leave eight of the ten silhouettes untested here.
+    for (const at of [0.1, 0.35, 0.55, 0.65, 0.75, 0.82, 0.89, 0.93, 0.96, 0.99]) {
+      for (const v of [0, 0.5, 0.999999]) {
+        const all: Record<string, number> = {};
+        for (const k of BLOB2_KEYS) all[k] = v;
+        MAPS.push({ ...all, shape: at });
+      }
+    }
+    let s = 1;
+    for (let i = 0; i < 400; i++) {
+      const m: Record<string, number> = {};
+      for (const k of BLOB2_KEYS) {
+        s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+        m[k] = s / 4294967296;
+      }
+      MAPS.push(m);
+    }
+
+    const cfg = MAPS.map(m => blob2.layout(traits("cfg", true, m)));
+
+    test("eyes sit inside the face, and the face inside the body", () => {
+      checkEyes(cfg);
+    });
+
+    test("all geometry stays inside the viewBox", () => {
+      for (const m of MAPS) {
+        const svg = blobatar("cfg", { generation: gen2, traits: m, background: false });
+        expect(svg).not.toContain("NaN");
+        for (const g of svg.matchAll(/ d="([^"]+)"|<circle ([^>]+)>/g)) {
+          for (const n of (g[1] ?? g[2]!).match(/-?\d+\.?\d*/g)!.map(Number)) {
+            expect(n).toBeGreaterThanOrEqual(-0.01);
+            expect(n).toBeLessThanOrEqual(100.01);
+          }
+        }
+      }
+    });
+  });
+});
+
+describe("polygon", () => {
+  test("sharp corners land exactly on the vertices", () => {
+    // round: 0 means no cut, so the path walks the vertices themselves — the
+    // property that makes `rx`/`ry` mean circumradius rather than something near it.
+    const d = polygon({ cx: 50, cy: 50, rx: 20, ry: 20, sides: 4, round: 0 });
+    expect(d).toContain("50 30");
+    expect(d).toContain("70 50");
+    expect(d).toContain("50 70");
+    expect(d).toContain("30 50");
+  });
+
+  test("a vertex sits at the top, so a triangle rests on its base", () => {
+    const d = polygon({ cx: 50, cy: 50, rx: 20, ry: 20, sides: 3, round: 0 });
+    expect(d).toContain("50 30");
+    // …and the other two are level, at cy + ry·sin(30°).
+    expect(d).toContain("60");
+    expect(d).not.toContain("50 70");
+  });
+
+  test("the outline never leaves the bounding box", () => {
+    // Quadratics through the vertices stay in the convex hull of their control
+    // points, which is what makes this true by construction rather than by luck.
+    for (const sides of [3, 4, 5, 6, 8]) {
+      for (let round = 0; round <= 1.0001; round += 0.1) {
+        for (const rot of [0, 17, 90, -33]) {
+          const d = polygon({ cx: 50, cy: 50, rx: 30, ry: 20, sides, round, rot });
+          expect(d).not.toContain("NaN");
+          expect(d).toEndWith("Z");
+          for (const [i, v] of d.match(/-?\d+\.?\d*/g)!.map(Number).entries()) {
+            const [lo, hi] = i % 2 === 0 ? [19.9, 80.1] : [29.9, 70.1];
+            expect(v).toBeGreaterThanOrEqual(lo);
+            expect(v).toBeLessThanOrEqual(hi);
+          }
+        }
+      }
+    }
+  });
+
+  test("full rounding drops the straight runs instead of emitting empty ones", () => {
+    // At round: 1 the two cuts on an edge meet at its midpoint, so every `L`
+    // would be zero-length. One per side, on a shape drawn once per blobatar.
+    expect(polygon({ cx: 50, cy: 50, rx: 20, ry: 20, sides: 6, round: 1 })).not.toContain("L");
+    expect(polygon({ cx: 50, cy: 50, rx: 20, ry: 20, sides: 6, round: 0.9 })).toContain("L");
   });
 });
