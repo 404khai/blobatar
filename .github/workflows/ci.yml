@@ -85,17 +85,22 @@ jobs:
       - name: Build the site
         run: bun run build:site
 
+      # `apps/api` is the exception to the alias above: it has no `blobatar/*`
+      # paths, so anything reaching it resolves the library through `exports`
+      # and needs a dist first. That is deliberate — it is the endpoint anyone
+      # can deploy, and it should be tested against what they will install.
+      #
+      # It is built here rather than in the endpoint step because the site's
+      # Worker imports the endpoint from `apps/api/src`, so the site's tests
+      # cross into that unaliased resolution too.
+      - name: Build the library
+        run: bun --filter blobatar build
+
       - name: Site tests
         run: bun --filter site test
 
-      # `apps/api` is the exception to the alias above: it has no `blobatar/*`
-      # paths, so its tests resolve the library through `exports` and need the
-      # build first. That is deliberate — it is the endpoint anyone can deploy,
-      # and it should be tested against what they will install.
       - name: Endpoint tests, against the built package
-        run: |
-          bun --filter blobatar build
-          bun --filter blobatar-api test
+        run: bun --filter blobatar-api test
 
       # Bundles `blobatar` the way a deploy does: through the workspace symlink
       # and therefore through the real `exports` map, not the tsconfig alias to
