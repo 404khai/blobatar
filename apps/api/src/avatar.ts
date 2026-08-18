@@ -22,12 +22,28 @@ export const PREFIX = "/avatar/";
  * `stale-while-revalidate` buys most of the win without the exposure: a repeat
  * viewer is served instantly from cache for a month while the revalidation
  * happens off the critical path.
- *
- * **Raise this to `immutable` when the URL carries the major** — `/avatar/v1/…`
- * — because then a reshuffle is a new URL rather than a new answer at an old
- * one, which is the actual precondition an immutable cache needs.
  */
 const CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=2592000";
+
+/**
+ * A year, immutable — for a URL that named its generation.
+ *
+ * This is the precondition the comment above spent a paragraph wanting: a
+ * generation is frozen by definition, so `?gen=1` cannot come back different
+ * later. A reshuffle becomes a new URL rather than a new answer at an old one,
+ * which is the only thing that makes an unpurgeable year-long cache safe.
+ *
+ * ADR-0004 predicted this arriving as `/avatar/v1/<name>`. A query parameter
+ * gets the same property — the generation is in the cache key either way —
+ * without putting a reserved namespace in front of user-supplied names. See
+ * ADR-0006.
+ *
+ * Worth having beyond the caching: it is the only lever that reduces *billed*
+ * requests, since a Worker is charged whether it hits an edge cache or not. The
+ * caches that save money are the ones downstream, and this is what lets them
+ * hold on.
+ */
+const PINNED = "public, max-age=31536000, immutable";
 
 /**
  * SVG is an active document format, and this one is served from the same origin
@@ -64,12 +80,27 @@ Parameters (all optional, named as the library names them):
   expression  idle | happy | sad | mad | surprised | wink | sleepy
               | smug | unsure | scared | love | shy | sick
   title       accessible name, 128 characters or fewer
+  gen         which shape vocabulary to render under — see below
 
 Examples:
 
   /avatar/alain00
   /avatar/alain%40example.com?size=64
   /avatar/team-rocket?background=squircle&expression=smug
+
+Pinning a generation
+--------------------
+A generation is one frozen name-to-blobatar mapping. Adding a shape is not
+additive — a new silhouette has to take its share from the existing ones —
+so new shapes arrive as a new generation rather than as a change to yours.
+
+  /avatar/alain00?gen=1
+
+An unversioned URL renders gen 1 and always will, so nothing you have
+already pasted anywhere needs revisiting. Naming it makes the promise
+explicit, and it is the version served with a year-long immutable cache
+rather than a day: a pinned URL cannot come back different, so every cache
+between here and your reader is free to keep it.
 
 Replacing Gravatar
 ------------------
@@ -184,7 +215,11 @@ export function avatar(request: Request): Response {
   const tag = etag(body);
   const headers = {
     "content-type": "image/svg+xml; charset=utf-8",
-    "cache-control": CACHE_CONTROL,
+    // Read off the raw query rather than off the parsed options, because the
+    // question is whether the *caller* pinned a generation, not which one they
+    // ended up with. An unversioned URL resolves to gen1 too, and it must not
+    // inherit the cache of a promise it never asked for.
+    "cache-control": url.searchParams.has("gen") ? PINNED : CACHE_CONTROL,
     etag: tag,
     // Anyone may embed one. An avatar endpoint that could not be read
     // cross-origin would have no purpose.

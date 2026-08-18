@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { blobatar } from "blobatar/blob";
 import { happy } from "blobatar/expression";
+import { gen1 } from "blobatar/generation";
 import { avatar } from "./avatar";
 
 const ORIGIN = "https://blobatar.dev";
@@ -105,6 +106,37 @@ test("the avatar route is served under a locked-down CSP", () => {
     expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   }
+});
+
+// ---------------------------------------------------------------------------
+// Generations.
+
+test("an unversioned URL renders gen1, and says so only for a day", async () => {
+  const res = get("/avatar/alain");
+  expect(res.headers.get("cache-control")).toBe(
+    "public, max-age=86400, stale-while-revalidate=2592000",
+  );
+  expect(await res.text()).toBe(blobatar("alain", { generation: gen1 }));
+});
+
+test("pinning the generation renders the same thing, cached forever", async () => {
+  const res = get("/avatar/alain?gen=1");
+  // Byte-identical to the unversioned URL. The parameter is a promise about the
+  // future, not a different picture — if these ever diverge, every unversioned
+  // `<img>` already in somebody's README has quietly moved.
+  expect(await res.text()).toBe(await get("/avatar/alain").text());
+  expect(res.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+});
+
+test("an unknown generation is a 400, not a silent fallback", async () => {
+  const res = get("/avatar/alain?gen=9");
+  expect(res.status).toBe(400);
+  expect(await res.text()).toContain(`unknown gen "9"`);
+});
+
+test("gen composes with every other parameter", async () => {
+  expect(await get("/avatar/alain?gen=1&size=64&expression=happy").text())
+    .toBe(await get("/avatar/alain?size=64&expression=happy").text());
 });
 
 test("blobatars are embeddable cross-origin", () => {

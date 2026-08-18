@@ -14,6 +14,7 @@
     "./blob": { "types": "./dist/blob.d.ts", "default": "./dist/blob.js" },
     "./uri": { "types": "./dist/uri.d.ts", "default": "./dist/uri.js" },
     "./expression": { "types": "./dist/expression.d.ts", "default": "./dist/expression.js" },
+    "./generation": { "types": "./dist/generation.d.ts", "default": "./dist/generation.js" },
     "./react": { "types": "./dist/react.d.ts", "default": "./dist/react.js" },
     "./motion.css": "./dist/motion.css",
     "./package.json": "./package.json"
@@ -27,6 +28,8 @@
     "probe": "bun scripts/probe-compose.ts",
     "build": "bun scripts/build.ts",
     "smoke": "node scripts/smoke.mjs",
+    "//golden": "Regenerating is a deliberate act, so the script refuses without `--write` and says why. `check` does not call it — `bun test` already asserts against the fixture, which is the direction that matters.",
+    "golden": "bun scripts/golden.ts",
     "check": "bun test && bun run size && bun run probe && bun run build && bun run smoke",
     "prepack": "bun run build"
   },

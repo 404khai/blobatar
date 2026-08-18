@@ -15,7 +15,17 @@
  * makes lock, shuffle, readback and the snippet all the same mechanism.
  */
 
-/** The six silhouettes. `shapeOf` in `styles/blob.ts` owns the thresholds. */
+/**
+ * The six silhouettes of **gen1**. `shapeOf` in `styles/blob.ts` owns the
+ * thresholds.
+ *
+ * Per-generation, now that there is such a thing: a later generation has its
+ * own vocabulary and its own bands, and this file describes one of them. The
+ * editor renders the default generation, which in this major is gen1 — so
+ * nothing here needs a switch yet. It will the moment there are two, and the
+ * shape of that change is this list and `applies` below becoming a lookup
+ * rather than a constant.
+ */
 export type Shape = "round" | "organic" | "boxy" | "nub" | "cloud" | "sun";
 
 /**
@@ -23,10 +33,10 @@ export type Shape = "round" | "organic" | "boxy" | "nub" | "cloud" | "sun";
  *
  * **Copied from `packages/blobatar/test/traits.test.ts`**, under "every shape in
  * the vocabulary is reachable by band midpoint", rather than derived from
- * `shapeOf`'s thresholds. The bands are frozen per major but their boundaries
- * are exactly where a retune would land, and a copy means that retune fails a
- * test in the package instead of silently moving every config anyone saved off
- * this page.
+ * `shapeOf`'s thresholds. The bands are frozen per generation but their
+ * boundaries are exactly where a retune would land, and a copy means that
+ * retune fails a test in the package — `test/golden/gen1.txt` names it directly
+ * now — instead of silently moving every config anyone saved off this page.
  */
 export const SHAPES: { name: Shape; at: number }[] = [
   { name: "round", at: 0.14 },

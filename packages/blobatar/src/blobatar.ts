@@ -13,7 +13,12 @@ export type { BlobatarOptions, Animate, Expression };
  * The same name always produces the same output within a major version. The
  * numeric ranges in `styles/blob.ts`'s `layout`, its categorical thresholds,
  * and the tone set are all part of that contract: changing any of them
- * reshuffles existing blobatars.
+ * reshuffles existing blobatars, which is why they move together as a
+ * generation rather than one at a time.
+ *
+ * `blob` is the default generation for this major. Pass `generation` to pin one
+ * instead, and the output survives an upgrade that moves the default — see
+ * `generation.ts`.
  */
 export const blobatar = makeBlobatar(blob);
 
@@ -83,7 +88,16 @@ export function _parts(name: string, opts: BlobatarOptions = {}) {
  */
 export function _layout(name: string, opts: BlobatarOptions = {}) {
   const { t, palette } = resolve(name, opts);
-  const l = blob.layout(t);
+  // Follows `generation` like the renderers do, so a geometric invariant is
+  // asserted against the generation under test rather than always against the
+  // default one.
+  //
+  // Typed as the default generation's layout regardless, because that is what
+  // every caller of this is: the geometry tests, reading `body` and `shape` off
+  // the result. A generation that renamed those would need its own assertions
+  // anyway, and this is underscored precisely because its shape is not a
+  // promise to anyone outside this package.
+  const l = (opts.generation ?? blob).layout(t) as blob.Layout;
   // Posed here rather than by the caller, so the geometry tests assert against
   // the same numbers the static renderer draws. Only the baked half comes back:
   // the body-level `transform` is the renderer's business, and the test that

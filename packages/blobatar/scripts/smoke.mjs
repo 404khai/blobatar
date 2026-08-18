@@ -21,6 +21,7 @@ import { blobatar, palette, traits, normalizeSeed } from "blobatar";
 import { blobatar as blob } from "blobatar/blob";
 import { blobatarUri } from "blobatar/uri";
 import * as poses from "blobatar/expression";
+import * as generations from "blobatar/generation";
 import { Blobatar } from "blobatar/react";
 
 let failed = false;
@@ -61,6 +62,22 @@ check("blobatar/expression", () => {
     svg(blob("alain", { expression: pose }), `blob + ${name}`);
   }
   return `${named.length} poses — ${named.map(([n]) => n).join(", ")}`;
+});
+
+check("blobatar/generation", () => {
+  // Discovered rather than listed, like the poses above: the failure this
+  // catches is a new generation that never reached the build config, which
+  // ships as an export resolving to `undefined`.
+  const named = Object.entries(generations).filter(([, v]) => v && typeof v === "object");
+  assert(named.length >= 1, "no generations exported");
+  for (const [name, gen] of named) {
+    assert(typeof gen.layout === "function", `${name} has no layout`);
+    // The whole promise, at the one place it can be checked against the
+    // published package: pinning the default renders what the default renders.
+    const pinned = svg(blob("alain", { generation: gen }), `blob + ${name}`);
+    if (gen.id === 1) assert(pinned === blob("alain"), "gen1 is not the default");
+  }
+  return named.map(([n]) => n).join(", ");
 });
 
 check("blobatar/uri", () => {

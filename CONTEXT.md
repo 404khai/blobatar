@@ -33,14 +33,28 @@ _Avoid_: avatar, morphatar, identicon. _Avatar_ is what one generically is, but
 it is not what it is called here — the word survives in the npm keywords, for
 search, and nowhere else.
 
+**Generation**:
+One frozen seed→look mapping: a silhouette vocabulary and its thresholds, every
+numeric range the layout reads a trait into, and the tone set. Those move
+together because they are observed together — a caller cannot tell which of them
+changed, only that their user's blobatar is now somebody else's. `gen1` is the
+original six. Adding a silhouette is **not additive**, since a new band has to
+take its share from the existing ones, which is the whole reason the word
+exists. Pinned as a value (`{ generation: gen1 }`) or as `?gen=1` on the
+endpoint; the library's default follows the major, the endpoint's does not.
+See ADR-0006.
+_Avoid_: version, edition, variant. _Version_ is the package's, and the two move
+on different schedules by design.
+
 **Shape**:
-Which silhouette a blobatar takes — `round`, `organic`, `boxy`, `nub`, `cloud`, or
-`sun`. **Derived, never set directly.** There is no `shape` option; a caller who
+Which silhouette a blobatar takes — in gen1, `round`, `organic`, `boxy`, `nub`,
+`cloud`, or `sun`. **Derived, never set directly.** There is no `shape` option; a caller who
 wants a particular silhouette overrides the `shape` _trait_, and the same
 thresholds turn it into a shape.
 _Avoid_: variant, form. There is no variant axis: a `character` family existed
-until 0.1.0 and was removed, and the vocabulary of six shapes is the only family
-now. The specs and ADRs under `docs/` predate that and still discuss it; they are
+until 0.1.0 and was removed. The vocabulary of six is gen1's, and a later
+generation replaces it wholesale rather than adding to it — which is a
+different axis from the one `character` was. The specs and ADRs under `docs/` predate that and still discuss it; they are
 kept as written, since a decision record that quietly changes is worth nothing.
 
 **Trait**:

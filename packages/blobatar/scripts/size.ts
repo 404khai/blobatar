@@ -56,8 +56,13 @@ const ENTRIES: {
     // existed only to keep two of them apart: the palette's variant-keyed ramp
     // and floor tables, the `expressive` flag, and the `variant` argument
     // threaded through `resolve`.
+    // Raised from 3700 by 23 B for the generation seam — `makeBlobatar` and
+    // `makeParts` reading `opts.generation` instead of closing over one style.
+    // That is the whole core-side cost of the mechanism; everything else about
+    // a generation is paid by the consumer who imports one, which is the point
+    // of it being a passed-in value rather than an option naming a table.
     name: "blob only",
-    budget: 3700,
+    budget: 3730,
     external: [] as string[],
     source: `import { blobatar } from "../../src/blob";
              globalThis.x = blobatar(String(globalThis.seed));`,
@@ -114,6 +119,32 @@ const ENTRIES: {
     source: `import { blobatar } from "../../src/blob";
              import { happy } from "../../src/expression";
              globalThis.x = blobatar(String(globalThis.seed), { expression: happy });`,
+  },
+  {
+    /*
+     * What pinning a generation costs: 16 B over "blob only", because in this
+     * major `gen1` *is* the default and the bundler sees one copy of it.
+     *
+     * The number to watch is this one minus "blob only". It is near zero today
+     * and it is what a *second* generation will actually cost, since that one
+     * brings its own bands, its own `CORE` and its own decoration branches.
+     * This entry exists to have been measuring it from before there was
+     * anything to measure.
+     *
+     * One caveat this cannot see: entries are bundled standalone in `dist` (see
+     * `scripts/build.ts` for why code splitting is unavailable), so a consumer
+     * importing both `blobatar` and `blobatar/generation` from the published
+     * package gets the shared core twice. The fixtures here bundle from source
+     * and dedupe, which measures the mechanism rather than the packaging. That
+     * duplication resolves itself at the next major, when `gen1` leaves the
+     * core and pinning it stops overlapping with the default at all.
+     */
+    name: "blob + gen1",
+    budget: 3750,
+    external: [],
+    source: `import { blobatar } from "../../src/blob";
+             import { gen1 } from "../../src/generation";
+             globalThis.x = blobatar(String(globalThis.seed), { generation: gen1 });`,
   },
   {
     name: "traits only",

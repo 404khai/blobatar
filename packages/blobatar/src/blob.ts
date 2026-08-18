@@ -17,5 +17,11 @@ export const blobatar = makeBlobatar(style);
  * thousands of seeds down to the rare silhouettes costs a hash and some
  * arithmetic this way, where going through `_layout` would also resolve an
  * OKLCh palette per candidate.
+ *
+ * This is gen1's layout specifically, not "the current generation's". It is
+ * reached by importing the module a generation is made of, so it does not — and
+ * should not — follow `opts.generation`: a bulk filter wants to name the
+ * vocabulary it is filtering for. `blobatar/generation` is where the others
+ * come from.
  */
 export { layout } from "./styles/blob";

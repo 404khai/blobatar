@@ -27,6 +27,7 @@ const ENTRIES = [
   "src/blob.ts",
   "src/uri.ts",
   "src/expression.ts",
+  "src/generation.ts",
   "src/react.tsx",
 ];
 

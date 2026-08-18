@@ -96,7 +96,7 @@ No install and no build step — a URL that renders one:
 
 The path segment is the name, percent-encoded, and the query string is the
 options under the names the library gives them — `size` (or `s`), `background`,
-`hue`, `tone`, `expression`, `title`:
+`hue`, `tone`, `expression`, `title`, `gen`:
 
 ```
 https://blobatar.dev/avatar/alain%40example.com?size=64&background=squircle
@@ -115,6 +115,17 @@ The hash is used as the name. It is one-way, so the email cannot be recovered �
 but it is itself derived from the email, so each person still gets one stable
 blobatar of their own. It will not be the same one `/avatar/<email>` gives:
 pick one scheme per application.
+
+`gen` pins the shape vocabulary. New silhouettes cannot be added without
+reshuffling existing ones — the thresholds partition a single range — so they
+arrive as a new **generation** instead, and an unversioned URL renders gen 1
+forever. Nothing you have already pasted anywhere needs revisiting; naming it
+makes the promise explicit, and earns a year-long immutable cache rather than a
+day, since a pinned URL cannot come back different:
+
+```
+https://blobatar.dev/avatar/alain00?gen=1
+```
 
 `GET /avatar/` returns the whole parameter list as plain text, which is the
 reference this section is a summary of.

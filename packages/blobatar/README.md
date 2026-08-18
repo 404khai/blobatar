@@ -43,12 +43,35 @@ import { blobatar } from "blobatar/blob";
 
 **Determinism.** The same name always renders the same blobatar within a major
 version. Numeric ranges, the shape thresholds, the tone set and the expression
-roster are all part of that contract.
+roster are all part of that contract, and it is enforced rather than intended:
+`test/golden/gen1.txt` records 1312 renders and a shape histogram over 20,000
+seeds, so moving any of them fails the build.
 
 **Stability across versions.** Traits are addressed by string key rather than
 drawn from a sequential stream, so adding a trait in a later minor cannot
-disturb existing blobatars. Adding a shape or a tone _would_, so those are frozen
-per major.
+disturb existing blobatars. Adding a shape or a tone _would_ — those move
+together, as a **generation**.
+
+Adding a silhouette is not additive: the shape thresholds partition [0, 1), so a
+new one has to take its share from the existing ones and every name in the moved
+region gets a different creature. New shapes therefore arrive as a new
+generation rather than as a change to yours. The default follows the major, so
+upgrading `blobatar@1` → `@2` is the moment you opt in — and every generation
+stays importable, so you can pin one and keep your users' blobatars through it:
+
+```ts
+import { blobatar } from "blobatar";
+import { gen1 } from "blobatar/generation";
+
+blobatar(user.email, { generation: gen1 }); // the original six, in any major
+```
+
+```tsx
+<Blobatar name={user.email} generation={gen1} />
+```
+
+A generation is imported as a value for the same reason an expression is: pin
+nothing and you carry nothing.
 
 **Contrast.** Eyes clear 4.5:1 against the body at every hue and every tone —
 verified at 1° resolution in the test suite. Polarity flips automatically, so

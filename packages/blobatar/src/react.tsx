@@ -44,6 +44,7 @@ export type BlobatarProps = {
 
 export function Blobatar({
   name: seed,
+  generation,
   size,
   background,
   palette,
@@ -60,11 +61,19 @@ export function Blobatar({
   // Pulled out explicitly like every other option, because what is left in
   // `rest` goes straight onto the DOM element — a `traits` object spread onto
   // an `<img>` is a React warning per blobatar.
-  const opts = { size, background, palette, hue, tone, normalize, contrast, title, expression, traits };
+  const opts = { generation, size, background, palette, hue, tone, normalize, contrast, title, expression, traits };
 
   // Both branches are hooks-stable: `animate` changing swaps the element type,
   // which remounts anyway.
-  const dep = JSON.stringify([seed, opts, animate]);
+  //
+  // `generation` goes in by id rather than by value, and it is the one option
+  // that has to. A generation is three functions and a background flag, and
+  // `JSON.stringify` drops functions — so two generations serialize to the same
+  // `{"background":false}` and switching between them would not invalidate
+  // either memo below. An expression survives this by accident (its pose `p` is
+  // data, and no two poses are equal), which is exactly why it is worth saying
+  // out loud here: the serialization is load-bearing and it is not obvious.
+  const dep = JSON.stringify([seed, { ...opts, generation: generation?.id }, animate]);
 
   const src = useMemo(
     () => (animate ? "" : blobatarUri(seed, opts)),

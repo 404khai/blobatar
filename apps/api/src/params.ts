@@ -1,5 +1,6 @@
 import type { BlobatarOptions } from "blobatar/blob";
 import type { Expression } from "blobatar/expression";
+import { gen1, type Generation } from "blobatar/generation";
 import {
   happy, idle, love, mad, sad, scared, shy, sick, sleepy, smug, surprised, unsure, wink,
 } from "blobatar/expression";
@@ -18,6 +19,21 @@ export class BadRequest extends Error {}
  */
 const EXPRESSIONS: Record<string, Expression> = {
   idle, happy, sad, mad, surprised, wink, sleepy, smug, unsure, scared, love, shy, sick,
+};
+
+/**
+ * The generations, by the number a URL spells them with.
+ *
+ * Every generation the deployed library carries, listed for the same reason
+ * `EXPRESSIONS` is: a server is the one consumer that uses all of them by
+ * definition, so the mapping the library declines to make gets made here.
+ *
+ * The entries only ever grow. A generation that appeared in a URL has to keep
+ * answering — that is the entire promise `?gen=` makes, and removing one would
+ * break it more thoroughly than never having offered it.
+ */
+const GENERATIONS: Record<string, Generation> = {
+  1: gen1,
 };
 
 /**
@@ -67,7 +83,7 @@ export const MAX_SIZE = 1024;
  */
 const IGNORED = ["d", "default", "f", "forcedefault", "r", "rating"];
 
-const KNOWN = ["s", "size", "background", "hue", "tone", "expression", "title", ...IGNORED];
+const KNOWN = ["s", "size", "background", "hue", "tone", "expression", "title", "gen", ...IGNORED];
 
 function number(raw: string, key: string, min: number, max: number): number {
   const n = Number(raw);
@@ -119,6 +135,7 @@ export function parseOptions(params: URLSearchParams): BlobatarOptions {
   const tone = params.get("tone");
   const expression = params.get("expression");
   const title = params.get("title");
+  const gen = params.get("gen");
 
   if (size !== null) {
     /*
@@ -134,6 +151,7 @@ export function parseOptions(params: URLSearchParams): BlobatarOptions {
     const n = Number(size.trim() === "" ? NaN : size);
     if (Number.isFinite(n)) opts.size = Math.round(Math.min(MAX_SIZE, Math.max(MIN_SIZE, n)));
   }
+  if (gen !== null) opts.generation = oneOf(gen, "gen", GENERATIONS);
   if (background !== null) opts.background = oneOf(background, "background", BACKGROUNDS);
   // 360 is admitted alongside 0 rather than excluded as a duplicate: hue is a
   // circle, callers compute into it, and rejecting the value that a full turn
