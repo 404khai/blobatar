@@ -117,6 +117,11 @@ by a kilobyte. Naming the three members explicitly restores it. The `blob + gen1
 row in `scripts/size.ts` existed precisely to have been measuring this from
 before there was anything to measure, and it is what caught it.
 
+> **Superseded by ADR-0007.** Generations are now `{ id, ...compose(bands, fit) }`
+> and there are no members to name — the fix is an annotated IIFE, and
+> specifically not an annotation on the call. The hazard is real and the row
+> that catches it is the same; only the remedy changed.
+
 *A third of names do not move.* A round body with room for its eyes is drawn by
 the same arithmetic under both vocabularies, so it comes out byte-identical.
 Nothing promises otherwise and it is the right behaviour — a generation is
@@ -128,3 +133,11 @@ in the deployed Worker and a public path in the package forever, and at some
 point the honest move is to stop adding vocabularies and start a second library.
 The first sign will be `params.ts`'s table reading like a museum rather than a
 menu.
+
+> **Partly answered by ADR-0007.** The cost that made "three or four" the
+> threshold was that each generation was a whole hand-written style module. Now
+> that they are compositions over a shared vocabulary, a generation that reuses
+> existing shapes costs a band table and a fit — gen2's marginal weight fell from
+> 1058 B to 606 B. That moves the threshold out, but it does not remove it: every
+> generation is still frozen forever and still a public path. What changed is that
+> the *next* one is cheap; what did not is that it is permanent.

@@ -11,14 +11,14 @@ test("a name renders the same markup the library would", async () => {
   const res = get("/avatar/alain00");
   expect(res.status).toBe(200);
   expect(res.headers.get("content-type")).toBe("image/svg+xml; charset=utf-8");
-  expect(await res.text()).toBe(blobatar("alain00"));
+  expect(await res.text()).toBe(blobatar("alain00", { generation: gen1 }));
 });
 
 test("parameters reach the renderer", async () => {
   expect(await get("/avatar/alain?size=64&background=squircle").text())
-    .toBe(blobatar("alain", { size: 64, background: "squircle" }));
+    .toBe(blobatar("alain", { size: 64, background: "squircle", generation: gen1 }));
   expect(await get("/avatar/alain?expression=happy").text())
-    .toBe(blobatar("alain", { expression: happy }));
+    .toBe(blobatar("alain", { expression: happy, generation: gen1 }));
 });
 
 test("the endpoint is deterministic across requests", async () => {
@@ -144,8 +144,9 @@ test("blobatars are embeddable cross-origin", () => {
 });
 
 test("unicode and email names round-trip through the path", async () => {
-  expect(await get("/avatar/alain%40example.com").text()).toBe(blobatar("alain@example.com"));
-  expect(await get("/avatar/%F0%9F%A6%8A").text()).toBe(blobatar("🦊"));
+  expect(await get("/avatar/alain%40example.com").text())
+    .toBe(blobatar("alain@example.com", { generation: gen1 }));
+  expect(await get("/avatar/%F0%9F%A6%8A").text()).toBe(blobatar("🦊", { generation: gen1 }));
 });
 
 test("gen 2 renders gen 2, and is cached forever too", async () => {

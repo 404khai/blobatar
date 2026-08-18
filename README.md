@@ -69,6 +69,29 @@ Every value those options take, and what each one draws:
 
 ![The six silhouettes labelled round, organic, boxy, nub, cloud and sun; the eight hue stops from 12 to 320 degrees; the thirteen expressions from idle through happy, sad and mad to love, shy and sick; the four backgrounds none, squircle, circle and square](./docs/media/sheet.png)
 
+### Your own vocabulary
+
+The ten silhouettes ship as importable values, and a generation is just a table
+of them weighted, plus a strategy for fitting the eyes. Want three shapes
+instead of ten? Compose three:
+
+```ts
+import { compose, bodyFit, type Band } from "blobatar/compose";
+import { round, organic, sun } from "blobatar/shapes";
+
+const bands: Band[] = [[round, 0.5], [organic, 0.9], [sun, 1]];
+const mine = { id: 7, ...compose(bands, bodyFit) };
+
+blobatar(user.email, { generation: mine });
+```
+
+You carry only the shapes you name, so this comes out *smaller* than the default
+import — and the containment guarantees still hold, because these are the same
+shape values `gen1` and `gen2` are built from. Pick an `id` nothing else uses,
+and treat your band table as frozen once you ship it: nudging an edge later
+changes somebody's avatar. See the [package
+README](./packages/blobatar/README.md#composing-your-own-generation).
+
 ### Animation and expressions
 
 Both are opt-in. `animate` idles the blobatar — breathe, bob, blink, glance —

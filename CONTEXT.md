@@ -44,11 +44,24 @@ exists. `gen2` is the original six plus `capsule`, `triangle`, `hexagon` and
 `droplet`. Pinned as a value (`{ generation: gen1 }`) or as `?gen=1` on the
 endpoint; the library's default follows the major, the endpoint's does not — so
 in `0.x` and `1.x` the default is gen1 and gen2 is opt-in either way.
-See ADR-0006.
+Built as `compose(bands, fit)` over shape values rather than hand-written, which
+is what makes a generation something a *caller* can also build.
+See ADR-0006 and ADR-0007.
 _Avoid_: version, edition, variant. _Version_ is the package's, and the two move
 on different schedules by design.
 
 **Shape**:
+A silhouette, as an importable value from `blobatar/shapes` — what it draws, how
+much of the frame it takes, what room it leaves the eyes. Ten of them, and the
+same value is used by every generation that includes it: gen1's `round` and
+gen2's `round` are not two implementations, they are one.
+A shape deliberately does **not** carry its own threshold; how often it comes up
+belongs to the generation. See ADR-0007.
+_Avoid_: using _shape_ for the *name* of one. The name is a `ShapeName`
+(`"round"`, `"sun"`), which is what `l.shape` and the `shape` trait resolve to;
+the shape is the thing that draws it.
+
+**Silhouette name**:
 Which silhouette a blobatar takes. In gen1: `round`, `organic`, `boxy`, `nub`,
 `cloud`, `sun`. In gen2: those six under the same names, plus `capsule`,
 `triangle`, `hexagon` and `droplet`. **Derived, never set directly.** There is
@@ -61,6 +74,22 @@ generation replaces it wholesale rather than adding to it — gen2 keeps six of
 gen1's names because they are the same silhouettes, not because it inherited
 them. That is a different axis from the one `character` was. The specs and ADRs under `docs/` predate that and still discuss it; they are
 kept as written, since a decision record that quietly changes is worth nothing.
+
+**Band**:
+`[shape, upper edge]` — one entry in the table that partitions [0, 1) between a
+generation's silhouettes. The bands *are* the weighting: rounds and pebbles get
+wide bands because they are the everyday shapes, suns a narrow one because they
+should be a find. Frozen per generation, and the reason adding a silhouette is
+never additive — a new band takes its mass from its neighbours.
+_Avoid_: threshold, weight. A band is the interval; a threshold is one of its
+two edges.
+
+**Fit**:
+How a generation fits the eye cluster into the room a silhouette leaves.
+`bodyFit` measures against the body radius on one axis, `faceFit` against the
+shape's own face on both. A parameter rather than a fix: gen1 froze `bodyFit`,
+and applying the better one retroactively would move every existing gen1
+blobatar. See ADR-0007.
 
 **Trait**:
 A named value pulled from the seed's hash by string key (`"hue"`, `"body.r"`),

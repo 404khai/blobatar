@@ -2,9 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { _layout } from "../src/blobatar";
 import { blobatar } from "../src/blobatar";
 import { superellipse, blobPath, polygon } from "../src/shape";
-import * as blob from "../src/styles/blob";
-import * as blob2 from "../src/styles/blob2";
-import { gen2 } from "../src/generation";
+import { gen1, gen2 } from "../src/generation";
+import type { Layout } from "../src/styles/compose";
 import { traits } from "../src/traits";
 import { BLOB_KEYS, BLOB2_KEYS } from "./keys";
 
@@ -55,7 +54,7 @@ describe("the frame", () => {
 });
 
 describe("blob", () => {
-  const layouts = SEEDS.map(s => blob.layout(traits(s)));
+  const layouts = SEEDS.map(s => gen1.layout(traits(s)) as Layout);
 
   test("eyes sit inside the body core", () => {
     for (const l of layouts) {
@@ -144,7 +143,7 @@ describe("blob under trait overrides", () => {
     MAPS.push(m);
   }
 
-  const layouts = MAPS.map(m => blob.layout(traits("cfg", true, m)));
+  const layouts = MAPS.map(m => gen1.layout(traits("cfg", true, m)) as Layout);
 
   test("eyes sit inside the body core", () => {
     for (const l of layouts) {
@@ -252,10 +251,10 @@ describe("path emission", () => {
  * with the actual geometry rather than with a shared approximation.
  */
 describe("blob2", () => {
-  const layouts = SEEDS.map(s => blob2.layout(traits(s)));
+  const layouts = SEEDS.map(s => gen2.layout(traits(s)) as Layout);
 
   /** The rounded polygon's cut points, which the drawn outline strictly contains. */
-  function cutHull(b: blob2.Layout["body"]): [number, number][] {
+  function cutHull(b: Layout["body"] & { sides: number; round: number }): [number, number][] {
     const k = b.round > 0 ? (b.round < 1 ? b.round / 2 : 0.5) : 0;
     const t0 = (b.rot * Math.PI) / 180 - Math.PI / 2;
     const v = Array.from({ length: b.sides }, (_, i) => {
@@ -292,7 +291,7 @@ describe("blob2", () => {
   };
 
   /** Distance from a point to the segment joining a capsule's two cap centres. */
-  const toSpine = (px: number, py: number, l: blob2.Layout) => {
+  const toSpine = (px: number, py: number, l: Layout) => {
     const half = l.body.rx - l.body.ry;
     const dx = Math.max(0, Math.abs(px - l.body.cx) - half);
     return Math.hypot(dx, py - l.body.cy);
@@ -303,9 +302,13 @@ describe("blob2", () => {
    * shapes that union extra parts are tested against the core alone, and the
    * spline shapes against their smallest sampled radius.
    */
-  function inBody(px: number, py: number, l: blob2.Layout) {
+  function inBody(px: number, py: number, l: Layout) {
     const b = l.body;
-    if (l.shape === "triangle" || l.shape === "hexagon") return inConvex(px, py, cutHull(b));
+    // The `shape` guard is what makes `sides` and `round` present — they are
+    // optional on `Body` because only the polygon shapes set them, and only the
+    // polygon shapes reach this branch.
+    if (l.shape === "triangle" || l.shape === "hexagon")
+      return inConvex(px, py, cutHull(b as typeof b & { sides: number; round: number }));
     if (l.shape === "capsule") return toSpine(px, py, l) <= b.ry;
     const shrink =
       l.shape === "organic" || l.shape === "cloud" ? Math.min(...b.radii) * 0.95 : 1;
@@ -313,7 +316,7 @@ describe("blob2", () => {
     return inside(px, py, { cx: b.cx, cy: b.cy, rx: b.rx * shrink, ry: b.ry * shrink, n: 2 }) < 1;
   }
 
-  const checkEyes = (ls: blob2.Layout[]) => {
+  const checkEyes = (ls: Layout[]) => {
     for (const l of ls) {
       for (const e of l.eyes) {
         for (const [x, y] of corners(e)) {
@@ -421,7 +424,7 @@ describe("blob2", () => {
       MAPS.push(m);
     }
 
-    const cfg = MAPS.map(m => blob2.layout(traits("cfg", true, m)));
+    const cfg = MAPS.map(m => gen2.layout(traits("cfg", true, m)) as Layout);
 
     test("eyes sit inside the face, and the face inside the body", () => {
       checkEyes(cfg);

@@ -1,17 +1,33 @@
 /**
- * SPIKE — a generation composed from shape values.
+ * A generation, composed from shape values.
  *
- * A generation is `compose(bands, fit)`: which silhouettes, how the seed is
- * partitioned between them, and how the eye cluster is fitted into whatever
- * room a silhouette leaves. Bands live here rather than on the shape because
- * gen1 and gen2 draw six of the same silhouettes and weight them differently —
- * a `round` that carried its own threshold could only belong to one of them.
+ * `compose(bands, fit)` is the whole of what distinguishes one generation from
+ * another: which silhouettes it draws, how the seed is partitioned between
+ * them, and how the eye cluster is fitted into whatever room a silhouette
+ * leaves. It returns the three members a `Generation` needs — `layout`,
+ * `render`, `background` — and the caller adds the `id`.
+ *
+ * Bands live here rather than on the shape because `gen1` and `gen2` draw six
+ * of the same silhouettes and weight them differently — a `round` that carried
+ * its own threshold could belong to only one of them.
  *
  * `fit` is the other half of the same argument. gen1 measures the cluster
  * against the body radius on one axis; gen2 measures it against a per-shape
  * face on both. That is not a refinement that can be applied retroactively —
  * it would move every gen1 blobatar — so it is a parameter, and each
  * generation names the one it froze.
+ *
+ * ## What a composed generation cannot vary
+ *
+ * Every numeric range the layout reads is hardcoded here: `body.r` 31–38,
+ * `body.ratio` 0.92–1.08, `eye.rx` 0.075–0.105, `eye.gap` 0.1–0.24, and the
+ * rest. gen1 and gen2 happen to share all of them, which is exactly why one
+ * composer serves both — but it means a generation wanting a different body
+ * range cannot be expressed by composing, only by extending `compose`. At that
+ * point the ranges become part of the generation too, and this signature grows
+ * a third parameter. That is a deliberate deferral, not an oversight: nothing
+ * has needed it across two generations, and inventing the knob before there is
+ * a second set of ranges would be guessing at its shape. See ADR-0007.
  */
 import type { Palette } from "../color";
 import { superellipse } from "../shape";
@@ -175,3 +191,13 @@ export function compose(bands: Band[], fit: Fit) {
 
   return { layout, render, background: false as const };
 }
+
+/**
+ * What a composed `layout` returns.
+ *
+ * `shape` is a `string` here rather than a union of names, because which names
+ * are possible is a property of the band table a generation was composed with
+ * and not of the composer. A generation that wants the narrower type states it
+ * itself — see `ShapeName` in `blob.ts`.
+ */
+export type Layout = ReturnType<ReturnType<typeof compose>["layout"]>;

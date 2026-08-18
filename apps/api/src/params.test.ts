@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { happy } from "blobatar/expression";
+import { gen1 } from "blobatar/generation";
 import { BadRequest, MAX_NAME, parseName, parseOptions } from "./params";
 
 const opts = (qs: string) => parseOptions(new URLSearchParams(qs));
@@ -14,8 +15,11 @@ const bad = (fn: () => unknown) => {
   throw new Error("unreachable");
 };
 
-test("no parameters is no options", () => {
-  expect(opts("")).toEqual({});
+test("no parameters pins gen1, and nothing else", () => {
+  // Not `{}`. The endpoint's default generation is explicit rather than
+  // inherited, because the library's default moved to gen2 at 2.0.0 and an
+  // unversioned URL must not have moved with it. See `params.ts`.
+  expect(opts("")).toEqual({ generation: gen1 });
 });
 
 test("parameters map onto the library's own names", () => {
@@ -24,12 +28,13 @@ test("parameters map onto the library's own names", () => {
     hue: 200,
     tone: 0.25,
     title: "Alain",
+    generation: gen1,
   });
 });
 
 test("background=none is the falsy one, and survives being falsy", () => {
-  expect(opts("background=none")).toEqual({ background: false });
-  expect(opts("background=squircle")).toEqual({ background: "squircle" });
+  expect(opts("background=none")).toEqual({ background: false, generation: gen1 });
+  expect(opts("background=squircle")).toEqual({ background: "squircle", generation: gen1 });
 });
 
 test("expressions resolve to the library's values, not to strings", () => {

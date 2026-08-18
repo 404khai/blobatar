@@ -18,7 +18,6 @@ import {
   wink,
   type Expression,
 } from "../src/expression";
-import * as blob from "../src/styles/blob";
 import { traits } from "../src/traits";
 
 /**
@@ -299,7 +298,7 @@ describe("the tilt has real headroom", () => {
    * This replaces a per-seed clamp that turned out to be unnecessary.
    *
    * The worry was concrete: `mad` tilts the pair 14° on top of a seeded lean
-   * that `styles/blob.ts` has already pushed to its clearance ceiling, and two
+   * that `styles/compose.ts` has already pushed to its clearance ceiling, and two
    * tall capsules swinging toward each other is the one failure that style calls
    * unsurvivable. Measured, it never happens: `mad` squashes the capsules on the
    * way in, and a shorter capsule sweeps sideways less per degree than the tilt

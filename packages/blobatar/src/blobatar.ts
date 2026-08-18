@@ -3,7 +3,8 @@ import type { Palette } from "./color";
 import type { Expression } from "./expression";
 import { makeBlobatar, makeParts, resolve, type BlobatarOptions } from "./render";
 import type { Traits } from "./traits";
-import * as blob from "./styles/blob";
+import { gen2 } from "./generation";
+import type { Layout } from "./styles/compose";
 
 export type { BlobatarOptions, Animate, Expression };
 
@@ -11,16 +12,17 @@ export type { BlobatarOptions, Animate, Expression };
  * Renders a deterministic blobatar as SVG markup.
  *
  * The same name always produces the same output within a major version. The
- * numeric ranges in `styles/blob.ts`'s `layout`, its categorical thresholds,
- * and the tone set are all part of that contract: changing any of them
- * reshuffles existing blobatars, which is why they move together as a
- * generation rather than one at a time.
+ * numeric ranges in `styles/compose.ts`'s `layout`, the band table the
+ * generation was composed with, and the tone set are all part of that
+ * contract: changing any of them reshuffles existing blobatars, which is why
+ * they move together as a generation rather than one at a time.
  *
- * `blob` is the default generation for this major. Pass `generation` to pin one
- * instead, and the output survives an upgrade that moves the default — see
- * `generation.ts`.
+ * `gen2` is the default generation for this major, as of `2.0.0`. Pass
+ * `generation` to pin one instead, and the output survives an upgrade that
+ * moves the default — `{ generation: gen1 }` is how a caller keeps the
+ * blobatars they had before `2.0.0`. See `generation.ts` and ADR-0008.
  */
-export const blobatar = makeBlobatar(blob);
+export const blobatar = makeBlobatar(gen2);
 
 /**
  * Only constructed when someone actually animates, so it tree-shakes away.
@@ -71,7 +73,7 @@ const motion = (mode: Animate, e?: Expression) => (t: Traits, p: Palette) => {
  * animating. Underscored because the shape of this object is not public API.
  */
 export function _parts(name: string, opts: BlobatarOptions = {}) {
-  return makeParts(blob)(
+  return makeParts(gen2)(
     name,
     opts,
     opts.animate && motion(opts.animate, opts.expression),
@@ -97,7 +99,7 @@ export function _layout(name: string, opts: BlobatarOptions = {}) {
   // the result. A generation that renamed those would need its own assertions
   // anyway, and this is underscored precisely because its shape is not a
   // promise to anyone outside this package.
-  const l = (opts.generation ?? blob).layout(t) as blob.Layout;
+  const l = (opts.generation ?? gen2).layout(t) as Layout;
   // Posed here rather than by the caller, so the geometry tests assert against
   // the same numbers the static renderer draws. Only the baked half comes back:
   // the body-level `transform` is the renderer's business, and the test that

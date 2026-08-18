@@ -12,7 +12,10 @@
  * as a ghost. That is the difference between "this slider is broken" and "I am
  * at the edge of what fits".
  *
- * The ranges below are copied out of `styles/blob.ts`. That is a real coupling
+ * The ranges below are copied out of `styles/compose.ts`, where they moved when
+ * generations became compositions — they are hardcoded in the composer rather
+ * than carried per generation, which is what makes one copy here able to serve
+ * both. That is a real coupling
  * and worth stating: they are frozen per generation and public per ADR 0003 — a
  * stated trait position is *relative* to them — so this is duplicating a
  * constant that already cannot move within one. If it moves anyway, the ghost

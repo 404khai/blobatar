@@ -152,7 +152,23 @@ export function parseOptions(params: URLSearchParams): BlobatarOptions {
     const n = Number(size.trim() === "" ? NaN : size);
     if (Number.isFinite(n)) opts.size = Math.round(Math.min(MAX_SIZE, Math.max(MIN_SIZE, n)));
   }
-  if (gen !== null) opts.generation = oneOf(gen, "gen", GENERATIONS);
+  /*
+   * Pinned explicitly when the URL names no generation, rather than left unset
+   * to inherit the library's default.
+   *
+   * These are not the same thing and stopped being the same thing at
+   * `blobatar@2.0.0`, when the library's default moved to gen2. The endpoint's
+   * default cannot move with it: `/avatar/<seed>` with no query is the URL
+   * people paste into a profile page and never revisit, and it renders gen1
+   * forever — that promise is older than gen2 and is the reason `?gen=` exists
+   * at all.
+   *
+   * So an unset `generation` here would be a library upgrade silently
+   * rewriting every unversioned URL ever pasted. `avatar.test.ts` has two tests
+   * that fail if this line is removed; they are not redundant with each other,
+   * and neither is decoration.
+   */
+  opts.generation = gen === null ? gen1 : oneOf(gen, "gen", GENERATIONS);
   if (background !== null) opts.background = oneOf(background, "background", BACKGROUNDS);
   // 360 is admitted alongside 0 rather than excluded as a duplicate: hue is a
   // circle, callers compute into it, and rejecting the value that a full turn

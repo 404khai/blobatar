@@ -1,6 +1,12 @@
 /**
- * Every trait key `styles/blob.ts` reads, including the indexed families it
- * only reaches for some shapes.
+ * Every trait key gen1 reads, including the indexed families it only reaches
+ * for some shapes.
+ *
+ * Now spread across `styles/compose.ts` (the body and eye ranges every
+ * generation shares) and `styles/shapes.ts` (the per-silhouette families like
+ * `nub.a0` and `cloud.r0`), which is exactly why this stays a hand-written
+ * list: the keys a generation reads are a property of its band table, and no
+ * single module has them all any more.
  *
  * Kept as a list rather than derived, because the point of the tests that use
  * it is to sweep the configuration surface as a *caller* sees it — a list
@@ -44,7 +50,7 @@ export const BLOB_KEYS = [
 ];
 
 /**
- * The same, for `styles/blob2.ts`.
+ * The same, for gen2.
  *
  * A separate list rather than a superset of the one above, for the reason the
  * one above is a list at all. gen2 shares most of gen1's keys — a seed's

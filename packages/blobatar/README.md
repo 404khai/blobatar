@@ -83,7 +83,7 @@ blobatar(user.email, { generation: gen2 }); // …and capsule, triangle, hexagon
 | `gen2` | …and capsule, triangle, hexagon, droplet | — |
 
 A generation is imported as a value for the same reason an expression is: pin
-nothing and you carry nothing. Measured, gen2 is about 1.1 kB gzipped on top of
+nothing and you carry nothing. Measured, gen2 is about 610 B gzipped on top of
 the renderer, and none of it reaches a bundle that never names it.
 
 Roughly a third of names render byte-identical under both, which is not a
@@ -154,8 +154,43 @@ Trait keys are stable across minors, like the traits themselves. The ranges they
 are read into are what a stated position is relative to, so those are frozen per
 major alongside the shape thresholds and the tone set.
 
-Trait names are not enumerated here on purpose: they follow the layout. Read them
-off `styles/blob.ts`, or let the editor write the map for you.
+Trait names are not enumerated here on purpose: they follow the layout. Read the
+shared ones off `styles/compose.ts` and the per-silhouette ones off
+`styles/shapes.ts`, or let the editor write the map for you.
+
+## Composing your own generation
+
+The ten silhouettes are importable values, and a generation is a table of them
+plus a fit strategy. If you want three shapes rather than ten, compose three:
+
+```ts
+import { blobatar } from "blobatar/blob";
+import { compose, bodyFit, type Band } from "blobatar/compose";
+import { round, organic, sun } from "blobatar/shapes";
+
+// `[shape, upper edge in [0, 1)]`, in order — half rounds, four in ten pebbles,
+// one in ten a sun.
+const bands: Band[] = [[round, 0.5], [organic, 0.9], [sun, 1]];
+const mine = { id: 7, ...compose(bands, bodyFit) };
+
+blobatar(user.email, { generation: mine });
+```
+
+You carry the shapes you name and no others, so this measures *below* the
+default import rather than above it. Every containment guarantee still runs —
+the shapes are the same values gen1 and gen2 use, and their geometry is already
+proven.
+
+Two things to know. `id` must be unique to your generation and nothing can check
+it for you: `blobatar/react` memoizes on the serializable part of its options,
+and functions do not serialize, so the id is all that distinguishes two
+generations. Ids 1 and 2 are taken. And a composed generation is frozen the
+moment you ship it, exactly like ours — a band edge you nudge later is somebody's
+avatar changing identity.
+
+The numeric ranges (`body.r` 31–38, `eye.rx` 0.075–0.105, and the rest) are the
+composer's and cannot be varied per generation. See ADR-0007 for why, and for
+what would have to change.
 
 ## Animation
 

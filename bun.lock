@@ -12,7 +12,7 @@
     "apps/api": {
       "name": "blobatar-api",
       "dependencies": {
-        "blobatar": "^0.2.0",
+        "blobatar": "^0.3.0",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -69,7 +69,7 @@
     },
     "packages/blobatar": {
       "name": "blobatar",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "devDependencies": {
         "@types/bun": "latest",
         "@types/react": "^19",
