@@ -12,5 +12,9 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
+  "//___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": "Without this, `changeset version` rewrites each adapter's `blobatar` peer range from `2.x` to the exact new version — 2.2.0 — on every release. That is a different and wrong contract: `2.x` exists to refuse a *cross-major* pair (ADR-0008 makes the major the generation), while `2.2.0` also refuses `blobatar@2.3.0` beside an adapter nobody rebuilt, which is a legitimate install. `onlyUpdatePeerDependentsWhenOutOfRange` makes the rewrite conditional on the new version actually falling outside the range, so a minor leaves `2.x` alone and a major still updates it. Caught by `packages/harness/test/packaging.test.ts` on the first real release commit, which is the run that test was written for.",
+  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+    "onlyUpdatePeerDependentsWhenOutOfRange": true
+  },
   "ignore": []
 }

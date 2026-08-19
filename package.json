@@ -29,7 +29,8 @@
     "//changeset": "Node, not bun: the changesets CLI prompts interactively and its bin does a top-level dynamic import that bun reports as an unsettled await. Node runs it as intended. See `.changeset/README.md` for why `fixed` mode is not optional here.",
     "changeset": "node ./node_modules/.bin/changeset",
     "changeset:status": "node ./node_modules/.bin/changeset status",
-    "version-packages": "node ./node_modules/.bin/changeset version"
+    "//version-packages": "The `sync-version.ts` half is not optional. `changeset version` does not know about the `VERSION` constant in core's `src/index.ts`, which cannot simply be deleted — see its comment. Chained here rather than written in a release checklist, because the failure it prevents shows up only after the version commit already exists.",
+    "version-packages": "node ./node_modules/.bin/changeset version && bun scripts/sync-version.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.1",
