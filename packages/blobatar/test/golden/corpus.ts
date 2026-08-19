@@ -9,7 +9,8 @@
 import { blobatar } from "../../src/blobatar";
 import { layout } from "../../src/blob";
 import {
-  happy, idle, love, mad, sad, scared, shy, sick, sleepy, smug, surprised, unsure, wink,
+  happy, idle, love, mad, sad, scared, shy, sick, sleepy, smug, surprised, thinking, unsure,
+  wink,
 } from "../../src/expression";
 import type { BlobatarOptions } from "../../src/render";
 import { traits } from "../../src/traits";
@@ -50,6 +51,7 @@ const OPTION_CASES: [string, BlobatarOptions][] = [
   ["normalize:false", { normalize: false }],
   ...Object.entries({
     idle, happy, sad, mad, surprised, wink, sleepy, smug, unsure, scared, love, shy, sick,
+    thinking,
   }).map(([name, e]) => [`expression:${name}`, { expression: e }] as [string, BlobatarOptions]),
 ];
 

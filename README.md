@@ -67,7 +67,7 @@ name stops mattering, which is how you build one fixed blobatar.
 
 Every value those options take, and what each one draws:
 
-![The ten silhouettes from round and organic through capsule, triangle, hexagon and droplet; the eight hue stops from 12 to 320 degrees; the thirteen expressions from idle through happy, sad and mad to love, shy and sick; the four backgrounds none, squircle, circle and square](./docs/media/sheet.png)
+![The ten silhouettes from round and organic through capsule, triangle, hexagon and droplet; the eight hue stops from 12 to 320 degrees; the fourteen expressions from idle through happy, sad and mad to love, shy, sick and thinking; the four backgrounds none, squircle, circle and square](./docs/media/sheet.png)
 
 ### Animation and expressions
 

@@ -12,6 +12,38 @@ one: `blobatar@1` renders gen1, `blobatar@2` renders gen2. See
 [ADR-0006](../../docs/adr/0006-generations.md) and
 [ADR-0008](../../docs/adr/0008-package-majors-select-generations.md).
 
+## Unreleased
+
+### Added
+
+- `thinking` — a fourteenth expression, and the first whose message is a
+  *duration* rather than a shape. It holds two eyes at different heights and,
+  with `blobatar/motion.css` loaded, seesaws them on a 900ms cycle: the two-dot
+  loader, drawn with the two dots a blobatar already has. Set it while you fetch,
+  clear it when you are done.
+- Two pose channels behind it, both identity on every existing pose: `edy2`, a
+  vertical offset on the right eye, and `rock`, a seesaw amplitude built the way
+  `shake` is — an amplitude on a loop that always runs, since an expression is
+  held and cannot fire.
+
+### Changed
+
+- `motion.css` is ~95 B gz larger, and that lands on every app that imports it
+  whether or not it renders a loading face. It buys a channel rather than a
+  pose: a future expression that wants a duration is numbers, not stylesheet.
+  See §10 of [the expression spec](./docs/expression-spec.md).
+- On touch devices the eye loops of a blobatar *wearing an expression* are no
+  longer paused. Idle grids are unaffected — that pause is why they are cheap —
+  but a loading face that freezes on every phone is the feature not working.
+
+### Compatibility
+
+- Additive. `thinking` is a new import, the two new channels are at their
+  identity everywhere else, and no existing seed's markup moves by a byte. The
+  golden fixture gained rows and changed none.
+- `thinking` costs +55 B gz in a bundle that already imports any expression, and
+  the same as `happy` on its own.
+
 ## 2.0.0
 
 **Every seed renders differently.** gen2's ten silhouettes replace gen1's six,

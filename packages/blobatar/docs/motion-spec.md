@@ -667,6 +667,20 @@ so the tap-latching problem does not apply to it. Scope the overrides to the
 hover selectors only, and check this on a real touch device rather than in
 devtools emulation, which reports `hover: hover` more often than not.
 
+**What shipped went further, and the paragraph above is the reason it had to be
+careful.** Having pinned the amplitude to zero, `motion.css` also pauses the
+loops here — `animation-play-state: paused` on `.mo-root:not(.mo-always) *` —
+because at amplitude zero every one of them can only resolve to the identity, and
+a grid of sixty blobatars was spending 6.7s of style and layout in a Lighthouse
+trace to compute that. Paused rather than removed, so the pose a blobatar holds is
+the one it already had.
+
+That is safe for everything gated on `--mo-amp` and wrong for anything not gated
+on it. The seesaw (§5.3 of the expression spec) is the first such loop: it
+carries a message rather than ambience, so pausing it freezes a loading face on
+every phone. `.mo-root.mo-expr:not(.mo-always) .mo-eye` runs it back, scoped so
+that an idle grid — the case the pause exists for — still pays nothing.
+
 Reduced motion here means **fully static**. Emil's "gentler, not zero" guidance
 applies to motion that aids comprehension; this motion is purely decorative, so
 removing it costs the user nothing.

@@ -35,6 +35,10 @@
  * **H — a blink does not move a posed eye.** The one defect that lived in a
  * single frame of an ambient loop rather than in the pose. See `checkBlink`.
  *
+ * **I — the seesaw.** The second channel A can only see one frame of, and the
+ * first that is a *loop the bake agrees with* rather than one it cannot express.
+ * See `checkRock`.
+ *
  * F and G exist because C's evidence was narrower than it read: it froze the
  * idle layers and only ever went `idle → happy`, which is one of three
  * mechanisms under conditions no real page has. Neither found a defect. That is
@@ -51,7 +55,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Blobatar } from "../../src/react";
-import { happy, mad } from "../../src/expression";
+import { happy, mad, thinking } from "../../src/expression";
 
 interface Eye {
   cx: number;
@@ -863,9 +867,85 @@ async function checkBlink() {
   );
 }
 
+/**
+ * I — the seesaw trades the eyes' heights, and only on the pose that asked.
+ *
+ * Check A sees exactly one frame of this: the phase is pinned to 1 there, where
+ * the composition has to equal the bake. That is the identity worth pinning and
+ * it says nothing at all about the other 95% of the cycle — a `--mo-rock` that
+ * never reached `translate`, a keyframe stuck at one value, or a phase that
+ * moved both eyes the same way instead of opposite ways would all pass A, and
+ * two of the three would pass by rendering a completely static face.
+ *
+ * So all three claims are measured on screen: the eyes move, they move in
+ * *opposite* directions, and their midpoint does not move at all — the last one
+ * being the difference between a seesaw and a second `mo-bob` beating against
+ * the first. The fourth claim is the one every amplitude channel here needs: a
+ * pose that does not rock does not move a pixel.
+ *
+ * Amplitude is pinned rather than the animations stopped, for `checkShake`'s
+ * reason: the seesaw is not gated on `--mo-amp`, deliberately, so pinning it to
+ * zero silences every ambient layer and leaves this one running alone.
+ */
+async function checkRock() {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  createRoot(host).render(
+    <>
+      <Blobatar name="alain00" animate="always" expression={thinking} size={SIZE} />
+      <Blobatar name="alain00" animate="always" expression={happy} size={SIZE} />
+    </>,
+  );
+  await frame();
+  await frame();
+
+  const roots = [...host.querySelectorAll<SVGGElement>(".mo-root")];
+  for (const r of roots) r.classList.add("mo-frozen-amp");
+
+  // Pinning the amplitude is a *transition*, 400ms of it, and the saccade rides
+  // it down on `.mo-eyes` — an ancestor of both eyes, so it moves the midpoint
+  // this check is asserting does not move. Measured against an unsettled ramp
+  // that reads as 2.3px of drift in Blink and 0 in Gecko, which is the endpoint
+  // substitution documented on `.mo-eye` making Firefox look correct for the
+  // wrong reason. Wait it out rather than raise the tolerance: the tolerance is
+  // the whole assertion.
+  for (let i = 0; i < 45; i++) await frame();
+
+  // Sampled across most of the 900ms period, so the window cannot land inside a
+  // single direction of travel and read a seesaw as a drift.
+  const track = async (root: SVGGElement) => {
+    const eyes = [...root.querySelectorAll<SVGGElement>(".mo-eye")];
+    const ys: number[][] = [[], []];
+    for (let i = 0; i < 48; i++) {
+      await frame();
+      eyes.forEach((e, k) => ys[k]!.push(e.getScreenCTM()!.f));
+    }
+    const span = (v: number[]) => Math.max(...v) - Math.min(...v);
+    const [l, r] = ys as [number[], number[]];
+    const mid = l.map((v, i) => (v + r[i]!) / 2);
+    // Anticorrelation, measured on the steps rather than on the values, so a
+    // slow frame shortens a step instead of inverting one.
+    let dot = 0;
+    for (let i = 1; i < l.length; i++) dot += (l[i]! - l[i - 1]!) * (r[i]! - r[i - 1]!);
+    return { travel: Math.min(span(l), span(r)), drift: span(mid), dot };
+  };
+
+  const busy = await track(roots[0]!);
+  const calm = await track(roots[1]!);
+
+  report(
+    "I the seesaw trades the eyes' heights and moves nothing else",
+    busy.travel > 1 && busy.dot < 0 && busy.drift < 0.5 && calm.travel < 0.01,
+    `thinking: each eye travels ${busy.travel.toFixed(1)}px of ${SIZE}, ` +
+      `midpoint ${busy.drift.toFixed(3)}px, steps anticorrelated (${busy.dot.toFixed(1)}); ` +
+      `happy ${calm.travel.toFixed(3)}px`,
+  );
+}
+
 (async () => {
   try {
     await checkGeometry();
+    await checkRock();
     await checkBlink();
     await checkLive();
     await checkDirections();

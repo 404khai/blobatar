@@ -14,9 +14,11 @@ import {
   sleepy,
   smug,
   surprised,
+  thinking,
   unsure,
   wink,
   type Expression,
+  type Pose,
 } from "../src/expression";
 import { traits } from "../src/traits";
 
@@ -47,6 +49,7 @@ const NAMED: [string, Expression][] = [
   ["love", love],
   ["shy", shy],
   ["sick", sick],
+  ["thinking", thinking],
 ];
 const ALL: [string, Expression][] = [["idle", idle], ...NAMED];
 
@@ -87,6 +90,15 @@ describe("the contract", () => {
     // `happy` and `sad` never tremble, so neither should ship `--mo-shake`.
     expect(poseVars(happy.p)).not.toHaveProperty("--mo-shake");
     expect(poseVars(mad.p)).toHaveProperty("--mo-shake");
+    // Same for the seesaw: `thinking` is the only pose that moves over time, and
+    // the stylesheet's loop has to collapse to nothing on all the others.
+    for (const [name, e] of NAMED)
+      if (name !== "thinking") {
+        expect(poseVars(e.p), name).not.toHaveProperty("--mo-rock");
+        expect(poseVars(e.p), name).not.toHaveProperty("--mo-edy2");
+      }
+    expect(poseVars(thinking.p)).toHaveProperty("--mo-rock");
+    expect(poseVars(thinking.p)).toHaveProperty("--mo-edy2");
     // `heat` is a pose channel that is deliberately not a custom property: it
     // resolves to a colour in `tint` and the stylesheet never sees the number.
     expect(mad.p.heat).toBeGreaterThan(0);
@@ -381,5 +393,129 @@ describe("the tilt has real headroom", () => {
       const after = (_layout(s).eyes as { rot: number }[]).map((e) => e.rot);
       expect(after).toEqual(before);
     }
+  });
+});
+
+describe("the seesaw", () => {
+  /**
+   * `thinking` is the first pose whose message is a duration, and the only one
+   * where the static bake is a *frame* of something rather than the whole of it.
+   * That makes the interesting geometry unreachable through `_layout` alone —
+   * the frame it emits is one end of the travel, and the pose spends most of its
+   * life somewhere else.
+   *
+   * So the phase is modelled here, exactly as `--mo-ph` computes it in
+   * `motion.css`, and the guards the rest of this file runs on a still pose run
+   * along the whole swing. This mirror is the same arrangement `--mo-sel` already
+   * has in "per-eye asymmetry": two files that cannot see each other, and a test
+   * that says what they are supposed to agree on.
+   *
+   *   left  = edy + edy2 · rock · (1 − ph) / 2
+   *   right = edy + edy2 · ((1 − rock) + rock · (1 + ph) / 2)
+   *
+   * Both are expressible as a still pose — a shared offset plus a differential —
+   * which is what lets every existing guard be pointed at them unchanged.
+   */
+  const atPhase = (p: Pose, ph: number): Pose => ({
+    ...p,
+    edy: p.edy + p.edy2 * p.rock * ((1 - ph) / 2),
+    edy2: p.edy2 * (1 - p.rock + p.rock * ph),
+    rock: 0,
+  });
+
+  const PHASES = [1, 0.5, 0, -0.5, -1];
+  const frozen = (ph: number): Expression => ({
+    ...thinking,
+    p: atPhase(thinking.p, ph),
+  });
+
+  test("frame zero is exactly what bakePose emits", () => {
+    // The identity the whole design rests on: `(1 + wrap · ph) / 2` is `--mo-sel`
+    // at ph = 1, on both eyes, so the loop's extreme and the static pose are the
+    // same geometry with no corrective term on either side. If this drifts, a
+    // `thinking` blobatar rendered as an `<img>` and one rendered animated are
+    // different faces.
+    expect(atPhase(thinking.p, 1)).toEqual({ ...thinking.p, rock: 0 });
+  });
+
+  test("the pair trades heights without moving its mean", () => {
+    // A seesaw and not a bounce, and this is the difference. `mo-bob` already
+    // owns the pair moving together at its own period; a second loop on that
+    // axis would beat against it.
+    const mean = (ph: number) => {
+      const [l, r] = bakePose(
+        { eyes: [{ cx: 40, cy: 50, rx: 4, ry: 10, rot: 0 }, { cx: 60, cy: 50, rx: 4, ry: 10, rot: 0 }] },
+        atPhase(thinking.p, ph),
+      ).l.eyes;
+      return (l!.cy + r!.cy) / 2;
+    };
+    for (const ph of PHASES) expect(mean(ph)).toBeCloseTo(mean(1));
+  });
+
+  test("the stagger really reverses", () => {
+    // Amplitude, not decoration: the loop has to carry the pair through level
+    // and out the other side, or it reads as a twitch rather than as work being
+    // done. `rock` below 1 makes the return swing shallower than the outbound
+    // one — see the channel's own note — so this asserts the sign flips, not
+    // that the two ends mirror.
+    const spread = (ph: number) => atPhase(thinking.p, ph).edy2;
+    expect(Math.sign(spread(1))).toBe(-Math.sign(spread(-1)));
+    expect(spread(0)).toBeCloseTo(thinking.p.edy2 * (1 - thinking.p.rock));
+    expect(Math.abs(spread(-1))).toBeGreaterThan(0.5);
+  });
+
+  test("nothing fuses or leaves the body anywhere in the travel", () => {
+    // Every other pose is checked at one point because it only has one. This one
+    // gets the same two guards at five, and the middle of the swing is not the
+    // safe part — it is where the pair is closest to level and the tilt-free
+    // capsules sit nearest each other.
+    for (const ph of PHASES) {
+      const e = frozen(ph);
+      for (const s of SEEDS.slice(0, 1500)) {
+        const l = _layout(s, { expression: e });
+        const [a, b] = l.eyes as unknown as [
+          { cx: number; cy: number; rx: number; ry: number; rot: number },
+          { cx: number; cy: number; rx: number; ry: number; rot: number },
+        ];
+        const reach = (eye: typeof a) => {
+          const t = (eye.rot * Math.PI) / 180;
+          return Math.abs(eye.rx * Math.cos(t)) + Math.abs(eye.ry * Math.sin(t));
+        };
+        expect(Math.abs(b.cx - a.cx), `ph=${ph}`).toBeGreaterThan(
+          reach(a) + reach(b),
+        );
+
+        const shrink =
+          l.shape === "organic" || l.shape === "cloud"
+            ? Math.min(...(l.body as { radii: number[] }).radii) * 0.95
+            : 1;
+        const core = {
+          cx: l.body.cx,
+          cy: l.body.cy,
+          rx: l.body.rx * shrink * 1.12,
+          ry: l.body.ry * shrink * 1.12,
+        };
+        for (const eye of [a, b])
+          for (const [x, y] of corners(eye))
+            expect(
+              Math.abs((x! - core.cx) / core.rx) ** 2 +
+                Math.abs((y! - core.cy) / core.ry) ** 2,
+              `ph=${ph}`,
+            ).toBeLessThan(1);
+      }
+    }
+  });
+
+  test("a vertical differential moves the right eye only", () => {
+    // `edy2`'s half of the mechanism, stated the way the other three are: it
+    // lands on eye index 1, which is what `--mo-sel` selects on the animated
+    // side. Disagreeing about which eye is the second one mirrors the pose
+    // silently.
+    const [l, r] = bakePose(
+      { eyes: [{ cx: 40, cy: 50, rx: 4, ry: 10, rot: 0 }, { cx: 60, cy: 50, rx: 4, ry: 10, rot: 0 }] },
+      { ...idle.p, edy: 2, edy2: -6 },
+    ).l.eyes;
+    expect(l!.cy).toBeCloseTo(52);
+    expect(r!.cy).toBeCloseTo(46);
   });
 });

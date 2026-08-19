@@ -1,7 +1,8 @@
 import type { BlobatarOptions } from "blobatar/blob";
 import type { Expression } from "blobatar/expression";
 import {
-  happy, idle, love, mad, sad, scared, shy, sick, sleepy, smug, surprised, unsure, wink,
+  happy, idle, love, mad, sad, scared, shy, sick, sleepy, smug, surprised, thinking,
+  unsure, wink,
 } from "blobatar/expression";
 
 /** A caller error, carrying the text served as the 400 body. */
@@ -18,6 +19,7 @@ export class BadRequest extends Error {}
  */
 const EXPRESSIONS: Record<string, Expression> = {
   idle, happy, sad, mad, surprised, wink, sleepy, smug, unsure, scared, love, shy, sick,
+  thinking,
 };
 
 /**

@@ -86,7 +86,7 @@ Parameters (all optional, named as the library names them):
   hue         0-360 degrees, locks colour so the name drives shape only
   tone        0-1 position in the swatch set
   expression  idle | happy | sad | mad | surprised | wink | sleepy
-              | smug | unsure | scared | love | shy | sick
+              | smug | unsure | scared | love | shy | sick | thinking
   title       accessible name, 128 characters or fewer
   gen         1 | 2 — which shape vocabulary to render under, see below
 

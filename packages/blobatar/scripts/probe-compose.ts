@@ -33,6 +33,7 @@ import {
   sleepy,
   smug,
   surprised,
+  thinking,
   unsure,
   wink,
   type Expression,
@@ -140,6 +141,7 @@ const POSES: [string, Expression | undefined][] = [
   ["love", love],
   ["shy", shy],
   ["sick", sick],
+  ["thinking", thinking],
 ];
 
 /**
@@ -229,8 +231,20 @@ writeFileSync(
    makes check A compare a shaking blobatar against a stationary one and report the
    phase it happened to sample as a divergence, which is exactly what it did:
    0.37px of "disagreement" that was the feature working. Check D below measures
-   it properly, unfrozen. */
-.mo-frozen { --mo-amp: 0 !important; --mo-shake: 0 !important; }
+   it properly, unfrozen. Check I does the same for the seesaw.
+
+   The seesaw is pinned by its *phase* and not by its amplitude, which is the
+   whole difference between it and the tremor: the bake can express it, at one
+   phase. \`--mo-rockp: 1\` is frame zero, where \`(1 + wrap · phase) / 2\`
+   collapses to \`--mo-sel\` and the composition has to land exactly on what
+   \`bakePose\` emitted. Pinning \`--mo-rock: 0\` instead would also make A pass and
+   would prove less: it would take the blend out of the measurement rather than
+   asserting the identity the blend is built on. */
+.mo-frozen {
+  --mo-amp: 0 !important;
+  --mo-shake: 0 !important;
+  --mo-rockp: 1 !important;
+}
 .mo-frozen-amp { --mo-amp: 0 !important; }
 body { margin: 0 }
 </style><body><script src="cases.js"></script><script type="module" src="probe.js"></script>`,

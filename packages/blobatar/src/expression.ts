@@ -57,7 +57,8 @@ import {
  * distorting it, which is what `happy`'s lift and `sad`'s sink actually needed.
  *
  * Units: scales are factors, `tilt` is degrees, offsets are viewBox units, and
- * `heat` and `shake` are 0–1 amounts. `tilt` and `edx` are mirrored per side.
+ * `heat`, `shake` and `rock` are 0–1 amounts. `tilt` and `edx` are mirrored per
+ * side.
  *
  * The `*2` channels are the **second eye's differential**, not its value: they
  * add to the shared channel on the right eye only, so an identity of 0 is a
@@ -99,6 +100,22 @@ export interface Pose {
   /** Extra tilt on the right eye only, before the per-side mirroring. */
   tilt2: number;
   /**
+   * Extra vertical offset on the right eye only, positive = down.
+   *
+   * The differential the first three rosters never needed. There is one for
+   * width, one for height and one for tilt, and none for *position*, because
+   * every pose up to `thinking` said its asymmetry with shape — `wink` closes an
+   * eye, `unsure` shrinks one. A pair of eyes at two **heights** is a sentence
+   * none of those can make, and it is the one that reads as attention pointed
+   * somewhere other than at you.
+   *
+   * It is also the static half of `rock`, and the reason a `thinking` blobatar
+   * still reads with the stylesheet missing or the loop stopped for reduced
+   * motion: what is left on the face is one frame of the seesaw rather than
+   * nothing at all.
+   */
+  edy2: number;
+  /**
    * How much of the **seeded** eye lean the pose overrides, 0–1. At 0 the pose's
    * `tilt` adds to whatever lean the seed drew; at 1 the seeded lean is cancelled
    * and the eyes sit at exactly the angle the pose names.
@@ -126,6 +143,32 @@ export interface Pose {
   heat: number;
   /** Tremor amplitude, 0–1. Held, not fired — see `@keyframes mo-shake`. */
   shake: number;
+  /**
+   * Seesaw amplitude, 0–1. Held, not fired — see `@keyframes mo-rock`.
+   *
+   * The second channel whose content is a *duration* rather than a shape, and
+   * built the way `shake` is for the same reason: an expression is set and held,
+   * with no timers, no self-termination and no notion of firing again, so a
+   * repeating motion has to be an amplitude on a loop that always runs and
+   * resolves to the identity at 0. `shake` made that argument once; this is the
+   * evidence it generalises past a tremor.
+   *
+   * What it drives is **antiphase**: the left eye rises as the right one falls,
+   * on `--mo-wrap`'s sign, so the pair trades heights and the mean stays put. A
+   * bounce — both eyes dipping together — would be `mo-bob` at a second period
+   * and would beat against it. A trade cannot.
+   *
+   * The swing is `edy2` wide, which is what makes the static bake exactly frame
+   * zero of the loop rather than an approximation of it. See `bakePose`.
+   *
+   * What the number means, precisely: it is how much of the stagger *takes part*
+   * in the swing. At 1 the pair fully inverts every half cycle; at 0.7 it swings
+   * through level and comes back out 40% inverted, about the same mean. So the
+   * two extremes are not mirror images, and that is the intent — the pose the
+   * consumer set stays the one the face spends most of its time near, and the
+   * loop breathes around it rather than replacing it half the time.
+   */
+  rock: number;
   /** Whole-creature offset, positive = down. */
   bdy: number;
 }
@@ -145,9 +188,11 @@ const IDENT: Pose = {
   esx2: 0,
   esy2: 0,
   tilt2: 0,
+  edy2: 0,
   lock: 0,
   heat: 0,
   shake: 0,
+  rock: 0,
   bdy: 0,
 };
 
@@ -282,7 +327,16 @@ export function bakePose<L extends Posable>(
         // so a positive tilt leans both tops outward and brings the inner edges
         // down. That asymmetry is the entire brow vocabulary available here.
         cx: e.cx + p.edx * (i ? 1 : -1),
-        cy: e.cy + p.edy,
+        // `edy2` lands on the right eye only, like every other differential —
+        // and unlike them it has a moving counterpart, which is what decides the
+        // shape of `--mo-ph` on the animated side rather than the other way
+        // round. The seesaw swings the pair symmetrically about its own centre,
+        // so its share of the differential is `(1 + wrap·phase) / 2`; that
+        // expression *is* `--mo-sel` at phase +1, on both eyes, because `wrap`
+        // is ±1. So the stagger baked here is exactly the loop's own extreme,
+        // with no compensating term anywhere and nothing to keep in step by
+        // hand. `probe-compose.ts` check A measures the two against each other.
+        cy: e.cy + p.edy + (i ? p.edy2 : 0),
         // The `*2` differential lands on the right eye only, which is
         // `--mo-sel`'s job on the animated side. It is added *before* the
         // mirroring on `tilt`, matching `calc(var(--mo-t) * var(--mo-wrap))` —
@@ -348,9 +402,11 @@ export const happy: Expression = {
     esx2: 0.08,
     esy2: 0.05,
     tilt2: -16,
+    edy2: 0,
     lock: 1,
     heat: 0,
     shake: 0,
+    rock: 0,
     bdy: -2.2,
   },
   vars: poseVars,
@@ -368,9 +424,11 @@ export const sad: Expression = {
     esx2: -0.05,
     esy2: -0.07,
     tilt2: -7,
+    edy2: 0,
     lock: 1,
     heat: 0,
     shake: 0,
+    rock: 0,
     bdy: 2.6,
   },
   vars: poseVars,
@@ -398,9 +456,11 @@ export const mad: Expression = {
     esx2: 0,
     esy2: -0.03,
     tilt2: 5,
+    edy2: 0,
     lock: 1,
     heat: 0.62,
     shake: 0.55,
+    rock: 0,
     bdy: 0.8,
   },
   vars: poseVars,
@@ -456,9 +516,11 @@ export const surprised: Expression = {
     esx2: 0.05,
     esy2: 0.07,
     tilt2: 3,
+    edy2: 0,
     lock: 1,
     heat: 0,
     shake: 0,
+    rock: 0,
     bdy: -1.4,
   },
   vars: poseVars,
@@ -488,9 +550,11 @@ export const wink: Expression = {
     esx2: 0.26,
     esy2: -0.56,
     tilt2: -11,
+    edy2: 0,
     lock: 1,
     heat: 0,
     shake: 0,
+    rock: 0,
     bdy: -1.1,
   },
   vars: poseVars,
@@ -520,9 +584,11 @@ export const sleepy: Expression = {
     esx2: -0.04,
     esy2: 0.03,
     tilt2: 4,
+    edy2: 0,
     lock: 1,
     heat: 0,
     shake: 0,
+    rock: 0,
     bdy: 1.2,
   },
   vars: poseVars,
@@ -552,9 +618,11 @@ export const smug: Expression = {
     esx2: 0.06,
     esy2: -0.06,
     tilt2: -36,
+    edy2: 0,
     lock: 1,
     heat: 0,
     shake: 0,
+    rock: 0,
     bdy: -1,
   },
   vars: poseVars,
@@ -584,9 +652,11 @@ export const unsure: Expression = {
     esx2: 0.24,
     esy2: -0.44,
     tilt2: -18,
+    edy2: 0,
     lock: 1,
     heat: 0,
     shake: 0,
+    rock: 0,
     bdy: 0,
   },
   vars: poseVars,
@@ -620,9 +690,11 @@ export const scared: Expression = {
     esx2: -0.04,
     esy2: 0.05,
     tilt2: 4,
+    edy2: 0,
     lock: 1,
     heat: 0,
     shake: 0.35,
+    rock: 0,
     bdy: -0.6,
   },
   vars: poseVars,
@@ -685,9 +757,11 @@ export const love: Expression = {
     esx2: 0.05,
     esy2: 0.06,
     tilt2: 6,
+    edy2: 0,
     lock: 1,
     heat: 0.6,
     shake: 0,
+    rock: 0,
     bdy: -1.6,
   },
   vars: poseVars,
@@ -715,9 +789,11 @@ export const shy: Expression = {
     esx2: -0.05,
     esy2: -0.04,
     tilt2: -8,
+    edy2: 0,
     lock: 1,
     heat: 0.55,
     shake: 0,
+    rock: 0,
     bdy: 0.9,
   },
   vars: poseVars,
@@ -748,12 +824,68 @@ export const sick: Expression = {
     esx2: 0.05,
     esy2: -0.05,
     tilt2: -6,
+    edy2: 0,
     lock: 1,
     heat: 0.6,
     shake: 0.18,
+    rock: 0,
     bdy: 1.4,
   },
   vars: poseVars,
   bake: bakePose,
   tint: (pal, p) => tintWith(pal, p, BILE),
+};
+
+/**
+ * The fourth roster, which is one pose, and the first whose message is a
+ * *duration* rather than a shape.
+ *
+ * Every pose before this one is a still frame: `sad` is sad in a screenshot,
+ * `mad` is angry in a print stylesheet. "Thinking" is not available on those
+ * terms — the whole content of it is *still*, as in still going, and a face
+ * holding one shape cannot say still. That is why this pose costs two channels
+ * where the second and third rosters cost none: `edy2` for the shape and `rock`
+ * for the duration, and neither one carries it alone.
+ *
+ * **Mid-lidded, level eyes at two different heights, trading places.** The
+ * stagger is the statement and the seesaw is the statement changing its mind,
+ * which is what being busy looks like on a creature with no mouth and nothing to
+ * tap. It is also, not by accident, the two-dot loader every user already reads
+ * without being taught — except that a blobatar does not have to *add* two dots,
+ * it has exactly two, at eye height, on a face.
+ *
+ * `tilt: 0` under `lock: 1` for `sleepy`'s reason: a level pair reads as
+ * attention held elsewhere, and a seed's 12° lean turns that into suspicion.
+ *
+ * The nearest neighbour is `unsure`, not `sleepy` — the two asymmetric faces —
+ * and the §2 rule clears on four channels: `edy2` (−2.6 against 0), `rock` (0.7
+ * against 0), `esy` (0.50 against 1.02) and `esx2` (0.02 against 0.24). The
+ * sentences differ too, which is the part the table cannot show: `unsure` is
+ * eyes of mismatched *size*, this is eyes at mismatched *height*, and mismatched
+ * height is the only one of the two that has anywhere to go.
+ *
+ * `edy` is positive on a pose that reads as lifted, and that is not a typo. The
+ * pair's mean sits at `edy + edy2/2` — +1.0 and −1.3 — so the eyes straddle the
+ * idle line 0.3 units high with the stagger hung across it, rather than the
+ * whole pair riding low and the right eye alone reaching up.
+ */
+export const thinking: Expression = {
+  p: {
+    esx: 1.15,
+    esy: 0.62,
+    tilt: 0,
+    edy: 4.2,
+    edx: 0.4,
+    esx2: 0.02,
+    esy2: 0.06,
+    tilt2: 0,
+    edy2: -8.4,
+    lock: 1,
+    heat: 0,
+    shake: 0,
+    rock: 0.8,
+    bdy: -0.4,
+  },
+  vars: poseVars,
+  bake: bakePose,
 };

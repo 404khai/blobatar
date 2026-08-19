@@ -185,7 +185,24 @@ const ENTRIES: {
     // registered custom properties, which recalculate on the main thread
     // rather than compositing. A grid that reads as a crowd is the case this
     // library invites, so that is the case worth being cheap in.
-    budget: 1450,
+    // Raised from 1450 for `thinking`, and this is the raise worth arguing
+    // with. Every other entry in this list is paid by the consumer who asked for
+    // the feature; this file is paid by everyone who imports the stylesheet, so
+    // 95 B here is 95 B on an app that will never render a loading face. It buys
+    // the only thing the pose vocabulary could not previously say — a message
+    // that is a *duration* rather than a shape — and it buys it for every future
+    // pose that wants one, since `--mo-rock` is an amplitude and not a switch.
+    // Three parts, in descending order of cost:
+    //
+    //  - The seesaw itself: two registrations, a two-stop keyframe and the
+    //    `--mo-ph` blend on `.mo-eye` that makes a symmetric swing and a
+    //    one-sided differential the same term. The blend is what removes the
+    //    corrective arithmetic from `bakePose`, so it is cheaper than it looks.
+    //  - `--mo-edy2`: one registration and one term in an existing `translate`.
+    //  - The touch-device exception, ~55 B, which is the price of the loop not
+    //    being gated on `--mo-amp` like everything else in the file. Without it
+    //    the feature is frozen on every phone.
+    budget: 1550,
     external: [],
     ext: "css",
     source: `@import "../../src/motion.css";`,

@@ -352,6 +352,74 @@ roughly 1.5 units per 0.5 of `esx`, and a positive `edx` buys it back at about
 widening already closes the inner gap far more than a convergence would, so the
 glare survives; spending clearance on both fuses the face.
 
+### 3.3 The fourth roster, which is one pose and two channels
+
+Every pose above is a still frame. `sad` is sad in a screenshot, `mad` is angry
+in a print stylesheet, and the tremor and the tint are decoration and colour laid
+over a shape that already carries the meaning on its own.
+
+`thinking` is not available on those terms. The whole content of it is *still*,
+as in still going, and no arrangement of two capsules holds that for longer than
+it takes to read. So it is the first pose whose message is a **duration**, and
+the first that costs new channels since the differentials:
+
+|            | edy2 | rock | esx  | esy  | tilt | edy | edx | esx2 | esy2 | tilt2 | lock | bdy  |
+| ---------- | ---- | ---- | ---- | ---- | ---- | --- | --- | ---- | ---- | ----- | ---- | ---- |
+| `thinking` | −8.4 | 0.8  | 1.15 | 0.62 | 0    | 4.2 | 0.4 | 0.02 | 0.06 | 0     | 1    | −0.4 |
+
+Every other pose in the library holds the identity on both, so the tables above
+are unchanged rather than merely unlisted.
+
+- **`edy2` is the differential that was missing.** There is one for width, one
+  for height and one for tilt, and there was none for *position*, because every
+  pose up to here said its asymmetry with shape — `wink` closes an eye, `unsure`
+  shrinks one. Two eyes at different **heights** is a sentence none of them can
+  make, and it is the one that reads as attention pointed somewhere other than
+  at you.
+- **`rock` is `shake`'s argument, generalised.** §5.2 built the tremor as an
+  amplitude on a loop that always runs because an expression is held and cannot
+  fire. That reasoning was never about tremors; this is the evidence. The eyes
+  trade heights on a 900ms seesaw, and the pose is the two-dot loader every user
+  can already read — except that a blobatar does not have to *add* two dots. It
+  has exactly two, at eye height, on a face.
+
+The two halves are one statement rather than a shape with an animation on it:
+**the static bake is frame zero of the loop**, at its widest stagger. That is not
+arranged by a corrective term, it falls out of the algebra — see §5.3 — and it is
+what makes a `thinking` blobatar rendered as an `<img>`, or held still by reduced
+motion, the same face as the animated one caught at the top of its swing.
+
+`tilt: 0` under `lock: 1` for `sleepy`'s reason: a level pair reads as attention
+held elsewhere, and a seed's 12° lean turns that into suspicion.
+
+The nearest neighbour is `unsure` — the other asymmetric face, not the other
+lidded one — and the §2 rule clears on four channels: `edy2` (−8.4 against 0),
+`rock` (0.8 against 0), `esy` (0.62 against 1.02) and `esx2` (0.02 against 0.24).
+The sentences differ too, which is the part a table cannot show: `unsure` is eyes
+of mismatched *size*, `thinking` is eyes at mismatched *height*, and only one of
+those has anywhere to go.
+
+Measured headroom, 4000 seeds, at five points across the swing:
+
+| guard                                 | ph +1 | ph 0 | ph −1 | limit  |
+| ------------------------------------- | ----- | ---- | ----- | ------ |
+| worst fusion clearance, viewBox units | 6.22  | 6.22 | 6.22  | > 2    |
+| worst eye-corner reach, × body radius | 0.84  | 0.75 | 0.76  | < 1.12 |
+
+Clearance is flat across the whole travel because the seesaw is vertical and
+fusion is horizontal — the one pose in the library whose amplitude costs nothing
+on the guard that binds every other one. Containment is what it spends, and at
+0.84 against 1.12 there is room left; `test/expression.test.ts` runs both guards
+at five phases rather than at the baked frame alone, so a louder stagger fails
+with a number.
+
+**The first tuning pass was half this loud and did not read.** At `edy2: −2.6`
+the contact sheet showed five phases of what looked like one pose, and next to
+`sleepy` it was a rounder `sleepy`. That is §2's exaggeration lesson arriving for
+the fourth time, on the one channel where it is easiest to miss: a stagger has to
+clear an eye's own height before it reads as a stagger rather than as drawing
+error.
+
 The roster is **frozen per major**, exactly like the shape thresholds and the
 tone set. A fifth expression is additive and safe; renaming one is not.
 
@@ -480,6 +548,61 @@ Cost is one more always-running animation per animated blobatar, on `.mo-root`'s
 free `translate`. That is the honest price and it is the same bargain the other
 five make.
 
+### 5.3 A loop the bake agrees with
+
+The tremor is the channel the static path cannot express at all: a bake is a
+still frame, a tremor is a loop, and check A in `probe-compose.ts` pins
+`--mo-shake` to zero for exactly that reason.
+
+The seesaw is the opposite case, and it is worth stating why, because it is the
+whole reason `thinking` can ship as a pose rather than as a second feature. The
+swing is symmetric about the pair's own centre, so per eye it is
+`(1 + wrap · phase) / 2` of `edy2`. At phase +1 that expression **is**
+`--mo-sel` — `wrap` is ±1, so it resolves to 0 on the left eye and 1 on the right
+— which is the same one-sided differential `bakePose` applies. One term serves
+both:
+
+```css
+--mo-ph: calc(
+  var(--mo-sel) * (1 - var(--mo-rock)) + var(--mo-rock) *
+    ((1 + var(--mo-wrap, 1) * var(--mo-rockp)) / 2)
+);
+```
+
+At `--mo-rock: 0` it is the static differential, so a pose that does not rock is
+untouched. At the loop's extreme it is the static differential again. In between
+it is a swing, and `--mo-rock` interpolates the pair like every other channel, so
+an expression easing in reaches its full travel over the same morph.
+
+Three consequences, none of them arranged separately:
+
+- **Reduced motion holds a real frame.** `animation: none` deletes the keyframe,
+  `--mo-rockp` falls back to its initial value of **1**, and what is left is the
+  pose `bakePose` emits. The message survives losing the motion, which is §8's
+  rule, and it needed no line in the reduced-motion block to do it.
+- **The keyframe positions nothing.** It writes a phase; the plain declaration on
+  `.mo-eye` multiplies it. That is the split §4 already forced for Gecko, and it
+  means the one transitioned channel involved — `--mo-rock` — is never read from
+  inside a keyframe.
+- **It is a seesaw and not a bounce.** The pair's mean height is constant at
+  every phase. `mo-bob` already owns the pair moving together at its own period,
+  and a second loop on that axis would beat against it — audible as a slow wander
+  rather than as a loader.
+
+`rock` below 1 makes the return swing shallower than the outbound one, which is
+deliberate: the pose the consumer set stays the one the face spends most of its
+time near, and the loop breathes around it rather than replacing it half the
+time. At 0.8 the stagger inverts to 60% of its depth and comes back.
+
+Cost: two always-running loops per animated blobatar, invisible on every pose but
+one. Gating them on `.mo-expr` would remove that and is wrong — stopping the loop
+returns `--mo-rockp` to 1 in the same frame the pose starts easing out, which
+hops the eyes at the front of a 560ms morph. Always-running has nothing to start,
+nothing to stop, and nothing to snap. What *is* gated is the touch-device query
+(§4 of the motion spec): the seesaw is not amplitude-gated, so pausing every loop
+there would freeze the feature on phones, and the exception is scoped to
+`.mo-expr` so an idle grid still pays nothing.
+
 `edx`/`edy` sit on each eye rather than on the `.mo-eyes` group because that
 group's `transform` is reserved for the gaze layer (§4.5 of the motion spec) and
 its `translate` is the saccade's. Two eyes moving by the same amount is the pair
@@ -573,6 +696,12 @@ split is the rule working rather than an exception to it:
 - **The tint stays, at full strength.** It is the message, not the decoration —
   and for `mad` it is the most legible part of the message. Only the `fill`
   transition is killed, so it snaps like every other channel.
+- **The seesaw goes, and leaves the pose behind.** It is motion, so the reset
+  takes it; but `--mo-rockp`'s initial value is the loop's own extreme, so what
+  is left is a staggered pair rather than a face halfway between two meanings
+  (§5.3). A reduced-motion user gets the frame, not the animation — which is the
+  most a still image of "still working" can be. The app's own status text is
+  where that state actually lives, per the paragraph above.
 
 ## 9. Considered and rejected
 
@@ -625,6 +754,30 @@ Rejected at ~40 bytes per blobatar: the README already makes the stylesheet a ha
 requirement in bold, so this pays on every blobatar in a 400-blobatar grid to soften
 an error that is already documented loudly.
 
+**A bounce instead of a seesaw.** The other reading of a two-dot loader: both
+eyes dipping in turn from a shared baseline. Rejected on interference rather than
+on taste — that is the pair moving together, which is `mo-bob`'s axis, and two
+loops at different periods on one axis read as a slow wander with no obvious
+cause. Trading heights leaves the mean fixed and cannot beat against anything.
+
+**Gating the seesaw on `.mo-expr`.** Would delete two always-running loops per
+blobatar, which is the largest single cost of `thinking` and the one paid by
+consumers who never import it. It hops: removing the class stops the keyframe,
+`--mo-rockp` snaps to its initial 1, and the shared half of the offset jumps by
+up to `edy2 · rock` in the same frame the pose begins its 560ms exit. The touch
+query claws most of the cost back instead, where the loop is invisible anyway.
+
+**A seeded phase on the seesaw.** Every ambient loop here takes one, because a
+grid breathing in unison reads as a mechanism rather than as a crowd (§4.2 of the
+motion spec). A loading indicator *is* a mechanism and is saying so on purpose; a
+row of them out of step reads as a fault, not as personality.
+
+**`thinking` as a static-only pose, with the app supplying the motion.** Half the
+price and it ships the wrong thing: a still face at a staggered angle is a
+creature looking away, not one working. The channel that carries the meaning is
+the one that costs the stylesheet, and there was no version of this worth having
+without it.
+
 **Implying `animate`.** Convenient, and it would silently flip a 400-blobatar grid
 from 400 `<img>`s to 400 inline SVG trees — precisely the failure the rendering
 mode section of the README exists to prevent.
@@ -650,6 +803,18 @@ is just its numbers.
 averaging away: a tinting expression is roughly fourteen times the price of a
 cool one, and a consumer who imports `happy` and `sad` pays none of it. The
 `mad alone` row is the number that matters if you only want the angry one.
+
+`thinking` is a cool pose and prices like one: **+55 B** on a bundle that already
+has any other expression, and 4686 B on its own — the same as `happy` alone,
+since whichever pose arrives first carries the shared serializer and bake.
+
+The stylesheet is where it is actually paid, and that number is the one worth
+arguing with, because it lands on every app that imports `motion.css` whether or
+not it ever renders a loading face: **+95 B gz**, taking the budget from 1450 to
+1550. Two registrations and a two-stop keyframe are most of it; the touch-device
+exception is ~55 B of it and is not optional (§5.3). It buys a channel and not
+just a pose — `rock` is an amplitude, so a future pose that wants a duration adds
+numbers rather than stylesheet.
 
 Consumers who import no expression at all pay ~120 B — the dispatch in
 `render.ts`, the `tint` call beside it, and the `expressive` marker on the

@@ -33,6 +33,7 @@ import {
   shy,
   sick,
   sleepy,
+  thinking,
   smug,
   surprised,
   unsure,
@@ -335,9 +336,15 @@ const SHAPE_ROWS = [SHAPES.slice(0, 5), SHAPES.slice(5)];
 const HUES = [12, 40, 78, 140, 190, 225, 275, 320];
 
 /**
- * The whole roster, in the order `expression-spec.md` introduces it. Thirteen
+ * The whole roster, in the order `expression-spec.md` introduces it. Fourteen
  * cells at this size are wider than the sheet, so the row is split in two —
  * `EXPRESSION_ROWS` is where that break lives, not a claim about the poses.
+ *
+ * `thinking` is the one cell that is lying by omission: the sheet is a still,
+ * and half of that pose is a loop. What a reader sees here is frame zero of the
+ * seesaw, which is the pose at its widest stagger and the honest single frame to
+ * pick — but it cannot show the trade, and the caption in the spec is where that
+ * has to be said.
  */
 const EXPRESSIONS: { label: string; value?: Expression }[] = [
   { label: "idle" },
@@ -353,6 +360,7 @@ const EXPRESSIONS: { label: string; value?: Expression }[] = [
   { label: "love", value: love },
   { label: "shy", value: shy },
   { label: "sick", value: sick },
+  { label: "thinking", value: thinking },
 ];
 
 const EXPRESSION_ROWS = [EXPRESSIONS.slice(0, 7), EXPRESSIONS.slice(7)];

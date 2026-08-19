@@ -13,6 +13,7 @@ import {
   sleepy,
   smug,
   surprised,
+  thinking,
   unsure,
   wink,
   type Expression,
@@ -70,6 +71,7 @@ const POSES = [
   { name: "love", value: love },
   { name: "shy", value: shy },
   { name: "sick", value: sick },
+  { name: "thinking", value: thinking },
 ] as const;
 
 type Pose = (typeof POSES)[number];

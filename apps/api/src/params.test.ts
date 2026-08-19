@@ -42,9 +42,9 @@ test("expressions resolve to the library's values, not to strings", () => {
   expect(opts("expression=happy").expression).toBe(happy);
 });
 
-test("the roster is exactly the thirteen poses", () => {
+test("the roster is exactly the fourteen poses", () => {
   const roster = ["idle", "happy", "sad", "mad", "surprised", "wink", "sleepy",
-    "smug", "unsure", "scared", "love", "shy", "sick"];
+    "smug", "unsure", "scared", "love", "shy", "sick", "thinking"];
   for (const pose of roster) expect(opts(`expression=${pose}`).expression).toBeDefined();
   // The expression module also exports its machinery; none of it is a pose.
   bad(() => opts("expression=poseVars"));

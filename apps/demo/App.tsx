@@ -18,6 +18,7 @@ import {
   sleepy,
   smug,
   surprised,
+  thinking,
   unsure,
   wink,
   type Expression,
@@ -74,14 +75,19 @@ const EXPRESSIONS: Record<string, Expression | null> = {
   love,
   shy,
   sick,
+  thinking,
   "sad|mad": null,
   "surprised|scared": null,
   "shy|sick": null,
+  "sleepy|thinking": null,
 };
 const PAIRS: Record<string, Expression[]> = {
   "sad|mad": [sad, mad],
   "surprised|scared": [surprised, scared],
   "shy|sick": [shy, sick],
+  // The pair that has to stay apart at 44px: both are lidded and level, and
+  // only one of them is staggered.
+  "sleepy|thinking": [sleepy, thinking],
 };
 
 type Bg = "default" | "squircle" | "circle" | "square" | "none";

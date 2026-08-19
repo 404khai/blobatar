@@ -31,11 +31,12 @@
  * renderer emits no declarations at all for it, and clearing an expression
  * transitions back toward these rather than snapping.
  *
- * Ten near-identical registrations look expensive and are not — repetition
+ * Thirteen near-identical registrations look expensive and are not — repetition
  * this exact is close to free under gzip, which is the same measurement the wrap
  * layer's written-out chains are built on.
  *
- * The eleventh channel, `heat`, is not here: colour is resolved in TypeScript
+ * The one channel missing here, `heat`, is not absent by oversight: colour is
+ * resolved in TypeScript
  * and arrives as a finished pair of `<color>`s, because a hot endpoint held in a
  * custom property vanishes the instant an expression is cleared and snaps the
  * fill while the rest of the pose is still easing. See `heatTint`.
@@ -99,6 +100,18 @@
   initial-value: 0;
 }
 /**
+ * The right eye's vertical offset — the differential with a moving counterpart.
+ *
+ * Read through `--mo-ph` on `.mo-eye` rather than added to `translate` directly,
+ * because `--mo-rock` swings the same distance symmetrically and the two have to
+ * be one term or the static pose and the loop's extreme drift apart. See there.
+ */
+@property --mo-edy2 {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+/**
  * How much of the seeded eye lean the pose overrides, 0–1.
  *
  * The lean lives in the path's own coordinates — `superellipse` bakes rotation
@@ -146,6 +159,36 @@
   syntax: "<number>";
   inherits: true;
   initial-value: 0;
+}
+/**
+ * Seesaw amplitude, and `--mo-shake`'s argument generalised past a tremor.
+ *
+ * Same construction, for the same reason: an expression is held, so a repeating
+ * motion cannot be a one-shot and has to be an amplitude on a loop that always
+ * runs. At 0 the whole seesaw collapses into the pose's own static stagger — not
+ * merely into "no movement", which is the difference between this and a channel
+ * that would have to be switched on.
+ *
+ * `--mo-rockp` is the loop's phase, −1 to +1, and it is the only property in
+ * this file that a keyframe *writes* for a base declaration to read. That is the
+ * fix the `.mo-eye` comment prescribes for Gecko rather than a new idea: the
+ * position is computed in a plain declaration, and the keyframe carries nothing
+ * but a number that is never transitioned.
+ *
+ * **Its initial value is 1, not 0.** The phase runs 1 → −1 → 1, so 1 is frame
+ * zero of the loop and is exactly the pose `bakePose` emits. That is what makes
+ * `animation: none` — reduced motion — leave a `thinking` blobatar holding one
+ * frame of the seesaw rather than a face with its eyes halfway between meanings.
+ */
+@property --mo-rock {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+@property --mo-rockp {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
 }
 @property --mo-bdy {
   syntax: "<number>";
@@ -235,25 +278,30 @@
    * The pose channels and their two parallel lists, hoisted into properties of
    * their own.
    *
-   * Transition lists match up by index, so eleven channels means eleven
-   * durations and eleven easings — stated once here and referenced from the `:hover` rule, which
+   * Transition lists match up by index, so thirteen channels means thirteen
+   * durations and thirteen easings — stated once here and referenced from the `:hover` rule, which
    * used to restate the whole duration list to change one entry. Substitution
    * happens on this element, so `.mo-expr`'s shorter `--mo-morph` still reaches
    * them.
    *
    * `--mo-heat` is deliberately absent: colour is resolved in TypeScript and
    * arrives as a finished `--mo-head`/`--mo-eye`, transitioned by `fill` on the
-   * two groups below rather than composed here.
+   * two groups below rather than composed here. `--mo-rockp` is absent for the
+   * opposite reason — it is a loop's phase, not a pose channel, and a transition
+   * on it would fight the animation that owns it.
    */
   --mo-tp: --mo-esx, --mo-esy, --mo-tilt, --mo-edy, --mo-edx, --mo-esx2,
-    --mo-esy2, --mo-tilt2, --mo-lock, --mo-shake, --mo-bdy;
+    --mo-esy2, --mo-tilt2, --mo-edy2, --mo-lock, --mo-shake, --mo-rock,
+    --mo-bdy;
   --mo-md: var(--mo-morph), var(--mo-morph), var(--mo-morph), var(--mo-morph),
     var(--mo-morph), var(--mo-morph), var(--mo-morph), var(--mo-morph),
-    var(--mo-morph), var(--mo-morph), var(--mo-morph);
+    var(--mo-morph), var(--mo-morph), var(--mo-morph), var(--mo-morph),
+    var(--mo-morph);
   --mo-me: var(--mo-morph-ease), var(--mo-morph-ease), var(--mo-morph-ease),
     var(--mo-morph-ease), var(--mo-morph-ease), var(--mo-morph-ease),
     var(--mo-morph-ease), var(--mo-morph-ease), var(--mo-morph-ease),
-    var(--mo-morph-ease), var(--mo-morph-ease);
+    var(--mo-morph-ease), var(--mo-morph-ease), var(--mo-morph-ease),
+    var(--mo-morph-ease);
 
   transition-property: --mo-amp, transform, var(--mo-tp);
   transition-duration:
@@ -577,6 +625,30 @@
      while one added outside would flip sign per side and stay symmetric. */
   --mo-t: calc(var(--mo-tilt) + var(--mo-tilt2) * var(--mo-sel));
   /*
+   * This eye's share of `--mo-edy2`, and the whole of how a static differential
+   * and a symmetric seesaw are the same term.
+   *
+   * The static share is `--mo-sel`: all of the offset on the right eye, none on
+   * the left, exactly like `esx2` and `tilt2`. The moving share is
+   * `(1 + wrap · phase) / 2`, which is what a swing about the *pair's* centre
+   * looks like expressed per eye — the two eyes take opposite signs, so they
+   * trade heights and the mean never moves. `mo-bob` already owns the pair
+   * moving together, and two loops on that axis would beat against each other.
+   *
+   * Those are not two behaviours blended for convenience. At phase +1 the second
+   * expression **is** the first — `wrap` is ±1, so `(1 + wrap) / 2` is 0 on the
+   * left eye and 1 on the right, which is `--mo-sel` — and that identity is what
+   * makes the loop's extreme and `bakePose`'s output the same geometry with no
+   * corrective term on either side. `--mo-rock` interpolates between them, so a
+   * pose that does not rock is left with precisely the static differential and
+   * an expression easing in reaches its swing over the same morph as everything
+   * else.
+   */
+  --mo-ph: calc(
+    var(--mo-sel) * (1 - var(--mo-rock)) + var(--mo-rock) *
+      ((1 + var(--mo-wrap, 1) * var(--mo-rockp)) / 2)
+  );
+  /*
    * The expression's eye offset.
    *
    * It belongs on each eye rather than on the `.mo-eyes` group because that
@@ -590,7 +662,7 @@
    * static path, which is what keeps the two renderings of one pose identical.
    */
   translate: calc(var(--mo-edx) * var(--mo-wrap, 1) * 1px)
-    calc(var(--mo-edy) * 1px);
+    calc((var(--mo-edy) + var(--mo-edy2) * var(--mo-ph)) * 1px);
   /*
    * The pose's tilt, mirrored per side, less however much of the seeded lean the
    * pose claims. It used to be a term added to every stop of `@keyframes
@@ -630,6 +702,64 @@
    */
   transform: rotate(calc(var(--mo-lean, 0) * 1deg)) scaleX(var(--mo-x))
     scaleY(var(--mo-y)) rotate(calc(var(--mo-lean, 0) * -1deg));
+
+  /*
+   * The seesaw, and the third loop in this file that runs on every blobatar and
+   * is invisible on almost all of them.
+   *
+   * It writes a phase and positions nothing, which is the entire reason it is
+   * allowed to be a keyframe at all: `--mo-rock` and `--mo-edy2` are transitioned
+   * and are read from the plain declarations above, where Gecko interpolates
+   * them correctly. Firefox substituting `--mo-rockp` from an endpoint would do
+   * nothing here — it is never transitioned, and its two endpoints are the two
+   * ends of the swing.
+   *
+   * Unlike blink and wrap this takes no seeded phase. Two blobatars thinking side
+   * by side in unison is not the crowd-versus-mechanism problem the ambient
+   * layers have: a loading indicator is a mechanism, it is saying so on purpose,
+   * and a grid of them syncopated would read as a fault.
+   *
+   * It runs on every animated blobatar rather than on `.mo-expr` alone, and that
+   * costs two registered-property loops per blobatar that resolve to nothing on
+   * every pose but one. The gate is affordable and wrong: removing `.mo-expr`
+   * stops the loop, `--mo-rockp` snaps back to its initial 1, and the shared
+   * half of the offset jumps by up to `edy2 · rock` in the same frame the pose
+   * begins easing out — a hop at the front of a 560ms morph. Always-running has
+   * nothing to start, nothing to stop and nothing to snap, which is the argument
+   * `--mo-shake` already made and the reason that channel is built the same way.
+   * The touch-device query below is where the cost is actually clawed back.
+   *
+   * `animation-name` and not the shorthand, because `.mo-eye`'s `transform`,
+   * `translate` and `rotate` are all base declarations and the shorthand would
+   * reset none of them — but it would reset `animation-timing-function` for a
+   * reader who adds a second animation here later and does not notice.
+   */
+  animation-name: mo-rock;
+  animation-duration: calc(900ms * var(--mo-rate, 1));
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+
+/**
+ * The phase, and nothing else. At `--mo-rock: 0` — every pose in the library but
+ * `thinking` — `--mo-ph` discards it entirely, so this animates a number no
+ * declaration is reading and the eye never moves. That is `mo-shake`'s bargain
+ * exactly: nothing to start, nothing to stop, and re-selecting the same
+ * expression needs no replay because the loop never stopped.
+ *
+ * 1 → −1 → 1 rather than 0 → 1 → 0, so the *stagger* reverses instead of
+ * appearing and vanishing. Frame zero is the extreme, which is what `bakePose`
+ * emits and what the initial value of `--mo-rockp` restores under reduced
+ * motion.
+ */
+@keyframes mo-rock {
+  0%,
+  100% {
+    --mo-rockp: 1;
+  }
+  50% {
+    --mo-rockp: -1;
+  }
 }
 
 /**
@@ -976,6 +1106,25 @@
   .mo-root:not(.mo-always),
   .mo-root:not(.mo-always) * {
     animation-play-state: paused;
+  }
+
+  /*
+   * …except the seesaw, which is the one loop here that is not ambient.
+   *
+   * Everything the rule above stops is gated on `--mo-amp`, which this query has
+   * already pinned to zero — so pausing it stops nothing that was moving.
+   * `mo-rock` is gated on `--mo-rock` instead, deliberately (a loading indicator
+   * that only animates on hover is not a loading indicator), and pausing it
+   * freezes a `thinking` blobatar mid-swing on every phone. That is the whole
+   * feature not working on half the devices that will see it.
+   *
+   * Scoped to `.mo-expr` rather than to `.mo-eye` alone so the crowd case keeps
+   * paying nothing: sixty idle blobatars in a grid stay completely still, and only
+   * a blobatar actually wearing an expression runs the two loops back. `.mo-eye`
+   * carries no other animation, so this un-pauses exactly one thing.
+   */
+  .mo-root.mo-expr:not(.mo-always) .mo-eye {
+    animation-play-state: running;
   }
 }
 

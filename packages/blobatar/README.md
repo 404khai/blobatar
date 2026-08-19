@@ -87,7 +87,7 @@ several hundred blobatars on one page cannot produce id collisions.
 | `contrast`   | `true`      | Enforce the contrast floors.                                            |
 | `title`      | —           | Adds a `<title>` for screen readers.                                    |
 | `animate`    | —           | `"hover"` or `"always"`. See below — it changes how the blobatar renders. |
-| `expression` | `idle`      | One of thirteen poses, imported as a value. See below.                  |
+| `expression` | `idle`      | One of fourteen poses, imported as a value. See below.                  |
 
 ## Configuring
 
@@ -183,6 +183,7 @@ it was wearing.
 | `love`      | narrow and drawn together, rose-tinted                       |
 | `shy`       | small, low, converged, pale blush                            |
 | `sick`      | wide bars slumped into a `/ \`, green-tinted, faint tremor   |
+| `thinking`  | eyes at two heights, trading places — a loader with a face   |
 
 Expressions are **imported as values, not named as strings**, so you ship the
 ones you use and nothing else:
@@ -192,6 +193,15 @@ import { happy, idle } from "blobatar/expression";
 
 <Blobatar name={user.email} animate="always" expression={happy} size={64} />;
 ```
+
+`thinking` is the one pose that keeps moving. It holds a staggered pair of eyes
+and, with `blobatar/motion.css` loaded, seesaws them on a 900ms cycle — the
+two-dot loader, drawn with the two dots a blobatar already has. Set it while you
+are fetching and clear it when you are done; like every other pose it is a state
+you hold, not an animation you fire. Without the stylesheet, or under
+`prefers-reduced-motion`, it holds one frame of that swing, which still reads as
+a creature with its attention somewhere else. Whatever it is waiting on still
+needs to be announced somewhere real in your DOM — the face is decoration.
 
 The first expression you import costs about 340 bytes (the shared serializer and
 bake, paid once) and each untinted one after it about 35. The four tinted poses —
