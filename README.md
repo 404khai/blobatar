@@ -27,6 +27,22 @@ import { Blobatar } from "blobatar/react";
 Everything but `name` is optional. Remaining props land on the underlying
 element, so `className`, `alt` and the rest behave as you would expect.
 
+### Vue
+
+```html
+<script setup>
+import { Blobatar } from "blobatar/vue";
+</script>
+
+<template>
+  <Blobatar name="alain@example.com" :size="48" />
+</template>
+```
+
+The same props and the same behavior as the React adapter. Anything not
+declared as a prop lands on the underlying element, so `class`, `style`, `alt`
+and the rest behave as you would expect.
+
 ### Anywhere else
 
 `blobatar()` returns SVG markup as a string, and `blobatarUri()` wraps it in a
@@ -50,9 +66,9 @@ import { blobatar } from "blobatar/blob";
 
 ### Configuring
 
-Options are the same for both APIs. `background`, `hue` and `tone` cover the
-common cases; `traits` pins any individual axis as the 0–1 position the hash
-would otherwise have produced:
+Options are the same across the React, Vue and string APIs. `background`, `hue`
+and `tone` cover the common cases; `traits` pins any individual axis as the 0–1
+position the hash would otherwise have produced:
 
 ```tsx
 <Blobatar name={user.email} background="circle" hue={210} size={48} />;
@@ -81,6 +97,8 @@ import "blobatar/motion.css"; // required — nothing animates without it
 
 <Blobatar name={user.email} animate="hover" expression={happy} size={64} />;
 ```
+
+The same props work with `blobatar/vue` — only the component import changes.
 
 `animate` changes the rendering mode: a static blobatar is a single `<img>`, an
 animated one is inline SVG. Use `"hover"` in a grid and `"always"` for the

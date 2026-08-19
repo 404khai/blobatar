@@ -28,6 +28,7 @@ const ENTRIES = [
   "src/uri.ts",
   "src/expression.ts",
   "src/react.tsx",
+  "src/vue.ts",
 ];
 
 rmSync("dist", { recursive: true, force: true });
@@ -39,9 +40,9 @@ const build = await Bun.build({
   format: "esm",
   minify: true,
   sourcemap: "linked",
-  // React is a peer dependency and an optional one: never inline it, and never
-  // let the JSX runtime import get rewritten into the bundle either.
-  external: ["react", "react/jsx-runtime", "react/jsx-dev-runtime"],
+  // React and Vue are peer dependencies and optional ones: never inline them,
+  // and never let the JSX runtime import get rewritten into the bundle either.
+  external: ["react", "react/jsx-runtime", "react/jsx-dev-runtime", "vue"],
   // What selects the JSX runtime. Bun reads `process.env.NODE_ENV` to choose
   // between `jsx` and `jsxDEV`, and a publish build run from a normal shell has
   // it unset — so without this the package shipped `react/jsx-dev-runtime`

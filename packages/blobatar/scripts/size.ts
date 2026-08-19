@@ -131,6 +131,24 @@ const ENTRIES: {
              globalThis.x = blobatar(String(globalThis.seed), { expression: happy });`,
   },
   {
+    // The Vue adapter, measured against "react" above. Same two rendering
+    // modes and the same parts builder; the Vue one swaps the JSX branch for
+    // `h()` calls and Vue's fine-grained reactivity for the React memo tricks
+    // (no serialized dependency string, no memoized `{__html}`).
+    //
+    // It still lands ~170 B over React: the runtime props table (12 declared
+    // props — React's are type-level only), the string-style merge for
+    // templates that pass `style="…"`, and the `animate` boolean shorthand
+    // normalization. All three are Vue surface, not motion; none of them would
+    // shrink if the animation layer got smaller. `vue` is external, like
+    // `react`. Measured 5493 against react 5326 on the v2 core.
+    name: "vue",
+    budget: 5550,
+    external: ["vue"],
+    source: `import { Blobatar } from "../../src/vue";
+             globalThis.x = Blobatar;`,
+  },
+  {
     name: "traits only",
     budget: 600,
     external: [],

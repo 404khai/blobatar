@@ -16,12 +16,15 @@ import { createRequire } from "node:module";
 import { existsSync, readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { h } from "vue";
+import { renderToString } from "vue/server-renderer";
 
 import { blobatar, palette, traits, normalizeSeed } from "blobatar";
 import { blobatar as blob } from "blobatar/blob";
 import { blobatarUri } from "blobatar/uri";
 import * as poses from "blobatar/expression";
 import { Blobatar } from "blobatar/react";
+import { Blobatar as VueBlobatar } from "blobatar/vue";
 
 let failed = false;
 
@@ -83,6 +86,25 @@ check("blobatar/react animated", () => {
   );
   assert(html.includes("<svg"), "animated mode did not render inline SVG");
   assert(html.includes("mo-root"), "animated mode emitted no motion class");
+  return "inline SVG with motion classes";
+});
+
+// `renderToString` is async, so the markup is prepared outside `check` and the
+// synchronous assertions run on the resolved strings.
+const vueStatic = await renderToString(h(VueBlobatar, { name: "alain", size: 48 }));
+check("blobatar/vue", () => {
+  assert(vueStatic.includes("<img"), `static mode did not render an <img>: ${vueStatic.slice(0, 60)}`);
+  assert(vueStatic.includes("data:image/svg+xml"), "static mode rendered no blobatar");
+  return "renders on the server";
+});
+
+const vueAnimated = await renderToString(
+  h(VueBlobatar, { name: "alain", size: 48, animate: "always" }),
+);
+check("blobatar/vue animated", () => {
+  assert(vueAnimated.includes("<svg"), "animated mode did not render inline SVG");
+  assert(vueAnimated.includes("mo-root"), "animated mode emitted no motion class");
+  assert(vueAnimated.includes("--mo-phase"), "animated mode emitted no seeded timing");
   return "inline SVG with motion classes";
 });
 
