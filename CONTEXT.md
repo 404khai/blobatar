@@ -238,6 +238,9 @@ A workspace member under `packages/` — publishable. `blobatar` is the renderer
 and carries no framework; each adapter is its own package beside it. Two
 members are publishable-shaped but are not: `harness` is private, and
 `codemod` is unscoped on purpose so the lockstep group cannot drag it along.
+`render-core` is a third: a private support package, never published, bundled
+into the surfaces that consume it. Deciding that category is ADR-0009's job,
+not this entry's; here it is only named.
 
 **Lockstep**:
 That `blobatar` and every `@blobatar/*` package publish the same version,
@@ -300,6 +303,20 @@ blobatar.
 _Avoid_: static blobatar, download. An export is static *and* fully configured,
 which is exactly the collision **Configured blobatar** warns about. _Download_
 is what the browser does with it, fine on a button and wrong everywhere else.
+
+**CLI**:
+The terminal surface (`packages/cli`, published to npm as `blobatar-cli`) —
+`blobatar <name>` with flags. It and the Endpoint are the two string surfaces,
+and they speak one sentence: both parse through `render-core`'s single table,
+so a param carries the same name, range and error text in a query string and
+in argv. The asymmetries are transport-shaped, one per direction:
+`--no-normalize` exists only in the terminal (a URL always normalizes), and
+the Gravatar compatibility spellings (`s`, the accepted-and-ignored params)
+exist only in a URL. Renders locally through the library, never through
+the endpoint, and pins generations the same way (`--gen`, both majors
+bundled).
+_Avoid_: tool, command, client. It is not a client of the endpoint — nothing
+here talks to the network.
 
 **Tuning grid**:
 The internal design tool (`apps/demo`) that renders blobatars in aggregate so
