@@ -29,12 +29,18 @@
       "dependsOn": ["^build"]
     },
 
-    // Not `dependsOn: ["build"]`, and the reason is in `scripts/size.ts`: the
-    // synthetic consumers import `../../src/*` and never touch `dist`, so this
-    // measures what the source tree-shakes to. Making it wait on a build would
-    // suggest it measures the shipped package, which is exactly the confusion
-    // that file's header warns about.
-    "size": {},
+    // `^build`, and only because a second size gate arrived that needs it.
+    // There are two, measuring deliberately different things: core's
+    // `scripts/size.ts` imports `../../src/*` and never touches `dist`, so it
+    // measures what the source tree-shakes to and depends on nothing — while
+    // `packages/harness/scripts/size.ts` resolves every package by name through
+    // its real `exports` map, so it cannot run before those packages are built.
+    //
+    // `^build` and not `build`: neither gate builds the package it lives in.
+    // Core's reads its own source, and the harness is never built at all.
+    "size": {
+      "dependsOn": ["^build"]
+    },
 
     // Browser-driven, and it reads the stylesheet and geometry from source.
     "probe": {},

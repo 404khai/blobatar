@@ -47,8 +47,12 @@ jobs:
       - name: Adapter drift harness
         run: bunx turbo run test --filter=@blobatar/harness
 
+      # Both gates, and they measure different things — core's reads its own
+      # source, the harness's resolves every package by name through its built
+      # `exports` map. Unfiltered rather than named, so an adapter added in
+      # PR 5 is measured the moment its package has a `size` script.
       - name: Size budgets
-        run: bunx turbo run size --filter=blobatar
+        run: bunx turbo run size
 
       # `probe-compose.ts` warns and exits 0 when it finds no browser, so that a
       # local run without one is not a hard stop. In CI that would turn the only
@@ -59,8 +63,12 @@ jobs:
           google-chrome --version
           firefox --version
 
+      # `--filter=blobatar`, because that is where `scripts/probe-compose.ts`
+      # lives. Filtered to the harness by the split, where there is no `probe`
+      # script — turbo runs zero tasks and exits 0, so the one check that can
+      # see a CSS-versus-geometry divergence has been silently passing since.
       - name: Composition gate
-        run: bunx turbo run probe --filter=@blobatar/harness
+        run: bunx turbo run probe --filter=blobatar
 
       - name: Build
         run: bunx turbo run build
