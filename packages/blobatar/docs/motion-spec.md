@@ -609,6 +609,26 @@ consequences worth stating, because both were learned the hard way:
 This is the bulk of the implementation work and none of it is CSS. Budget for it
 accordingly.
 
+### 7.2 The Vue adapter
+
+`blobatar/vue` renders the same two modes with the same `makeParts` split — `cls`
+and `vars` on the outer element, `inner` through `innerHTML` on the root `<g>`.
+Two React-specific memoizations do not carry over, because Vue's reactivity
+replaces them:
+
+- The serialized dependency string (`JSON.stringify` with `generation?.id`) is
+  unnecessary: a `computed` tracks the props it reads, and `generation` is
+  tracked by reference, which is the exact granularity the string was
+  approximating.
+- The memoized `{__html}` object is unnecessary: the VNode diff compares prop
+  values, so a byte-identical `innerHTML` is never rewritten and the DOM below
+  the root survives an expression change — the same property React needs the
+  memo to fake.
+
+The `<title>`, backdrop and root class are still real children/attributes
+(never part of `inner`), because the geometric argument — the plate must not
+lift with the creature, `<title>` must name the `<svg>` — is framework-neutral.
+
 ---
 
 ## 8. Considered and rejected

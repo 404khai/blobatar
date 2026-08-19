@@ -14,6 +14,16 @@ import { Blobatar } from "blobatar/react";
 <Blobatar name={user.email} size={48} />;
 ```
 
+```html
+<script setup>
+import { Blobatar } from "blobatar/vue";
+</script>
+
+<template>
+  <Blobatar name="alain@example.com" :size="48" />
+</template>
+```
+
 A blobatar always stands for somebody — a user, a bot, a team, a repo — so the
 value it is generated from is that somebody's `name`: a username, a display
 name, an email, a handle, an id. Any string works and the same string always
@@ -149,6 +159,17 @@ import "blobatar/motion.css"; // required — nothing animates without it
 <Blobatar name={user.email} animate="hover" size={48} />;
 ```
 
+```html
+<script setup>
+import { Blobatar } from "blobatar/vue";
+import "blobatar/motion.css"; // required — nothing animates without it
+</script>
+
+<template>
+  <Blobatar name="alain@example.com" animate="hover" :size="48" />
+</template>
+```
+
 **Turning this on changes the rendering mode, and that is not free.** A static
 blobatar is a single `<img>`; an animated one is inline SVG, roughly a dozen DOM
 nodes. Content inside an `<img>` is an isolated document that `:hover` cannot
@@ -168,11 +189,12 @@ pixel. It is worth the most on a profile header, which is what `"always"` is
 for. Eyes may cross outside the body outline on a hard glance; that is intended,
 and reads as a face turning rather than as a bug.
 
-Currently `blobatar/react` only. The string API still returns static markup:
+Currently `blobatar/react` and `blobatar/vue` only. The string API still returns static markup:
 supporting `animate` there means every consumer of `blobatar()` carries the motion
 code whether they animate or not, which is a real cost for a feature most
-callers will never use. If you need animated markup without React, open an issue
-— it wants its own entry point rather than a branch inside `blobatar()`.
+callers will never use. If you need animated markup without either framework,
+open an issue — it wants its own entry point rather than a branch inside
+`blobatar()`.
 
 ## Expressions
 
@@ -213,6 +235,9 @@ you hold, not an animation you fire. Without the stylesheet, or under
 `prefers-reduced-motion`, it holds one frame of that swing, which still reads as
 a creature with its attention somewhere else. Whatever it is waiting on still
 needs to be announced somewhere real in your DOM — the face is decoration.
+
+The same values work with `blobatar/vue`; only the import of the component
+itself changes.
 
 The first expression you import costs about 340 bytes (the shared serializer and
 bake, paid once) and each untinted one after it about 35. The four tinted poses —
