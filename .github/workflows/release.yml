@@ -110,10 +110,18 @@ jobs:
       # unpublished after 72 hours. Checking first turns an unrecoverable
       # partial release into a run that never started.
       #
-      # npm's own documentation states neither the requirement nor its absence,
-      # so this is written against observed behaviour rather than a spec. If npm
-      # later allows a first publish over OIDC, this step costs one `npm view`
-      # per package and can be deleted.
+      # npm's own documentation states neither the requirement nor its absence.
+      # The citation is npm/cli#8544, where a maintainer says first publish was
+      # left out deliberately — "we determined to not have 'first publish'
+      # available to limit scope in our MVP, but are evaluating options for the
+      # next step". Open as of August 2026, so a token is still the only way a
+      # package comes into existence. The community workaround is a throwaway
+      # version published with a token, which is the same token and one more
+      # version on the registry, so this repo does the honest thing and
+      # bootstraps at the real version.
+      #
+      # If that issue closes, this step costs one `npm view` per package and can
+      # be deleted along with the whole bootstrap.
       - name: Every package must already exist for OIDC to work
         run: |
           missing=""
