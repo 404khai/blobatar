@@ -78,6 +78,11 @@ jobs:
       - name: Smoke the built package
         run: bunx turbo run smoke --filter=blobatar
 
+      # The other publishable: tests, bin build, and a smoke that spawns the
+      # built bin under Node against the real library and both generations.
+      - name: CLI checks
+        run: bun --filter blobatar-cli check
+
       # Every publishable package, not just core — a broken `files` or
       # `exports` in an adapter should fail here rather than at publish. A new
       # adapter with no line here is a package whose tarball nothing has ever
@@ -135,6 +140,12 @@ jobs:
 
       - name: Endpoint tests, against the built package
         run: bunx turbo run test --filter=blobatar-api
+
+      # The endpoint's param table lives in `packages/render-core` now, so its
+      # suite no longer rides inside the endpoint filter above. It resolves the
+      # library the same unaliased way, so it also needs the dist built first.
+      - name: Param-table tests, against the built package
+        run: bun --filter render-core test
 
       # Bundles `blobatar` the way a deploy does: through the workspace symlink
       # and therefore through the real `exports` map, not the tsconfig alias to
