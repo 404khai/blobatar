@@ -1,7 +1,11 @@
 import { expect, test, describe } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { defineComponent, h } from "vue";
+import {
+  defineComponent,
+  h,
+  type ComponentObjectPropsOptions,
+} from "vue";
 import { renderToString } from "vue/server-renderer";
 import { Blobatar as React_ } from "../src/react";
 import { Blobatar as Vue_ } from "../src/vue";
@@ -132,7 +136,10 @@ describe("the adapter injects no option the caller did not pass", () => {
   const resolved = async (passed: Record<string, unknown>) => {
     let seen: Record<string, unknown> = {};
     const Spy = defineComponent({
-      props: (Vue_ as unknown as { props: Record<string, unknown> }).props,
+      // The adapter's own props table, reused verbatim — the point is to
+      // observe what Vue resolves *these declarations* to, so re-stating them
+      // here would test a copy instead of the thing that ships.
+      props: (Vue_ as unknown as { props: ComponentObjectPropsOptions }).props,
       setup(props) {
         seen = { ...(props as Record<string, unknown>) };
         return () => null;
