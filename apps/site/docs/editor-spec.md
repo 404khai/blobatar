@@ -9,6 +9,14 @@ change to `packages/blobatar`; if you find one, that is a finding worth raising
 rather than a change to make quietly, because the package's ranges are frozen per
 major and its size gate is tight.
 
+> **One was found, raised, and made.** A trait override can now be a *list* —
+> `{ shape: [0.11, 0.825, 0.965] }` — which narrows an axis without fixing it and
+> leaves the name to choose among what is listed. It is the one editor request
+> this spec's surface genuinely could not express, since "any of these" is not a
+> position; everything else here is still a number per key. Additive, +19 B gz,
+> inside the existing budget, and no seed's markup moved. See ADR 0003 and the
+> silhouette notes below.
+
 Read `docs/adr/0003-configuration-as-trait-overrides.md` first. It is short, and
 it explains why the API is shaped the way it is — which is most of what makes the
 editor's constraints make sense rather than feel arbitrary.
@@ -45,7 +53,8 @@ Reusable as-is:
   numbers, which that grammar does not tokenize.** Extending `TOKEN` is expected
   — read the alternation-order comment before you touch it.
 - `src/components/ui/segmented.tsx` — single-select segmented control (Radix
-  ToggleGroup). Right for shape selection and any other exclusive axis.
+  ToggleGroup). Right for any exclusive axis. *Not* the silhouette row, which
+  ended up a multi-select set of tiles — see the note at the top.
 - `src/components/ui/popover.tsx`, `src/lib/utils.ts` (`cn`).
 - Design tokens in `styles.css` — `ground`, `raised`, `ink`, `muted`, `line`,
   `code-str`, `code-key`. Dark-only, and the site is dark-only on purpose.
@@ -244,7 +253,9 @@ inline-SVG rendering mode.
 - Copy the snippet, paste it, and the rendered blobatar matches the preview
   exactly. This is the one that matters.
 - No control is silently inert. Anything that does not apply to the current shape
-  is hidden or visibly disabled.
+  is hidden or visibly disabled — and where the silhouette is narrowed to
+  several, "current shape" means all of them, or a decoration control would
+  appear only for the name you happen to be previewing.
 - A clamped axis reads as clamped rather than as broken — the resolved value is
   visible when `fit` has pulled it back.
 - Nothing pinned means no `traits` prop in the output.

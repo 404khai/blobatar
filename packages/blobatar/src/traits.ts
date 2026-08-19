@@ -45,13 +45,27 @@ export interface Traits {
  * Sparse by design. Keys you omit still come from the seed, so
  * `{ shape: 0.95 }` means "always a sun, everything else per seed".
  *
+ * An **array** is the third position between those two: `{ shape: [0.11, 0.965] }`
+ * means "round or sun, whichever this name comes out as". A fixed value narrows
+ * a key to one outcome and an omitted key leaves it at all of them; a list
+ * narrows it to the ones you name and lets the seed choose among those. That is
+ * the case a single number cannot state — "any of these" is not a position —
+ * and it is the shape of most real requests for one, since a house style is
+ * usually a handful of silhouettes rather than exactly one.
+ *
+ * The choice rides on the key's own hash, so it is per seed, stable, uniform
+ * over what is listed, and independent of every other trait — the same
+ * guarantees an unconfigured value has, because it *is* the unconfigured value,
+ * read against a shorter list. An empty array selects nothing and is therefore
+ * the same as omitting the key.
+ *
  * Trait keys are an append-only namespace (see `Traits` above), so an override
  * map keeps meaning what it meant. The numeric *ranges* those keys are read
  * into are what a stated position is relative to, which makes them part of the
  * same frozen-per-major contract as a `pick` array's contents — retuning
  * `t.num("eye.gap", 0.1, 0.24)` moves every blobatar, seeded or configured.
  */
-export type TraitOverrides = Record<string, number>;
+export type TraitOverrides = Record<string, number | number[]>;
 
 /**
  * Overrides are clamped rather than trusted.
@@ -72,12 +86,23 @@ export function traits(
   // usually tiny when present, and a lookup miss costs less than materializing
   // 30-odd hashed values a layout may never ask for.
   const t = ((key: string) => {
-    const o = overrides?.[key];
+    const v = overrides?.[key];
+    // A list is "any of these", and the key's own hash is what picks from it —
+    // the same number that would have been the value, spent on the index
+    // instead. So a narrowed key keeps every property the open one had: per
+    // seed, stable, independent of every other trait.
+    //
+    // An empty list indexes to `undefined` and falls through to the hash below,
+    // which is deliberate rather than incidental: "nothing selected" and "not
+    // configured" are the same request, and a picker with everything
+    // deselected should not have to special-case itself into omitting the key.
+    const o = Array.isArray(v) ? v[Math.floor(stream(state, key) * v.length)] : v;
     // Not `??` on the whole expression: an override of 0 is a legitimate value
     // — it is the bottom of every range — and must not fall through to the hash.
     // The clamp is inlined rather than named because a helper survives
     // minification as a binding, and this is the one branch every trait read in
-    // the library goes through.
+    // the library goes through. It runs over a list's chosen element too, so a
+    // bad number is clamped wherever it was written.
     return o === undefined ? stream(state, key) : o > 0 ? (o < 1 ? o : 0.999999) : 0;
   }) as Traits;
 

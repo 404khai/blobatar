@@ -9,6 +9,7 @@
  * Pure, and separate from the panel for exactly that reason. A generator living
  * inside the component would be testable only by rendering one.
  */
+import type { TraitOverrides } from "blobatar";
 import { KEY_ORDER } from "./axes";
 
 export type Api = "react" | "string" | "http";
@@ -19,7 +20,7 @@ export interface SnippetInput {
   /** The name the preview is showing. Emitted literally — see `nameNote`. */
   name: string;
   /** The pinned traits. Empty means no `traits` at all in the output. */
-  pinned: Record<string, number>;
+  pinned: TraitOverrides;
   motion: Motion;
 }
 
@@ -41,11 +42,24 @@ const key = (k: string) => (bare.test(k) ? k : JSON.stringify(k));
  * `AXES` and forgotten here, or one restored from a config someone hand-edited
  * — in the output instead of silently dropped.
  */
-function entries(pinned: Record<string, number>) {
+function entries(pinned: TraitOverrides) {
   const known = KEY_ORDER.filter(k => k in pinned);
   const rest = Object.keys(pinned).filter(k => !KEY_ORDER.includes(k));
   return [...known, ...rest].map(k => [k, pinned[k]!] as const);
 }
+
+/**
+ * A pinned value, as it is written in code.
+ *
+ * A list is the silhouette narrowed to several rather than fixed to one, and it
+ * is emitted as a list — the library reads it directly, so the snippet stays an
+ * object literal you can paste and hand-edit. That is the whole reason the
+ * feature is a widened value type rather than a helper the editor generates a
+ * call to: a generated `pickFrom(name, [...])` would be code you have to
+ * understand before you can change it.
+ */
+const literal = (v: number | number[]) =>
+  Array.isArray(v) ? `[${v.join(", ")}]` : String(v);
 
 /**
  * JSX attribute strings are not JS strings — no backslash escapes — so a name
@@ -80,7 +94,7 @@ export function snippet({ api, name, pinned, motion }: SnippetInput): string {
 
 function react(
   seed: string,
-  traits: (readonly [string, number])[],
+  traits: (readonly [string, number | number[]])[],
   motion: Motion,
 ) {
   const lines = [`import { Blobatar } from "blobatar/react";`];
@@ -101,10 +115,10 @@ function react(
   // not leave it on one.
   if (traits.length === 1) {
     const [k, v] = traits[0]!;
-    lines.push(`  traits={{ ${key(k)}: ${v} }}`);
+    lines.push(`  traits={{ ${key(k)}: ${literal(v)} }}`);
   } else if (traits.length) {
     lines.push(`  traits={{`);
-    for (const [k, v] of traits) lines.push(`    ${key(k)}: ${v},`);
+    for (const [k, v] of traits) lines.push(`    ${key(k)}: ${literal(v)},`);
     lines.push(`  }}`);
   }
 
@@ -116,7 +130,7 @@ function react(
 
 function string(
   seed: string,
-  traits: (readonly [string, number])[],
+  traits: (readonly [string, number | number[]])[],
   motion: Motion,
 ) {
   const lines = [`import { blobatar } from "blobatar";`];
@@ -139,7 +153,7 @@ function string(
   lines.push(`${call}, {`);
   if (traits.length) {
     lines.push(`  traits: {`);
-    for (const [k, v] of traits) lines.push(`    ${key(k)}: ${v},`);
+    for (const [k, v] of traits) lines.push(`    ${key(k)}: ${literal(v)},`);
     lines.push(`  },`);
   }
   lines.push(`});`);
@@ -186,14 +200,19 @@ const URL_UNITS: Record<string, (v: number) => string> = {
 
 function http(
   seed: string,
-  traits: (readonly [string, number])[],
+  traits: (readonly [string, number | number[]])[],
   motion: Motion,
 ) {
   const query = [`gen=${GEN}`];
   const dropped: string[] = [];
   for (const [k, v] of traits) {
     const unit = URL_UNITS[k];
-    if (unit) query.push(`${k}=${unit(v)}`);
+    // A narrowed axis is dropped whether or not the URL can spell the key: a
+    // query parameter states one value, and "any of these" is not one. The two
+    // keys a URL carries are colour and neither is narrowable from the panel,
+    // so this is a guard rather than a case — but it is the guard that keeps a
+    // silently wrong `tone=0.1,0.9` from ever being possible.
+    if (unit && !Array.isArray(v)) query.push(`${k}=${unit(v)}`);
     else dropped.push(k);
   }
 

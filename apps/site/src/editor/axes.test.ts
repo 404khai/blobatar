@@ -1,6 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { traits as reader } from "blobatar";
-import { AXES, SHAPES, TONES, bandIndex, bandValue, round3 } from "./axes";
+import {
+  AXES,
+  SHAPES,
+  TONES,
+  applies,
+  bandIndex,
+  bandValue,
+  candidates,
+  round3,
+  shapeAt,
+  shapePin,
+  toggleShape,
+} from "./axes";
 import { blobLayout, resolved } from "./resolved";
 
 /**
@@ -46,6 +58,95 @@ describe("the bands copied out of the library", () => {
     for (const v of [0, 0.001, 0.5, 0.999]) {
       expect(reader(NAME, true, { "eye.gap": round3(v) })("eye.gap")).toBe(v);
     }
+  });
+});
+
+/**
+ * The silhouette axis is the one that can be narrowed to several rather than
+ * fixed to one, and that turns two questions the panel answers into set
+ * questions: which silhouettes it has to account for, and which controls those
+ * silhouettes read. Both fail quietly — a decoration control that appears only
+ * for the name you happen to be previewing is one you never find.
+ */
+describe("a silhouette narrowed to several", () => {
+  test("a midpoint names its shape, and anything else names nothing", () => {
+    for (const { name, at } of SHAPES) expect(shapeAt(at)).toBe(name);
+    // Not a midpoint, so there is no honest name for it — `candidates` drops
+    // these rather than guessing at the band.
+    expect(shapeAt(0.5)).toBeUndefined();
+  });
+
+  test("an unpinned or singly-pinned silhouette is the one on screen", () => {
+    // Including the unpinned case, which is *also* "any of the ten" and is
+    // deliberately not read that way: the panel follows what is rendered when
+    // you have not constrained it. See `candidates`.
+    expect(candidates(undefined, "cloud")).toEqual(["cloud"]);
+    expect(candidates(0.965, "sun")).toEqual(["sun"]);
+  });
+
+  test("a list is the list, in the order it was written", () => {
+    expect(candidates([0.11, 0.825, 0.965], "round")).toEqual(["round", "cloud", "sun"]);
+  });
+
+  test("a list that names nothing falls back to what is on screen", () => {
+    // The panel must always have a real answer: every conditional axis missing
+    // is worse than one extra.
+    expect(candidates([], "boxy")).toEqual(["boxy"]);
+    expect(candidates([0.5], "boxy")).toEqual(["boxy"]);
+  });
+
+  test("a control shows if any selected silhouette reads it", () => {
+    const petals = AXES.find(a => a.key === "sun.n")!;
+    const lobes = AXES.find(a => a.key === "cloud.n")!;
+    const size = AXES.find(a => a.key === "body.r")!;
+
+    // The union, which is the whole rule: pick cloud and sun and you get both
+    // decoration sets, because your config produces both creatures.
+    expect(applies(petals, ["cloud", "sun"])).toBe(true);
+    expect(applies(lobes, ["cloud", "sun"])).toBe(true);
+    expect(applies(petals, ["cloud"])).toBe(false);
+    // An axis every silhouette reads is unaffected by any of this.
+    expect(applies(size, ["cloud"])).toBe(true);
+  });
+
+  test("toggling is order-independent — the row's order, not the click order", () => {
+    // The snippet emits this list literally, so two people who picked the same
+    // three silhouettes have to get the same line of code.
+    const [round, cloud, sun] = [0.11, 0.825, 0.965];
+    const forwards = [round, cloud, sun].reduce(toggleShape, [] as number[]);
+    const backwards = [sun, cloud, round].reduce(toggleShape, [] as number[]);
+
+    expect(forwards).toEqual([round, cloud, sun]);
+    expect(backwards).toEqual(forwards);
+  });
+
+  test("toggling a selected silhouette removes it", () => {
+    expect(toggleShape([0.11, 0.965], 0.11)).toEqual([0.965]);
+    expect(toggleShape([0.11], 0.11)).toEqual([]);
+  });
+
+  test("one selected is still a number, so the common snippet never changed", () => {
+    // The line that is already in everybody's code and in the README. A list is
+    // what appears only when you ask for something a number cannot say.
+    expect(shapePin([0.965])).toBe(0.965);
+    expect(shapePin([0.11, 0.965])).toEqual([0.11, 0.965]);
+    expect(shapePin([])).toBeUndefined();
+  });
+
+  test("a selection survives the round trip through the trait map", () => {
+    // Toggle, store, read back: what the row shows selected has to be what the
+    // config says, or the panel and the snippet disagree about the same object.
+    for (const ats of [[0.11], [0.11, 0.965], [0.11, 0.825, 0.965]]) {
+      const pin = shapePin(ats);
+      expect(candidates(pin, "round")).toEqual(ats.map(shapeAt) as never);
+    }
+  });
+
+  test("every axis is reachable from some selection, and none from an empty one", () => {
+    // The cheapest statement that `when` and the shape table still agree: an
+    // axis no selection can show is a control nobody can ever reach.
+    const every = SHAPES.map(s => s.name);
+    for (const axis of AXES) expect(applies(axis, every)).toBe(true);
   });
 });
 

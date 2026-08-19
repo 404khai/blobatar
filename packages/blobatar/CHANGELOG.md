@@ -12,38 +12,6 @@ one: `blobatar@1` renders gen1, `blobatar@2` renders gen2. See
 [ADR-0006](../../docs/adr/0006-generations.md) and
 [ADR-0008](../../docs/adr/0008-package-majors-select-generations.md).
 
-## Unreleased
-
-### Added
-
-- `thinking` — a fourteenth expression, and the first whose message is a
-  *duration* rather than a shape. It holds two eyes at different heights and,
-  with `blobatar/motion.css` loaded, seesaws them on a 900ms cycle: the two-dot
-  loader, drawn with the two dots a blobatar already has. Set it while you fetch,
-  clear it when you are done.
-- Two pose channels behind it, both identity on every existing pose: `edy2`, a
-  vertical offset on the right eye, and `rock`, a seesaw amplitude built the way
-  `shake` is — an amplitude on a loop that always runs, since an expression is
-  held and cannot fire.
-
-### Changed
-
-- `motion.css` is ~95 B gz larger, and that lands on every app that imports it
-  whether or not it renders a loading face. It buys a channel rather than a
-  pose: a future expression that wants a duration is numbers, not stylesheet.
-  See §10 of [the expression spec](./docs/expression-spec.md).
-- On touch devices the eye loops of a blobatar *wearing an expression* are no
-  longer paused. Idle grids are unaffected — that pause is why they are cheap —
-  but a loading face that freezes on every phone is the feature not working.
-
-### Compatibility
-
-- Additive. `thinking` is a new import, the two new channels are at their
-  identity everywhere else, and no existing seed's markup moves by a byte. The
-  golden fixture gained rows and changed none.
-- `thinking` costs +55 B gz in a bundle that already imports any expression, and
-  the same as `happy` on its own.
-
 ## 2.0.0
 
 **Every seed renders differently.** gen2's ten silhouettes replace gen1's six,
@@ -62,14 +30,42 @@ yet, and upgrade when it is.
 - Trait keys for what the new shapes read: `capsule.squat`, `poly.round`
   (triangle and hexagon) and `droplet.tip`. `body.rot` is now read on the
   polygons as well as on a boxy body.
+- A trait override can be a **list**: `{ shape: [0.11, 0.825, 0.965] }` means
+  "round, cloud or sun — whichever this name comes out as". A number narrows a
+  key to one outcome and an omitted key leaves it at all of them; a list narrows
+  it to what it names and leaves the seed to choose, which is the case a single
+  position could not state. The choice rides on that key's own hash, so it is
+  per seed, stable, uniform over the list, and independent of every other trait.
+  An empty list is the same as omitting the key.
+- `thinking` — a fourteenth expression, and the first whose message is a
+  *duration* rather than a shape. It holds two eyes at different heights and,
+  with `blobatar/motion.css` loaded, seesaws them on a 900ms cycle: the two-dot
+  loader, drawn with the two dots a blobatar already has. Set it while you fetch,
+  clear it when you are done.
+- Two pose channels behind it, both identity on every existing pose: `edy2`, a
+  vertical offset on the right eye, and `rock`, a seesaw amplitude built the way
+  `shake` is — an amplitude on a loop that always runs, since an expression is
+  held and cannot fire.
 
 ### Changed
 
 - `Shape` is the union of the ten silhouette names, and `layout` returns it —
   narrow enough that a typo in a bulk filter is a type error.
+- `TraitOverrides` widens from `Record<string, number>` to
+  `Record<string, number | number[]>`. It accepts every map that was valid
+  before; the only callers a widened value type can break are ones reading
+  values back out of a map they were handed.
 - Core bundle 3.7 KB → 4.4 KB gzipped, measured as `blob only` in
   `scripts/size.ts`. That is what the four silhouettes and the composition seam
-  cost; the React and URI entries move by the same amount.
+  cost; the React and URI entries move by the same amount. Trait lists are +19 B
+  of it, and both are inside the budget the file states.
+- `motion.css` is ~95 B gz larger, and that lands on every app that imports it
+  whether or not it renders a loading face. It buys a channel rather than a
+  pose: a future expression that wants a duration is numbers, not stylesheet.
+  See §10 of [the expression spec](./docs/expression-spec.md).
+- On touch devices the eye loops of a blobatar *wearing an expression* are no
+  longer paused. Idle grids are unaffected — that pause is why they are cheap —
+  but a loading face that freezes on every phone is the feature not working.
 - **The endpoint's unversioned URLs move too.** `blobatar.dev/avatar/<name>`
   follows the current major and now serves gen2. Pin `?gen=1` before upgrading
   on any URL that must keep its old shapes — a pinned generation is never
@@ -89,6 +85,17 @@ yet, and upgrade when it is.
   also how wide its base is and how sharp its point comes out: three knobs that
   could disagree became one that cannot. Only reachable through `traits`
   overrides, and only on a droplet.
+
+### Compatibility
+
+Read the headline first: this is a generation change and seeds move. What
+follows is about the rest of the release, none of which moves one further.
+
+- Trait lists, `thinking` and the two pose channels are additive. The channels
+  are at their identity on every existing pose, and the golden fixture gained
+  rows and changed none.
+- `thinking` costs +55 B gz in a bundle that already imports any expression, and
+  the same as `happy` on its own.
 
 ## 1.0.0
 

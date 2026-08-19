@@ -69,6 +69,93 @@ describe("reading", () => {
   });
 });
 
+/**
+ * The third position between a pinned key and an omitted one.
+ *
+ * A number narrows a key to one outcome and an absent key leaves it at all of
+ * them; a list narrows it to what it names and leaves the seed to choose. What
+ * these pin is that the choosing is the *same* choosing — the key's own hash,
+ * spent on an index instead of a value — because that is the whole claim: a
+ * narrowed key keeps every property an open one had.
+ */
+describe("narrowing a key to a list", () => {
+  /** Enough seeds to see a distribution, fixed so the assertions cannot flake. */
+  const SEEDS = Array.from({ length: 600 }, (_, i) => `user${i}`);
+
+  test("a one-element list is the number", () => {
+    // The degenerate case, and the one that says a list is a generalization of
+    // pinning rather than a second mechanism beside it.
+    expect(blobatar(SEED, { traits: { shape: [0.95] } })).toBe(
+      blobatar(SEED, { traits: { shape: 0.95 } }),
+    );
+  });
+
+  test("an empty list is an absent key", () => {
+    // "Nothing selected" and "not configured" are the same request — a picker
+    // with everything deselected must not have to special-case itself.
+    expect(blobatar(SEED, { traits: { shape: [] } })).toBe(blobatar(SEED));
+  });
+
+  test("every seed lands on a listed value, and only on one", () => {
+    const listed = [0.11, 0.825, 0.965];
+    for (const seed of SEEDS) {
+      expect(listed).toContain(traits(seed, true, { shape: listed })("shape"));
+    }
+  });
+
+  test("the seed still chooses, roughly evenly, among what is listed", () => {
+    // The property that makes this worth having over a pin: 600 names come
+    // back as three populations rather than one. Uniform over the *list*, not
+    // over the bands behind it — three silhouettes of very unequal band width
+    // come out in thirds, which is what someone naming three of them means.
+    const listed = [0.11, 0.825, 0.965];
+    const tally = new Map<string, number>();
+    for (const seed of SEEDS) {
+      const { shape } = blobLayout(seed, { traits: { shape: listed } });
+      tally.set(shape, (tally.get(shape) ?? 0) + 1);
+    }
+
+    expect([...tally.keys()].sort()).toEqual(["cloud", "round", "sun"]);
+    for (const n of tally.values()) {
+      expect(n).toBeGreaterThan(SEEDS.length / 5);
+      expect(n).toBeLessThan(SEEDS.length / 2);
+    }
+  });
+
+  test("the choice is stable, and independent of every other key", () => {
+    const listed = [0.11, 0.825, 0.965];
+    const base = traits(SEED, true, { shape: listed })("shape");
+
+    expect(traits(SEED, true, { shape: listed })("shape")).toBe(base);
+    // Pinning a neighbour must not move it: the index comes from this key's own
+    // stream, so the trait namespace stays as append-only as it is for a
+    // hashed value.
+    expect(
+      traits(SEED, true, { shape: listed, hue: 0.5, "eye.gap": 0.9 })("shape"),
+    ).toBe(base);
+  });
+
+  test("a listed value is clamped like a written one", () => {
+    // The clamp runs over the chosen element, not over the list, so a bad
+    // number is caught wherever in the input it was typed.
+    const t = traits(SEED, true, { high: [1, 1], low: [-3, Number.NaN] });
+    expect(t.pick("high", ["x", "y", "z"])).toBe("z");
+    expect(t("high")).toBeLessThan(1);
+    expect(t("low")).toBe(0);
+  });
+
+  test("narrowing one key leaves the rest of the blobatar on the seed", () => {
+    // The sparse guarantee, restated for lists: two names narrowed to the same
+    // pair are still two different creatures.
+    const opts = { traits: { shape: [0.11, 0.965] } };
+    const a = blobLayout("one", opts);
+    const b = blobLayout("two", opts);
+
+    expect(a.body.rx).not.toBe(b.body.rx);
+    expect(a.palette.head).not.toBe(b.palette.head);
+  });
+});
+
 describe("configuring a blobatar", () => {
   test("the same seed and overrides always render the same markup", () => {
     const opts = { traits: { shape: 0.95, "eye.ratio": 0.1 } };

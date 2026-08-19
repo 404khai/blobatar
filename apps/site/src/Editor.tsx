@@ -1,12 +1,22 @@
 import { useMemo, useState } from "react";
 import { Blobatar } from "blobatar/react";
-import { traits as reader } from "blobatar";
+import { traits as reader, type TraitOverrides } from "blobatar";
 import { Control } from "@/components/editor/control";
 import { ShapePicker, TonePicker } from "@/components/editor/pickers";
 import { Segmented, SegmentedItem } from "@/components/ui/segmented";
 import { Snippet } from "@/components/ui/snippet";
 import { Install } from "@/components/ui/install";
-import { AXES, GROUPS, applies, round3, type Axis, type Group, type Shape } from "@/editor/axes";
+import {
+  AXES,
+  GROUPS,
+  applies,
+  candidates,
+  round3,
+  shapePin,
+  type Axis,
+  type Group,
+  type Shape,
+} from "@/editor/axes";
 import { blobLayout, resolved } from "@/editor/resolved";
 import { snippet, type Api, type Motion } from "@/editor/snippet";
 import { NAMES } from "@/names";
@@ -34,7 +44,7 @@ import { cn } from "@/lib/utils";
  */
 export function Editor() {
   const [name, setName] = useState("alain00");
-  const [pinned, setPinned] = useState<Record<string, number>>({});
+  const [pinned, setPinned] = useState<TraitOverrides>({});
   const [api, setApi] = useState<Api>("react");
   const [motion, setMotion] = useState<Motion>("hover");
 
@@ -52,11 +62,29 @@ export function Editor() {
   // silhouette the name produced when `shape` is unpinned, and where the eye
   // cluster ended up when `fit` scaled it.
   const layout = useMemo(() => blobLayout(name || " ", pinned), [name, pinned]);
-  const shape = layout.shape as Shape;
   const ghosts = useMemo(() => resolved(layout, t), [layout, t]);
+
+  /**
+   * The silhouettes the panel has to cover, which is not always the one on
+   * screen: narrowing the silhouette to several means the same config renders a
+   * cloud for one name and a sun for the next, and a decoration control that
+   * appears only for the name you happen to be previewing is a control you
+   * would never find. See `candidates`.
+   */
+  const shapes = useMemo(
+    () => candidates(pinned.shape, layout.shape as Shape),
+    [pinned.shape, layout.shape],
+  );
 
   const pin = (key: string, v: number) =>
     setPinned(p => ({ ...p, [key]: round3(v) }));
+
+  /** The silhouette row, which writes a *set* where every other control writes a number. */
+  const pinShapes = (ats: number[]) =>
+    setPinned(({ shape: _gone, ...rest }) => {
+      const pin = shapePin(ats);
+      return pin === undefined ? rest : { ...rest, shape: pin };
+    });
 
   /** The pickers' `auto` chip, which is always a removal rather than a toggle. */
   const unpin = (key: string) =>
@@ -213,7 +241,15 @@ export function Editor() {
           <p className="text-muted text-xs leading-relaxed">
             {count === 0
               ? "Nothing is pinned, so this blobatar is entirely the name — which is the default, and usually the right one. Pin an axis to fix it for everybody."
-              : `${count} pinned ${count === 1 ? "axis is" : "axes are"} fixed for every name; everything else still comes from the one you pass.`}
+              : `${count} pinned ${count === 1 ? "axis is" : "axes are"} fixed for every name; everything else still comes from the one you pass.${
+                  // The one pinned axis that is not fixed. Worth its own clause
+                  // rather than a footnote: a list in the snippet reads like a
+                  // typo until you know it is the third thing an override can
+                  // be, and this is where somebody looks to find out.
+                  Array.isArray(pinned.shape)
+                    ? ` The silhouette is the exception — it is narrowed to ${pinned.shape.length}, and the name still picks between them.`
+                    : ""
+                }`}
           </p>
 
           <Install command="bun add blobatar" className="mt-2 self-start" />
@@ -252,15 +288,20 @@ export function Editor() {
             <GroupBlock
               key={group}
               group={group}
-              shape={shape}
+              shapes={shapes}
               name={name}
               pinned={pinned}
               hue={t("hue") * 360}
-              value={key => (key in pinned ? pinned[key]! : t(key))}
+              // A narrowed key has no single pinned position, so the slider
+              // reads the one the name resolved to — which is the same answer
+              // an unpinned axis gets, and the right one: it is where the
+              // blobatar on screen actually sits.
+              value={key => (typeof pinned[key] === "number" ? (pinned[key] as number) : t(key))}
               ghost={key => ghosts[key]}
               onChange={pin}
               onPin={toggle}
               onUnpin={unpin}
+              onPickShapes={pinShapes}
             />
           ))}
         </div>
@@ -279,7 +320,7 @@ function Preview({
 }: {
   name: string;
   setName: (v: string) => void;
-  pinned: Record<string, number>;
+  pinned: TraitOverrides;
   motion: Motion;
   setMotion: (m: Motion) => void;
   onShuffle: () => void;
@@ -375,20 +416,22 @@ function Preview({
 
 interface GroupProps {
   group: Group;
-  shape: Shape;
+  /** Every silhouette this config can produce, not just the one on screen. */
+  shapes: Shape[];
   name: string;
-  pinned: Record<string, number>;
+  pinned: TraitOverrides;
   hue: number;
   value: (key: string) => number;
   ghost: (key: string) => number | undefined;
   onChange: (key: string, v: number) => void;
   onPin: (key: string) => void;
   onUnpin: (key: string) => void;
+  onPickShapes: (ats: number[]) => void;
 }
 
 function GroupBlock({
   group,
-  shape,
+  shapes,
   name,
   pinned,
   hue,
@@ -397,10 +440,11 @@ function GroupBlock({
   onChange,
   onPin,
   onUnpin,
+  onPickShapes,
 }: GroupProps) {
   const all = AXES.filter(a => a.group === group);
-  const live = all.filter(a => applies(a, shape));
-  const missing = all.filter(a => !applies(a, shape));
+  const live = all.filter(a => applies(a, shapes));
+  const missing = all.filter(a => !applies(a, shapes));
 
   return (
     <section className="flex flex-col gap-3">
@@ -410,18 +454,34 @@ function GroupBlock({
 
       {live.map(axis =>
         axis.kind === "shape" ? (
-          <ShapePicker
-            key={axis.key}
-            name={name}
-            traits={pinned}
-            value={pinned.shape}
-            onPick={at => (at === null ? onUnpin("shape") : onChange("shape", at))}
-          />
+          <div key={axis.key} className="flex flex-col gap-2">
+            <ShapePicker
+              name={name}
+              traits={pinned}
+              value={pinned.shape}
+              onPick={onPickShapes}
+            />
+            {/*
+              Said only when it applies, because until you pick a second tile
+              there is nothing here a person does not already believe. Once
+              there is, it is the whole feature in one line: the config narrows
+              the silhouette, and the name still chooses inside it.
+            */}
+            {shapes.length > 1 && (
+              <p className="text-muted/60 text-[0.7rem] leading-relaxed lowercase">
+                {shapes.length} selected — each name gets one of them, so the
+                controls below cover all {shapes.length}
+              </p>
+            )}
+          </div>
         ) : axis.kind === "tone" ? (
           <TonePicker
             key={axis.key}
             hue={hue}
-            value={pinned.tone}
+            // Narrowing is a silhouette feature today: the chips are still a
+            // choice, so anything but a number here is not a tone this row can
+            // show as selected. The cast the alternative needs is the tell.
+            value={typeof pinned.tone === "number" ? pinned.tone : undefined}
             onPick={at => (at === null ? onUnpin("tone") : onChange("tone", at))}
           />
         ) : (

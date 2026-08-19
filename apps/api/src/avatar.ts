@@ -1,8 +1,21 @@
-import { blobatar as blobatar2, type BlobatarOptions } from "blobatar/blob";
+import { blobatar as blobatar2 } from "blobatar/blob";
 import { blobatar as blobatar1 } from "blobatar-v1/blob";
-import { BadRequest, parseName, parseOptions, type Generation } from "./params";
+import {
+  BadRequest,
+  parseName,
+  parseOptions,
+  type Generation,
+  type UrlOptions,
+} from "./params";
 
-type Renderer = (name: string, options?: BlobatarOptions) => string;
+/**
+ * What both generations can render.
+ *
+ * Typed over the URL's option surface rather than over either library's, since
+ * the two are separate packages and only have to agree on what this endpoint
+ * passes. See `UrlOptions`.
+ */
+type Renderer = (name: string, options?: UrlOptions) => string;
 
 const RENDERERS: Record<Generation, Renderer> = {
   1: blobatar1,

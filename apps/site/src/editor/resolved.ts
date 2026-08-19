@@ -16,7 +16,7 @@
  * relative to them and frozen within the package major, so a package test pins
  * this readback against the actual layout.
  */
-import { _layout, type Traits } from "blobatar";
+import { _layout, type TraitOverrides, type Traits } from "blobatar";
 
 /**
  * `_layout` returns a union across variants and `shape` discriminates it.
@@ -27,7 +27,7 @@ export type BlobLayout = Extract<ReturnType<typeof _layout>, { shape: unknown }>
 
 export const blobLayout = (
   name: string,
-  traits: Record<string, number>,
+  traits: TraitOverrides,
 ) => _layout(name, { traits }) as BlobLayout;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));

@@ -40,9 +40,26 @@ const GENERATIONS: Record<string, Generation> = {
   2: 2,
 };
 
+/**
+ * The option surface a URL can state.
+ *
+ * Deliberately a subset of `BlobatarOptions` rather than the whole of it, and
+ * the reason is `avatar.ts`: one `Renderer` type has to accept both
+ * generations, and they are two different packages whose option types agree on
+ * everything a URL can spell and are free to diverge on everything it cannot.
+ * `traits` is where that became concrete — gen2 takes a list where gen1 takes
+ * a number — and a query string states neither, so naming the six parameters
+ * this endpoint actually parses is both the honest contract and the one that
+ * keeps a library change from looking like an endpoint break.
+ */
+export type UrlOptions = Pick<
+  BlobatarOptions,
+  "size" | "background" | "hue" | "tone" | "expression" | "title"
+>;
+
 export interface RenderRequest {
   generation: Generation;
-  options: BlobatarOptions;
+  options: UrlOptions;
 }
 
 /**
@@ -51,7 +68,7 @@ export interface RenderRequest {
  * `none` rather than `false` because a query string has no booleans, and
  * `background=false` reads like a mistake in a URL a human is writing by hand.
  */
-const BACKGROUNDS: Record<string, BlobatarOptions["background"]> = {
+const BACKGROUNDS: Record<string, UrlOptions["background"]> = {
   none: false,
   square: "square",
   circle: "circle",
@@ -135,7 +152,7 @@ export function parseOptions(params: URLSearchParams): RenderRequest {
     }
   }
 
-  const opts: BlobatarOptions = {};
+  const opts: UrlOptions = {};
   // `s` first: Gravatar accepts both and documents `s` as the canonical short
   // form, so it wins when a URL somehow carries the pair.
   const size = params.get("s") ?? params.get("size");

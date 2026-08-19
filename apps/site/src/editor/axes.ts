@@ -21,7 +21,7 @@
  */
 export { SHAPES, type Shape, type ShapeOption } from "@/shapes";
 
-import type { Shape } from "@/shapes";
+import { SHAPES, type Shape } from "@/shapes";
 
 /**
  * The tone set, same treatment.
@@ -141,9 +141,80 @@ export const AXES: Axis[] = BASE_AXES.map(a =>
 /** Snippet key order. Panel order, so the two never disagree. */
 export const KEY_ORDER = AXES.map(a => a.key);
 
-/** Whether an axis applies to the silhouette currently on screen. */
-export const applies = (axis: Axis, shape: Shape) =>
-  !axis.when || axis.when.includes(shape);
+/**
+ * Whether an axis applies to any silhouette the config can currently produce.
+ *
+ * A set rather than a shape, because the silhouette axis can be narrowed to
+ * several: "round, cloud or sun" is one config that renders three different
+ * creatures depending on the name. The panel has to cover all of them, so the
+ * rule is the union — an axis shows if any candidate reads it. Anything else
+ * means a decoration control that exists for some of your users and not
+ * others, which is the one thing you cannot see by looking at one preview.
+ */
+export const applies = (axis: Axis, shapes: Shape[]) =>
+  !axis.when || shapes.some(s => axis.when!.includes(s));
+
+/**
+ * The silhouette row's toggle, as a value rather than as an event.
+ *
+ * Rebuilt from the table rather than pushed and spliced, so what comes out is
+ * in row order and not in click order. The snippet emits this list literally —
+ * two people who picked the same three silhouettes should get the same line of
+ * code, and a config that reshuffles itself as you toggle is a diff for
+ * nothing.
+ */
+export const toggleShape = (chosen: number[], at: number): number[] =>
+  SHAPES.filter(s => (s.at === at ? !chosen.includes(at) : chosen.includes(s.at))).map(
+    s => s.at,
+  );
+
+/**
+ * What a selection becomes in the trait map.
+ *
+ * The collapse is the point, and it is why this is here rather than in the
+ * library: one selected has to keep emitting `{ shape: 0.965 }`, the line that
+ * is already in everybody's code and in the README. A list is what appears only
+ * when you have asked for something a number cannot say. Nothing selected is
+ * `auto` — the library reads an empty list as an absent key anyway, but leaving
+ * the key out keeps it out of the snippet too.
+ */
+export const shapePin = (ats: number[]): number | number[] | undefined =>
+  ats.length === 0 ? undefined : ats.length === 1 ? ats[0]! : ats;
+
+/**
+ * Which silhouette a pinned position names.
+ *
+ * A table lookup rather than a band search, and it can miss: the picker only
+ * ever writes midpoints, so a position that is not one came from somewhere
+ * else and there is no honest name for it. `candidates` drops those instead of
+ * guessing, which costs nothing — the panel still has the resolved shape to
+ * fall back on.
+ */
+export const shapeAt = (at: number): Shape | undefined =>
+  SHAPES.find(s => s.at === at)?.name;
+
+/**
+ * The silhouettes the panel has to account for.
+ *
+ * Narrowed to a list, that is the list. Otherwise it is the one on screen —
+ * and that is the answer for an *unpinned* silhouette too, which is worth
+ * saying out loud because "unpinned" also means "any of the ten". Reading it
+ * that way would put every decoration control on the panel at once, which is
+ * the settings dump this file exists to avoid. The distinction that makes it
+ * coherent: the panel covers what you have *constrained* it to, and an
+ * unconstrained silhouette is followed rather than covered.
+ */
+export const candidates = (
+  pin: number | number[] | undefined,
+  resolved: Shape,
+): Shape[] => {
+  const named = Array.isArray(pin) ? (pin.map(shapeAt).filter(Boolean) as Shape[]) : [];
+  // A list that named nothing is treated as no list at all, for the same reason
+  // the library treats an empty one as an absent key: what is on screen is
+  // always a real answer, and a panel with every conditional axis missing is
+  // not.
+  return named.length ? named : [resolved];
+};
 
 /**
  * Three decimals, everywhere a value is pinned.

@@ -19,13 +19,13 @@ const NAME = "alain00";
 const snip = (input: SnippetInput) => snippet(input);
 
 /** The `traits` literal from a generated snippet, evaluated. */
-function pasted(code: string): Record<string, number> {
+function pasted(code: string): Record<string, number | number[]> {
   const body = code.match(/traits[=:]\s*\{\{?([\s\S]*?)\}\}?[,\n]/);
   if (!body) return {};
   // `new Function` on our own generated string, in a test, is the point: it is
   // the closest thing to "paste this into a file" that a test can do, and it
   // fails on anything a bundler would also refuse.
-  return new Function(`return ({${body[1]}})`)() as Record<string, number>;
+  return new Function(`return ({${body[1]}})`)() as Record<string, number | number[]>;
 }
 
 describe("what it emits", () => {
@@ -172,14 +172,58 @@ describe("what it emits", () => {
   });
 });
 
+/**
+ * A narrowed silhouette is the one pinned value that is not a number, and the
+ * snippet is where that has to survive: the page's whole claim is that what you
+ * leave with is an object literal you can paste and hand-edit, and a list only
+ * keeps that claim if it is emitted as a list rather than as a generated call.
+ */
+describe("a narrowed silhouette", () => {
+  const NARROW = { shape: [0.11, 0.825, 0.965] };
+
+  test("comes out as a list, in both library APIs", () => {
+    expect(snip({ api: "react", name: NAME, pinned: NARROW, motion: false })).toContain(
+      "traits={{ shape: [0.11, 0.825, 0.965] }}",
+    );
+    expect(snip({ api: "string", name: NAME, pinned: NARROW, motion: false })).toContain(
+      "shape: [0.11, 0.825, 0.965],",
+    );
+  });
+
+  test("sits beside pinned numbers without disturbing them", () => {
+    const code = snip({
+      api: "react",
+      name: NAME,
+      pinned: { ...NARROW, "eye.gap": 0.8, hue: 0.2 },
+      motion: false,
+    });
+
+    expect(pasted(code)).toEqual({ shape: [0.11, 0.825, 0.965], "eye.gap": 0.8, hue: 0.2 });
+  });
+
+  test("the endpoint drops it, and says so", () => {
+    // A query parameter states one value and "any of these" is not one, so a
+    // narrowed axis is unspellable in a URL for a second reason on top of the
+    // one `shape` already had.
+    const code = snip({ api: "http", name: NAME, pinned: NARROW, motion: false });
+    expect(code).toContain("# no url spelling for shape");
+    expect(code).not.toContain("shape=");
+  });
+});
+
 describe("paste it and you get the blobatar that was on screen", () => {
   /**
    * The acceptance test, mechanically: take the map the preview was rendering,
    * generate the snippet, parse the object literal back out of it, and render
    * *that*. The two markups have to be byte-identical.
    */
-  const cases: Record<string, number>[] = [
+  const cases: Record<string, number | number[]>[] = [
     { shape: 0.965 },
+    // Narrowed rather than pinned: the same name has to land on the same
+    // silhouette either side of the paste, which is the only thing that makes
+    // a list worth emitting rather than resolving away.
+    { shape: [0.11, 0.825, 0.965] },
+    { shape: [0.11, 0.965], "eye.gap": 0.8 },
     { shape: 0.14, "eye.gap": 0.999, "eye.rx": 0.999 },
     { "body.n": 0, "eye.lean": 0.5, hue: 0.123, tone: 0.71 },
     // Every key an axis can write, at a value that is not the default.

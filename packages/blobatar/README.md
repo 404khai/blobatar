@@ -81,7 +81,7 @@ several hundred blobatars on one page cannot produce id collisions.
 | `background` | none        | `"squircle"`, `"circle"`, `"square"`, or `false`.                       |
 | `hue`        | —           | Locks hue in degrees; the name then drives shape only.                 |
 | `tone`       | —           | Locks the swatch as a 0–1 position in the set.                          |
-| `traits`     | —           | Pins individual traits as 0–1 positions. See below.                    |
+| `traits`     | —           | Pins individual traits as 0–1 positions, or a list to choose among. See below. |
 | `palette`    | —           | Per-key hex overrides. Bypasses the contrast guarantee.                 |
 | `normalize`  | `true`      | NFC + trim + lowercase.                                                 |
 | `contrast`   | `true`      | Enforce the contrast floors.                                            |
@@ -103,6 +103,17 @@ blobatar(user.email, { traits: { shape: 0.95, "eye.ratio": 0 } });
 Keys you leave out still come from the name. That is the useful middle ground:
 lock the two things that carry your brand, and every user still gets their own
 creature.
+
+A **list** narrows a key without fixing it — the name still chooses, but only
+from what you named:
+
+```ts
+// Round, cloud or sun, never the other seven. Which one is still per name.
+blobatar(user.email, { traits: { shape: [0.11, 0.825, 0.965] } });
+```
+
+The choice is per name, stable, and spread evenly over the values you list. An
+empty list is the same as leaving the key out.
 
 Pin everything and the name stops mattering, which is how you build one fixed
 blobatar — pass any constant string alongside a full map.

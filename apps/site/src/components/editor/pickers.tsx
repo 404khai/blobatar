@@ -1,6 +1,6 @@
 import { Blobatar } from "blobatar/react";
-import { palette } from "blobatar";
-import { TONES } from "@/editor/axes";
+import { palette, type TraitOverrides } from "blobatar";
+import { TONES, toggleShape } from "@/editor/axes";
 import { SHAPES } from "@/shapes";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,21 @@ import { cn } from "@/lib/utils";
 /** The `auto` option, in both pickers: unpinned, so the name decides. */
 const AUTO = "auto";
 
+/**
+ * The silhouette row, and the one control here that is a *set* rather than a
+ * choice.
+ *
+ * One tile fixes the silhouette; several narrow it and leave the name to choose
+ * among them, which is the thing a single position could not say — see
+ * `TraitOverrides` in the library. So the tiles toggle rather than select, and
+ * `auto` is the empty set instead of an eleventh option beside the ten.
+ *
+ * `auto` is *not* the same as selecting all ten, which is worth knowing before
+ * someone tries it: ten selected is an even spread over the roster, while
+ * `auto` is the library's own bands, and those are deliberately unequal — a
+ * round blobatar is common and a triangle is rare. Both are reasonable things
+ * to want and only one of them is the default.
+ */
 export function ShapePicker({
   name,
   traits,
@@ -28,11 +43,13 @@ export function ShapePicker({
 }: {
   name: string;
   /** Everything else currently pinned, so the row restyles as you tune. */
-  traits: Record<string, number>;
-  value?: number;
-  onPick: (at: number | null) => void;
+  traits: TraitOverrides;
+  value?: number | number[];
+  /** The whole new selection, in table order. Empty means `auto`. */
+  onPick: (ats: number[]) => void;
 }) {
   const { shape: _pinned, ...rest } = traits;
+  const chosen = value === undefined ? [] : Array.isArray(value) ? value : [value];
 
   return (
     <div className="grid grid-cols-4 gap-1" role="group" aria-label="Silhouette">
@@ -40,8 +57,8 @@ export function ShapePicker({
         label={AUTO}
         name={name}
         traits={rest}
-        selected={value === undefined}
-        onClick={() => onPick(null)}
+        selected={chosen.length === 0}
+        onClick={() => onPick([])}
       />
       {SHAPES.map(s => (
         <Tile
@@ -49,8 +66,8 @@ export function ShapePicker({
           label={s.name}
           name={name}
           traits={{ ...rest, shape: s.at }}
-          selected={value === s.at}
-          onClick={() => onPick(s.at)}
+          selected={chosen.includes(s.at)}
+          onClick={() => onPick(toggleShape(chosen, s.at))}
         />
       ))}
     </div>
@@ -75,7 +92,7 @@ function Tile({
 }: {
   label: string;
   name: string;
-  traits: Record<string, number>;
+  traits: TraitOverrides;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -85,10 +102,25 @@ function Tile({
       onClick={onClick}
       aria-pressed={selected}
       className={cn(
-        "flex flex-col items-center gap-1 rounded-xl py-2 transition-colors duration-150",
+        "relative flex flex-col items-center gap-1 rounded-xl py-2 transition-colors duration-150",
         selected ? "bg-line/70" : "hover:bg-line/30",
       )}
     >
+      {/*
+        The one thing the fill alone cannot say: that these are toggles and you
+        may hold more than one. A filled tile beside an unfilled one reads as a
+        radio group — which is what this row was — and someone who reads it that
+        way never discovers the feature, because the interaction that reveals it
+        is the one they are sure will deselect what they already have.
+      */}
+      {selected && (
+        <span
+          aria-hidden="true"
+          className="text-ink/70 absolute top-1 right-1.5 text-[0.6rem] leading-none"
+        >
+          ✓
+        </span>
+      )}
       <Blobatar
         name={name || " "}
         traits={traits}

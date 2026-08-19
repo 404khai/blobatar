@@ -107,6 +107,24 @@ a much more commonly used option than this one.
 disjoint and whose features come through `t.pick` — the reader an unclamped
 override breaks first.
 
+**A value can also be a *list*, and that is the same decision applied twice.**
+`{ shape: [0.11, 0.965] }` narrows a key to what it names and leaves the seed to
+choose among those — the case a single position cannot state, since "any of
+these" is not a position. It stays inside this ADR's frame rather than becoming
+a second mechanism: the list is read in the same units, in the same place, and
+the index comes from the key's own `stream()`, which is the number that would
+otherwise have *been* the value. So a narrowed key keeps every property an open
+one had — per seed, stable, independent of every other trait — and pinning is
+its one-element case, while omitting a key is its all-elements case. Measured at
++19 B gz on the core, inside the budget the first branch bumped.
+
+The alternative considered was leaving it in userland, which already works:
+`traits` is exported, so a caller can spend `t("shape")` on an index themselves.
+Rejected because the result is no longer an object literal — the editor's
+snippet stops being something you can paste and hand-edit, and every consumer
+reimplements the same three lines with their own idea of what an empty list
+means.
+
 **Macro controls belong in the editor, not here.** Nobody wants eight sliders for
 `body.r0`–`body.r7`; they want one "lumpiness" amplitude that writes all eight.
 That mapping is opinionated and will be retuned often, which is exactly why it
