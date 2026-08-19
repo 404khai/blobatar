@@ -1,8 +1,8 @@
 /**
  * The one number the adapters film puts on screen, and the claim under it.
  *
- * The film says two things a viewer cannot check: that `blobatar/vue` and
- * `blobatar/react` render the same blobatar, and that it is a specific number of
+ * The film says two things a viewer cannot check: that `@blobatar/vue` and
+ * `@blobatar/react` render the same blobatar, and that it is a specific number of
  * bytes. Both are measured here, against the real adapters, at exactly the props
  * the film renders — so a change to either adapter, or to the size or name on
  * screen, fails the build instead of shipping a film asserting a number that has
@@ -18,8 +18,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createSSRApp, h } from "vue";
 import { renderToString } from "vue/server-renderer";
-import { Blobatar as ReactBlobatar } from "../../../packages/blobatar/src/react";
-import { Blobatar as VueBlobatar } from "../../../packages/blobatar/src/vue";
+import { Blobatar as ReactBlobatar } from "@blobatar/react";
+import { Blobatar as VueBlobatar } from "@blobatar/vue";
 import { BYTES, NAME, SIZE } from "../src/swap";
 
 const props = { name: NAME, animate: "always" as const, size: SIZE };

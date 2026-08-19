@@ -18,8 +18,12 @@ renders the same blobatar.
 
 ### React
 
+```sh
+bun add blobatar @blobatar/react
+```
+
 ```tsx
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 
 <Blobatar name={user.email} size={48} />;
 ```
@@ -29,9 +33,13 @@ element, so `className`, `alt` and the rest behave as you would expect.
 
 ### Vue
 
+```sh
+bun add blobatar @blobatar/vue
+```
+
 ```html
 <script setup>
-import { Blobatar } from "blobatar/vue";
+import { Blobatar } from "@blobatar/vue";
 </script>
 
 <template>
@@ -91,14 +99,25 @@ Both are opt-in. `animate` idles the blobatar — breathe, bob, blink, glance �
 and expressions are imported as values so you ship only the poses you use:
 
 ```tsx
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import { happy } from "blobatar/expression";
 import "blobatar/motion.css"; // required — nothing animates without it
 
 <Blobatar name={user.email} animate="hover" expression={happy} size={64} />;
 ```
 
-The same props work with `blobatar/vue` — only the component import changes.
+The same props work with `@blobatar/vue` — only the component import changes.
+
+### Coming from `blobatar/react` or `blobatar/vue`
+
+Those subpaths still work and render exactly the same component — the packages
+above re-export them. They are deprecated and go in v3. Move whenever it suits
+you:
+
+```sh
+bunx blobatar-codemod .
+bun add @blobatar/react   # and/or @blobatar/vue
+```
 
 `animate` changes the rendering mode: a static blobatar is a single `<img>`, an
 animated one is inline SVG. Use `"hover"` in a grid and `"always"` for the

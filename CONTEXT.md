@@ -135,8 +135,13 @@ dozen nodes. `animate` selects between them — the two cannot be combined,
 because `:hover` and host-page CSS cannot reach inside an `<img>`.
 
 **Adapter**:
-A framework integration that owns the outer element — `blobatar/react`,
-`blobatar/vue`. Owning the element is the whole of the distinction: an adapter
+A framework integration that owns the outer element, published as its own
+package — `@blobatar/react`, `@blobatar/vue`. The roster is open and every
+entry is a peer of every other. Two of them are *also* reachable as
+`blobatar/react` and `blobatar/vue`, which is a fact about what already shipped
+and not a tier: those subpaths are frozen and deprecated, no third is ever
+added, and in v3 there are none. Owning the element is the whole of the
+distinction: an adapter
 can hand back an `<img>` one moment and an inline `<svg>` the next, so it is
 the only thing that can honor `animate`. The string API returns markup it does
 not own and ignores it.
@@ -146,6 +151,11 @@ and the same options render the same blobatar, and an option a caller leaves
 out reaches the library left out. That is a rule rather than an observation:
 a framework that supplies its own default for an unset prop is an adapter
 inventing an answer the caller never gave.
+An adapter never carries a renderer. It reads `blobatar/internal` and peer-
+depends on the library, so two adapters on one page share one copy of the
+geometry rather than each bundling their own — and an adapter that inlined the
+library would silently stop tracking its version, which is the same failure as
+drift wearing different clothes.
 _Avoid_: wrapper, binding, integration. A _wrapper_ adds behavior on top; an
 adapter only changes the shape of what passes through. _Binding_ suggests
 something generated rather than written.
@@ -207,8 +217,21 @@ consumer and is not gated at all. A blobatar can be sad and still breathing.
 ### The repo
 
 **Package**:
-A workspace member under `packages/` — publishable. Currently just
-`blobatar` itself.
+A workspace member under `packages/` — publishable. `blobatar` is the renderer
+and carries no framework; each adapter is its own package beside it. Two
+members are publishable-shaped but are not: `harness` is private, and
+`codemod` is unscoped on purpose so the lockstep group cannot drag it along.
+
+**Lockstep**:
+That `blobatar` and every `@blobatar/*` package publish the same version,
+always. It is what keeps a major meaning one thing across a set of packages
+rather than one thing per package — an adapter re-expresses the library and
+adds nothing, so it has no semantics of its own to version, and its number is
+the library's number. Enforced twice, because neither half is sufficient:
+`fixed` keeps *published* versions in step, and an exact-major peer range
+refuses the *install* that npm would otherwise resolve happily.
+_Avoid_: synced, pinned. _Pinned_ is what the peer range does, which is the
+other half.
 
 **App**:
 A workspace member under `apps/` — never published, and always consumes

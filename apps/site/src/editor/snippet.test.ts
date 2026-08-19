@@ -95,7 +95,7 @@ describe("what it emits", () => {
     const string = snip({ api: "string", name: NAME, pinned: {}, motion: false });
 
     expect(react).toContain(`name="${NAME}"`);
-    expect(react).toContain(`from "blobatar/react"`);
+    expect(react).toContain(`from "@blobatar/react"`);
     expect(string).toContain(`blobatar("${NAME}")`);
     expect(string).toContain(`from "blobatar"`);
   });
@@ -116,10 +116,10 @@ describe("what it emits", () => {
 
   test("the string API drops `animate` out loud rather than silently", () => {
     // `blobatar()` returns static markup whatever it is passed — animation is a
-    // `blobatar/react` option. Emitting it would be a snippet that lies.
+    // `@blobatar/react` option. Emitting it would be a snippet that lies.
     const code = snip({ api: "string", name: NAME, pinned: {}, motion: "always" });
     expect(code).not.toContain("animate:");
-    expect(code).toContain("// animate is a blobatar/react option");
+    expect(code).toContain("// animate is a @blobatar/react option");
   });
 
   test("the endpoint spelling is a url, with the generation pinned", () => {

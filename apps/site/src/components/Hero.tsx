@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import type { BlobatarOptions } from "blobatar";
 import {
   happy,
@@ -145,7 +145,7 @@ function snippet(
 ) {
   const posed = pose.value !== idle;
 
-  const imports = [`import { Blobatar } from "blobatar/react";`];
+  const imports = [`import { Blobatar } from "@blobatar/react";`];
   if (posed) imports.push(`import { ${pose.name} } from "blobatar/expression";`);
   imports.push(`import "blobatar/motion.css";`);
 

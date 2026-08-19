@@ -3,12 +3,12 @@
  *
  * The tweet makes one claim — *the Vue adapter is the React adapter* — and the
  * film has one moving part to match. A single import specifier is edited from
- * `blobatar/react` to `blobatar/vue`, and the blobatar above it does not change,
+ * `@blobatar/react` to `@blobatar/vue`, and the blobatar above it does not change,
  * because it cannot: the two adapters resolve to the same markup.
  *
  * What makes this a film rather than an assertion is that the creature is not a
  * picture of the claim, it *is* the claim. Remotion is React, so the cheap cut
- * renders `blobatar/react` throughout and merely writes the other name in the
+ * renders `@blobatar/react` throughout and merely writes the other name in the
  * code pane — parity asserted by a film demonstrating one adapter twice. This
  * one mounts a real Vue app (see `VueMount.tsx`) and hands the frame to it the
  * instant the specifier commits. Both are on screen the whole time, stacked and

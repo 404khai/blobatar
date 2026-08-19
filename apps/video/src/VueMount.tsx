@@ -2,11 +2,11 @@
  * A real Vue app, mounted inside a Remotion frame.
  *
  * This exists so the adapters film can be honest. Remotion is React, so the
- * cheap version of this film renders every frame with `blobatar/react` and
- * merely *writes* `blobatar/vue` in the code pane — a film that asserts parity
+ * cheap version of this film renders every frame with `@blobatar/react` and
+ * merely *writes* `@blobatar/vue` in the code pane — a film that asserts parity
  * while quietly demonstrating one adapter twice. The whole point is the other
  * thing: when the code says Vue, the creature on screen was rendered by
- * `blobatar/vue`, through Vue's own runtime, in that frame.
+ * `@blobatar/vue`, through Vue's own runtime, in that frame.
  *
  * It works because nothing about the motion layer is framework-shaped. The
  * idle loops are CSS on classes the adapter emits, and `seek.css` seeks them

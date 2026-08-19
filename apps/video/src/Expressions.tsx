@@ -1,5 +1,5 @@
 import type { CSSProperties, FC } from "react";
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import { idle, type Expression } from "blobatar/expression";
 import { Easing, interpolate, useCurrentFrame } from "remotion";
 import { MONO, SANS } from "./fonts";

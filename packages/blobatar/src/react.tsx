@@ -1,3 +1,26 @@
+/**
+ * **Deprecated — moved to `@blobatar/react`.**
+ *
+ * This entry point still works and still renders exactly what it always did.
+ * It is frozen, not maintained in parallel: `@blobatar/react` re-exports this
+ * component, so the two are the same object and cannot drift.
+ *
+ * ```sh
+ * bunx blobatar-codemod .
+ * bun add @blobatar/react
+ * ```
+ *
+ * Removed in v3. Nothing else about the component changes when you move — same
+ * props, same output, only the specifier.
+ *
+ * The reason it is still here rather than deleted: removing it is breaking, and
+ * a break costs a major, and a major is how a consumer opts into their users'
+ * faces changing (ADR-0008). Spending one on a repackaging would force every
+ * consumer to take a new generation to get a new import path. So the two travel
+ * separately, and this subpath waits for the major that was going to happen
+ * anyway.
+ */
+
 import { useMemo, type ImgHTMLAttributes, type SVGProps } from "react";
 import type { Animate } from "./animate";
 import { _parts, type BlobatarOptions } from "./blobatar";

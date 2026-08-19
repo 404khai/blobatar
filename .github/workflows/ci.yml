@@ -39,6 +39,14 @@ jobs:
       - name: Tests
         run: bunx turbo run test --filter=blobatar
 
+      # The cross-adapter equivalence check lives in its own private package
+      # because no single adapter can own it. It imports each adapter by
+      # package name, so this builds them and resolves through their real
+      # `exports` maps — the run that caught `@blobatar/react` shipping
+      # `export{a as Blobatar}` with no `a`.
+      - name: Adapter drift harness
+        run: bunx turbo run test --filter=@blobatar/harness
+
       - name: Size budgets
         run: bunx turbo run size --filter=blobatar
 
@@ -52,23 +60,29 @@ jobs:
           firefox --version
 
       - name: Composition gate
-        run: bunx turbo run probe --filter=blobatar
+        run: bunx turbo run probe --filter=@blobatar/harness
 
       - name: Build
-        run: bunx turbo run build --filter=blobatar
+        run: bunx turbo run build
 
       # Links the built package under Node, through its own `exports` map. This
       # is the step that catches a dist that is broken for everyone outside Bun.
       - name: Smoke the built package
         run: bunx turbo run smoke --filter=blobatar
 
+      # Every publishable package, not just core — a broken `files` or
+      # `exports` in an adapter should fail here rather than at publish.
       - name: Pack
-        run: npm pack --workspace blobatar --pack-destination /tmp
+        run: |
+          npm pack --workspace blobatar --pack-destination /tmp
+          npm pack --workspace @blobatar/react --pack-destination /tmp
+          npm pack --workspace @blobatar/vue --pack-destination /tmp
+          npm pack --workspace blobatar-codemod --pack-destination /tmp
 
       - uses: actions/upload-artifact@v4
         with:
           name: tarball
-          path: /tmp/blobatar-*.tgz
+          path: /tmp/*blobatar*.tgz
           retention-days: 7
 
   apps:

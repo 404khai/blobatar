@@ -28,7 +28,7 @@
  */
 
 import type { FC } from "react";
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import { thinking } from "blobatar/expression";
 import { interpolate, spring, useCurrentFrame } from "remotion";
 import { CROWD } from "./names";

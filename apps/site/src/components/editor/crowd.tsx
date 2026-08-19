@@ -1,4 +1,4 @@
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import { type TraitOverrides } from "blobatar";
 import { NAMES } from "@/names";
 import { cn } from "@/lib/utils";

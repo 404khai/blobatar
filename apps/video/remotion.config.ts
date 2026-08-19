@@ -15,7 +15,7 @@ Config.setChromiumOpenGlRenderer("angle");
  * types, and this is what the bundler resolves at render time. Both lists have
  * to say the same thing.
  *
- * `$` on each key is exact-match: without it `blobatar/react` would resolve
+ * `$` on each key is exact-match: without it `@blobatar/react` would resolve
  * through the `blobatar` alias and land on a directory that does not exist.
  */
 Config.overrideWebpackConfig((current) => ({
@@ -28,8 +28,8 @@ Config.overrideWebpackConfig((current) => ({
       "blobatar/blob$": src("blob.ts"),
       "blobatar/uri$": src("uri.ts"),
       "blobatar/expression$": src("expression.ts"),
-      "blobatar/react$": src("react.tsx"),
-      "blobatar/vue$": src("vue.ts"),
+      "@blobatar/react$": src("react.tsx"),
+      "@blobatar/vue$": src("vue.ts"),
       "blobatar/animate$": src("animate.ts"),
       "blobatar/motion.css$": src("motion.css"),
     },

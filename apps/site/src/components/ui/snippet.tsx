@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
  * the endpoint snippet renders as one long italic muted string.
  *
  * The property-name branch has to come *before* the general string one for the
- * same reason in miniature: `"eye.gap"` is a key and `"blobatar/react"` is a
+ * same reason in miniature: `"eye.gap"` is a key and `"@blobatar/react"` is a
  * string, and the only thing that separates them is the colon after. A single
  * string branch first would swallow both and there would be no second chance.
  */

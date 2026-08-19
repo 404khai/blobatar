@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import { traits as reader, type TraitOverrides } from "blobatar";
 import { Control } from "@/components/editor/control";
 import { ShapePicker, TonePicker } from "@/components/editor/pickers";

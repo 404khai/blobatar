@@ -1,6 +1,6 @@
 import type { FC } from "react";
-import { Blobatar as ReactBlobatar } from "blobatar/react";
-import { Blobatar as VueBlobatar } from "blobatar/vue";
+import { Blobatar as ReactBlobatar } from "@blobatar/react";
+import { Blobatar as VueBlobatar } from "@blobatar/vue";
 import { Easing, interpolate, useCurrentFrame } from "remotion";
 import { MONO, SANS } from "./fonts";
 import { VueMount } from "./VueMount";
@@ -160,7 +160,7 @@ const Card: FC<{ frame: number }> = ({ frame }) => {
           color: TEXT,
         }}
       >
-        blobatar/vue
+        @blobatar/vue
       </div>
       <div style={{ fontFamily: MONO, fontSize: 25, color: MUTED }}>npm i blobatar</div>
     </div>
