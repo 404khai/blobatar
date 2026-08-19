@@ -306,14 +306,21 @@ export const NOTES: readonly Note[] = (() => {
 export function render(url: string): string | null {
   if (!url.startsWith(`${HOST}/`)) return null;
   const u = new URL(`https://${url}`);
-  return blobatar(parseName(u.pathname, PREFIX), parseOptions(u.searchParams));
+  // `parseOptions` returns the endpoint's whole request — `{ generation,
+  // options }` — not a `BlobatarOptions`. Passing the wrapper straight to
+  // `blobatar` type-checks against an all-optional options bag and silently
+  // renders defaults, so every URL in the film draws the same blobatar and
+  // every beat claiming a parameter does something is a beat where nothing
+  // happens. The film renders whatever generation this package major is, which
+  // is why only `options` is taken here.
+  return blobatar(parseName(u.pathname, PREFIX), parseOptions(u.searchParams).options);
 }
 
 /** The size the URL asks for, or `null` when it leaves it to CSS. */
 export function sizeOf(url: string): number | null {
   if (!url.startsWith(`${HOST}/`)) return null;
   const u = new URL(`https://${url}`);
-  return parseOptions(u.searchParams).size ?? null;
+  return parseOptions(u.searchParams).options.size ?? null;
 }
 
 /** What CSS sizes an SVG to when the URL does not. The film's stylesheet. */
