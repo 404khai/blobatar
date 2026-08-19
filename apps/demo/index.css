@@ -213,3 +213,80 @@ textarea {
 .grid[data-animate] .cell:hover {
   transform: none;
 }
+
+/**
+ * The candidate ballot — one seed, three loops, side by side and labelled.
+ *
+ * Adjacency is doing the same job it does in paired mode, for a different
+ * question: three loops seen one page at a time are judged against memory, which
+ * is a much easier test than the one that decides this. What is being compared
+ * is how each one reads *while the others are also running*, so they share a
+ * cell and share a seed, and every difference on screen is the loop.
+ *
+ * Cells are far larger than the tuning grid's, because the tuning grid is
+ * looking for outliers across hundreds of blobatars and this is looking at three
+ * animations. Five seeds is enough; five hundred would only make each one too
+ * small to watch.
+ */
+.cell.trio,
+.big.trio {
+  aspect-ratio: 3;
+  display: flex;
+  gap: 1px;
+  background: #ffffff14;
+}
+
+.cell.trio > span,
+.big.trio > span {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.cell.trio svg,
+.big.trio svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+/**
+ * The label sits *over* the blobatar rather than under it, so the three cells
+ * stay square and the row keeps its rhythm. Low contrast on purpose — it has to
+ * be readable when you go looking for it and invisible when you are watching the
+ * motion, which is the whole of the time.
+ */
+.cell.trio em,
+.big.trio em {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  text-align: center;
+  font: 10px/1 ui-monospace, monospace;
+  font-style: normal;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+/* Three squares plus the gaps, and the card widened to hold them beside the
+   meta column it shares with every other focus view. */
+.big.trio {
+  width: 540px;
+}
+
+.card:has(.big.trio) {
+  max-width: 900px;
+}
+
+.big.trio em {
+  font-size: 12px;
+  bottom: 8px;
+}
+
+/* The ballot's cells are already large; the grid's hover-scale would only push
+   the neighbours it is being compared against off the edge. */
+.cell.trio:hover {
+  transform: none;
+}

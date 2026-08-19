@@ -24,6 +24,7 @@ import {
   type Expression,
 } from "blobatar/expression";
 import { Blobatar } from "blobatar/react";
+import { CANDIDATES } from "./candidates";
 
 /**
  * The tuning harness.
@@ -50,6 +51,19 @@ const SHAPES = [
  * The package major's silhouette for a seed, without paying for a palette.
  */
 const silhouetteOf = (seed: string) => layout(traits(seed)).shape;
+
+/**
+ * The candidate ballot, as a grid mode.
+ *
+ * It is a *third* rendering mode rather than a fourth entry in `PAIRS` because
+ * the two modes answer opposite questions. A pair asks whether two poses are
+ * confusable, so it renders through the string API deliberately — idle motion
+ * running underneath is noise on exactly that comparison. The ballot asks which
+ * of three *loops* reads best, so it does the reverse: it forces the animated
+ * adapter on regardless of the `animate` control, because a still frame of these
+ * three would only collect votes on eye position.
+ */
+const TRIO = "thinking: A|B|C";
 
 /**
  * The `a|b` entries are not expressions — they are the comparisons the roster
@@ -80,6 +94,7 @@ const EXPRESSIONS: Record<string, Expression | null> = {
   "surprised|scared": null,
   "shy|sick": null,
   "sleepy|thinking": null,
+  [TRIO]: null,
 };
 const PAIRS: Record<string, Expression[]> = {
   "sad|mad": [sad, mad],
@@ -113,11 +128,15 @@ export function App() {
   );
 
   const pair = PAIRS[expr];
+  const trio = expr === TRIO ? CANDIDATES : null;
 
   // Paired cells are twice as wide, so half as many fit a row. Keeping the
   // count tied to the columns means a page is still a full screen either way.
-  const cols = pair ? COLS / 2 : COLS;
-  const count = cols * ROWS;
+  // The ballot is wider still, and deliberately much coarser: five seeds is
+  // plenty when the question is about a loop rather than about a numeric range,
+  // and the cells have to be large enough to actually watch.
+  const cols = trio ? 4 : pair ? COLS / 2 : COLS;
+  const count = trio ? cols * 2 : cols * ROWS;
 
   // Filtering by shape means scanning forward past the seeds that do not match,
   // so a rare silhouette still fills a whole page.
@@ -227,7 +246,12 @@ export function App() {
               type="checkbox"
               checked={slow}
               onChange={(e) => setSlow(e.target.checked)}
-              disabled={!animate}
+              // The ballot animates whatever the `animate` control says, so the
+              // one control that matters most for judging it must not be greyed
+              // out along with that one. Timing is most of what is being voted
+              // on, and 5× is where a 91ms saccade becomes something an eye can
+              // actually inspect.
+              disabled={!animate && !trio}
             />
             5× slower
           </label>
@@ -256,7 +280,31 @@ export function App() {
         style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
       >
         {seeds.map((seed) =>
-          pair ? (
+          trio ? (
+            // Always `animate="always"`, whatever the `animate` control says.
+            // Two of these three exist only as motion — a still `look away` is
+            // just eyes off to one side, and a still `orbit` is eyes riding
+            // high — so a frozen ballot would collect votes on the one thing
+            // none of the candidates is about.
+            <button
+              key={seed}
+              className="cell trio"
+              title={seed}
+              onClick={() => setFocus(seed)}
+            >
+              {trio.map(([label, e]) => (
+                <span key={label}>
+                  <Blobatar
+                    name={seed}
+                    animate="always"
+                    {...opts}
+                    expression={e}
+                  />
+                  <em>{label}</em>
+                </span>
+              ))}
+            </button>
+          ) : pair ? (
             // Both halves are the same seed, so every difference on screen is the
             // expression and nothing else. Rendered through the string API even
             // when animating: this mode is for judging the two *poses* against
@@ -309,7 +357,21 @@ export function App() {
               look at sits perfectly still — and the whole point of opening it
               is to watch the motion at a size where it is legible.
             */}
-            {pair ? (
+            {trio ? (
+              <div className="big trio">
+                {trio.map(([label, e]) => (
+                  <span key={label}>
+                    <Blobatar
+                      name={focus}
+                      animate="always"
+                      {...opts}
+                      expression={e}
+                    />
+                    <em>{label}</em>
+                  </span>
+                ))}
+              </div>
+            ) : pair ? (
               <div className="big pair">
                 {pair.map((e, i) => (
                   <span
