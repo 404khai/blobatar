@@ -8,6 +8,20 @@
  * Budgets are per entry point. The core budget is the one that matters: it is
  * what stops a convenience import from quietly pulling in the React adapter, or
  * a palette tweak from doubling the color code.
+ *
+ * This is the **source gate**, and the name is load-bearing. Every consumer
+ * below imports `../../src/*` and none of them ever touches `dist` or resolves
+ * an `exports` map, so what is measured here is what the source tree-shakes to —
+ * not what the published package costs. The two are not the same number: core's
+ * publish build minifies better than a synthetic consumer of its source does,
+ * and `react` below reads 5336 against 5204 for the same component reached
+ * through `dist`.
+ *
+ * What ships is the **ship gate**, `packages/harness/scripts/size.ts`, which
+ * resolves each package by name. It lives there rather than here because
+ * measuring `@blobatar/react` means depending on it, and core cannot — the
+ * adapter peer-depends on core, so the devDependency back would make turbo's
+ * `^build` graph cyclic.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";

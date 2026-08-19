@@ -270,3 +270,19 @@ _Avoid_: gallery, facepile, grid.
 The landing page's parallax field of blobatars illustrating "millions of
 options". Distinct from the tuning grid, which serves design work, not
 persuasion.
+
+**Source gate** / **Ship gate**:
+The two size budgets, which measure deliberately different things and are worth
+keeping apart by name. The **source gate**
+(`packages/blobatar/scripts/size.ts`) builds consumers that import
+`../../src/*`, so it answers "what does this code tree-shake to" — it is the
+one that catches a palette tweak doubling the colour code, and it depends on no
+build. The **ship gate** (`packages/harness/scripts/size.ts`) resolves every
+package by name through its built `exports` map, so it answers "what does
+`bun add @blobatar/react` cost" and cannot run before those packages are built.
+A component measured by both comes out at two different numbers — core's publish
+build minifies better than a synthetic consumer of its source does — and neither
+is wrong. It lives in the harness because core cannot depend on an adapter
+without making `^build` cyclic.
+_Avoid_: calling either one "the size gate"; the ambiguity is the whole reason
+they have names.

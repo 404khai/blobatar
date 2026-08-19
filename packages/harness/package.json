@@ -7,7 +7,9 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "bun run typecheck && bun test"
+    "//size": "The second size instrument. Core's measures its own source; this one measures every package's `dist` resolved by name, which is the only place a packaging regression — core stopping being external, a second copy of the renderer — can show up. It lives here because core cannot depend on an adapter without making `^build` cyclic.",
+    "size": "bun scripts/size.ts",
+    "check": "bun run typecheck && bun test && bun run size"
   },
   "devDependencies": {
     "@blobatar/react": "workspace:*",
