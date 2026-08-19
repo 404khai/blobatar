@@ -138,12 +138,18 @@ const ENTRIES: {
     //
     // It still lands ~170 B over React: the runtime props table (12 declared
     // props — React's are type-level only), the string-style merge for
-    // templates that pass `style="…"`, and the `animate` boolean shorthand
-    // normalization. All three are Vue surface, not motion; none of them would
-    // shrink if the animation layer got smaller. `vue` is external, like
-    // `react`. Measured 5493 against react 5326 on the v2 core.
+    // templates that pass `style="…"`, and the `default: undefined` on every
+    // prop that keeps Vue from inventing values the caller never passed. All
+    // three are Vue surface, not motion; none of them would shrink if the
+    // animation layer got smaller. `vue` is external, like `react`.
+    // Measured 5506 against react 5336 on the v2 core.
+    //
+    // The only budget here carrying real slack rather than the ~35 B tripwire
+    // the others use. The adapter is the newest surface and the one most
+    // likely to need a correction, and a gate that fails on a 20 B bug fix
+    // teaches people to raise the number without reading it.
     name: "vue",
-    budget: 5550,
+    budget: 5650,
     external: ["vue"],
     source: `import { Blobatar } from "../../src/vue";
              globalThis.x = Blobatar;`,
