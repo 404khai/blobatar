@@ -44,6 +44,26 @@ export const Blobatar = defineComponent({
   // default automatic inheritance can only target one fixed element, so it is
   // off. The two branches handle their own merge.
   inheritAttrs: false,
+  /**
+   * One rule across the whole table: **a prop the caller omitted must arrive
+   * as `undefined`**, so the core owns every default and the adapter states
+   * none of them. Two of Vue's prop conveniences work against that, and both
+   * are disarmed by declaring `default: undefined`:
+   *
+   * - A prop whose type list contains `Boolean` is cast to `false` when the
+   *   caller omits it. That is right for a template flag and wrong for an
+   *   option: `background` reaches the renderer as `opts.background ??
+   *   style.background`, so an injected `false` reads as "transparent" rather
+   *   than "unset" and the caller loses any way to ask for the style's own
+   *   backdrop.
+   * - Restating a core default here (`default: true`) puts it in two places
+   *   that can drift apart, and drift between the adapters is the one thing
+   *   `test/adapters.test.ts` exists to prevent.
+   *
+   * Declaring `default: undefined` is not the same as omitting `default`:
+   * Vue checks for the key's presence, not its value, and the cast is skipped
+   * on that check.
+   */
   props: {
     /** Who the blobatar is for. A username, a display name, an email — any
      *  string, and the same string always renders the same blobatar. */
@@ -53,6 +73,7 @@ export const Blobatar = defineComponent({
     /** Overrides the default backdrop. `false` renders transparent. */
     background: {
       type: [Boolean, String] as PropType<BlobatarOptions["background"]>,
+      default: undefined,
     },
     /** Overrides specific palette entries. */
     palette: { type: Object as PropType<Palette> },
@@ -63,9 +84,9 @@ export const Blobatar = defineComponent({
     /** Pins individual traits, so the name drives only what you leave out. */
     traits: { type: Object as PropType<TraitOverrides> },
     /** Applies NFC + trim + lowercase to the name. Default true. */
-    normalize: { type: Boolean, default: true },
+    normalize: { type: Boolean, default: undefined },
     /** Enforces the minimum contrast ratios. Default true. */
-    contrast: { type: Boolean, default: true },
+    contrast: { type: Boolean, default: undefined },
     /** Adds a `<title>` for screen readers. */
     title: { type: String },
     /**
@@ -74,11 +95,16 @@ export const Blobatar = defineComponent({
      * Requires `import "blobatar/motion.css"`, and switches the rendering mode
      * to inline SVG — the same contract as `blobatar/react`.
      *
-     * Boolean is accepted alongside the two modes for template shorthand
-     * (`<Blobatar animate />`), which Vue coerces to `true`; it means the same
-     * as `"hover"`.
+     * `Boolean` is in the type list so a template may write `:animate="true"`
+     * as shorthand for `"hover"`. Note that the valueless form
+     * (`<Blobatar animate />`) is *not* the same thing: Vue only casts a bare
+     * attribute to `true` when `Boolean` comes first in the type list, and
+     * here `String` does, so it arrives as `""` and reads as off.
      */
-    animate: { type: [String, Boolean] as PropType<Animate | false> },
+    animate: {
+      type: [String, Boolean] as PropType<Animate | false>,
+      default: undefined,
+    },
     /** Which pose the blobatar holds. Import one from `blobatar/expression`. */
     expression: { type: Object as PropType<Expression> },
   },
@@ -145,7 +171,6 @@ export const Blobatar = defineComponent({
         return h(
           "svg",
           {
-            ...svgAttrs,
             xmlns: "http://www.w3.org/2000/svg",
             viewBox: "0 0 100 100",
             ...(o.size !== undefined ? { width: o.size, height: o.size } : {}),
@@ -157,6 +182,14 @@ export const Blobatar = defineComponent({
             role: o.title ? "img" : undefined,
             "aria-hidden": o.title ? undefined : true,
             style,
+            // Attrs land last, so the caller wins — the same precedence as
+            // `{...svgRest}` in the React adapter, and the same as the `<img>`
+            // branch below. Spread first, they would instead be overwritten by
+            // the values derived from props: a caller-supplied `role` would be
+            // dropped outright rather than overriding the derived one, and the
+            // two rendering modes would disagree about who wins. `style` is
+            // already destructured out above and merged by hand.
+            ...svgAttrs,
           },
           [
             /*
