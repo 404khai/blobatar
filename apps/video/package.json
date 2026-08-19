@@ -7,9 +7,11 @@
     "render": "remotion render src/index.ts Launch out/launch.mp4",
     "render:expressions": "remotion render src/index.ts Expressions out/expressions.mp4",
     "render:endpoint": "remotion render src/index.ts Endpoint out/endpoint.mp4",
+    "render:triangles": "remotion render src/index.ts Triangles out/triangles.mp4",
+    "render:adapters": "remotion render src/index.ts Adapters out/adapters.mp4",
     "render:square": "remotion render src/index.ts LaunchSquare out/launch-square.mp4",
     "still": "remotion still src/index.ts Launch",
-    "check": "bun scripts/check-crowd.ts && bun scripts/check-endpoint.ts"
+    "check": "bun scripts/check-crowd.ts && bun scripts/check-endpoint.ts && bun scripts/check-triangles.ts && bun scripts/check-adapters.ts"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.512",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@types/react": "^19",
-    "@types/react-dom": "^19"
+    "@types/react-dom": "^19",
+    "vue": "^3.5.0"
   }
 }

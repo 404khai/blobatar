@@ -6,6 +6,9 @@ import { Launch } from "./Launch";
 import { END, FPS, HEIGHT, WIDTH } from "./timeline";
 import { END as REEL_END } from "./reel";
 import { END as EP_END } from "./url";
+import { Triangles, END as TRI_END } from "./Triangles";
+import { Adapters } from "./Adapters";
+import { END as SWAP_END } from "./swap";
 
 export const RemotionRoot: FC = () => (
   <>
@@ -35,6 +38,32 @@ export const RemotionRoot: FC = () => (
       id="Endpoint"
       component={Endpoint}
       durationInFrames={EP_END}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+    {/*
+      The triangles cut. One shape, one pose, one move — and the only
+      composition here that is light, because it is texture rather than an
+      announcement and half the tone set vanishes on ink.
+    */}
+    <Composition
+      id="Triangles"
+      component={Triangles}
+      durationInFrames={TRI_END}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+    {/*
+      The adapters announce. One import specifier is edited and the creature
+      above it does not change — because the frame hands over to a real Vue app
+      on the commit, and the two adapters render the same bytes.
+    */}
+    <Composition
+      id="Adapters"
+      component={Adapters}
+      durationInFrames={SWAP_END}
       fps={FPS}
       width={WIDTH}
       height={HEIGHT}

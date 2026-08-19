@@ -15,6 +15,7 @@
       "blobatar/uri": ["../../packages/blobatar/src/uri.ts"],
       "blobatar/expression": ["../../packages/blobatar/src/expression.ts"],
       "blobatar/react": ["../../packages/blobatar/src/react.tsx"],
+      "blobatar/vue": ["../../packages/blobatar/src/vue.ts"],
       "blobatar/animate": ["../../packages/blobatar/src/animate.ts"],
       "blobatar/motion.css": ["../../packages/blobatar/src/motion.css"]
     }

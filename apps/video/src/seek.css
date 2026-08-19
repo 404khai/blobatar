@@ -33,6 +33,7 @@
 .mo-breathe,
 .mo-bob,
 .mo-eyes,
+.mo-eye,
 .mo-eye > * {
   animation-play-state: paused !important;
 }
@@ -58,6 +59,26 @@
   animation-delay: calc(
     var(--mo-saccade-phase, 0ms) * var(--mo-rate, 1) - var(--vid-t, 0ms)
   ) !important;
+}
+
+/*
+ * The seesaw — the `thinking` pose's own loop, and the only one here with no
+ * seeded phase to carry.
+ *
+ * `motion.css` runs `mo-rock` in unison on purpose: a grid of loading
+ * indicators syncopated reads as a fault rather than as a crowd. So the delay
+ * is the film clock and nothing else, where every rule above it also subtracts
+ * a per-name phase.
+ *
+ * It resolves to nothing on every pose but `thinking` — `--mo-ph` discards
+ * `--mo-rockp` at `--mo-rock: 0` — which is why the launch and expressions
+ * films never needed this and why its absence was invisible until a film held
+ * the pose. A missing rule here does not freeze the shot, it *unfreezes* it:
+ * the loop keeps running on wall-clock time under a renderer that has stopped
+ * the clock, so the swing lands wherever the render was slow.
+ */
+.mo-eye {
+  animation-delay: calc(-1 * var(--vid-t, 0ms)) !important;
 }
 
 /*

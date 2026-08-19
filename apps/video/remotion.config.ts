@@ -29,6 +29,7 @@ Config.overrideWebpackConfig((current) => ({
       "blobatar/uri$": src("uri.ts"),
       "blobatar/expression$": src("expression.ts"),
       "blobatar/react$": src("react.tsx"),
+      "blobatar/vue$": src("vue.ts"),
       "blobatar/animate$": src("animate.ts"),
       "blobatar/motion.css$": src("motion.css"),
     },

@@ -6,17 +6,38 @@
  * script produces it. (The workspace apps do not wait on it — they alias
  * `blobatar/*` to `src` through tsconfig paths.)
  *
- * Each entry is bundled standalone. Code splitting is the obvious way to stop
- * `blob` and the barrel carrying private copies of the same renderer, and it
- * is unusable here: on Bun 1.3.14 a pure re-export barrel like `src/index.ts`
- * compiles to `import "./chunk.js"; export { palette, ... }` — names re-exported
- * out of a module that never imported them, which is a SyntaxError the moment
- * Node links it. `scripts/smoke.mjs` is what caught that, and is why it runs on
- * every build.
+ * Each entry is bundled standalone, so `blob`, the barrel and the adapters each
+ * carry a private copy of the renderer. `splitting: true` removes that
+ * duplication and was tried; it is off deliberately, because the duplication is
+ * on disk and the cost of removing it lands in consumer bundles.
  *
- * The cost of standalone entries is paid only by a consumer importing two of
- * them, who gets the shared core twice. That is the rarer case, and a wrong
- * package is not a tradeoff.
+ * Measured by bundling consumers against the published `exports` map, gzipped:
+ *
+ *                        standalone   splitting
+ *   import one entry        4202 B      4213 B   ← the common case, and it loses
+ *   import two entries      5068 B      4310 B
+ *   `dist` at rest        277755 B    153125 B
+ *
+ * Splitting is a 45% cut to `dist` and a 26% cut to the install, but it pays for
+ * that with import statements in every entry, so the consumer who imports one
+ * thing — nearly all of them — ships slightly more. Shipped bytes win over bytes
+ * at rest, so the duplication stays.
+ *
+ * The other reason not to reach for it: on Bun 1.3.14 splitting compiles a
+ * barrel whose body is *nothing but* re-exports into a module re-exporting names
+ * it never imported, and Node throws `SyntaxError: Export 'C' is not defined in
+ * module` on link. `src/index.ts` happens to avoid this because `VERSION` is a
+ * real binding — verified by deleting it, building and linking under Node — so
+ * turning splitting on silently couples this build to that one line.
+ *
+ * `scripts/smoke.mjs` is what caught that bug and links the built barrel under
+ * Node on every build, so it will catch it again if anyone retries this.
+ *
+ * Note that `scripts/size.ts` cannot see any of the above — its synthetic
+ * consumers import `../../src/*` and never touch `dist`, so its budgets did not
+ * move by a single byte when splitting went on. It guards what the source
+ * tree-shakes to, not what the package ships. Measure against `dist` if you
+ * change the entry layout.
  */
 
 import { rmSync } from "node:fs";
