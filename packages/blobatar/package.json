@@ -30,7 +30,9 @@
     "smoke": "node scripts/smoke.mjs",
     "//golden": "Regenerating is a deliberate act, so the script refuses without `--write` and says why. `check` does not call it — `bun test` already asserts against the fixture, which is the direction that matters.",
     "golden": "bun scripts/golden.ts",
-    "check": "bun test && bun run size && bun run probe && bun run build && bun run smoke",
+    "//typecheck": "CI runs this first, so `check` does too. It is a named script rather than an inline `tsc` so the two cannot drift — a local gate that is a subset of CI is a gate that goes green on code CI rejects, which is exactly how a type error reached a pull request.",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "bun run typecheck && bun test && bun run size && bun run probe && bun run build && bun run smoke",
     "prepack": "bun run build"
   },
   "peerDependencies": {

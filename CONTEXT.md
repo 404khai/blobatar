@@ -113,6 +113,22 @@ Static blobatars are a single `<img>`; animated ones are inline SVG of roughly a
 dozen nodes. `animate` selects between them — the two cannot be combined,
 because `:hover` and host-page CSS cannot reach inside an `<img>`.
 
+**Adapter**:
+A framework integration that owns the outer element — `blobatar/react`,
+`blobatar/vue`. Owning the element is the whole of the distinction: an adapter
+can hand back an `<img>` one moment and an inline `<svg>` the next, so it is
+the only thing that can honor `animate`. The string API returns markup it does
+not own and ignores it.
+An adapter re-expresses the library and adds nothing to it — no geometry, no
+vocabulary, and no defaults of its own — so two adapters given the same name
+and the same options render the same blobatar, and an option a caller leaves
+out reaches the library left out. That is a rule rather than an observation:
+a framework that supplies its own default for an unset prop is an adapter
+inventing an answer the caller never gave.
+_Avoid_: wrapper, binding, integration. A _wrapper_ adds behavior on top; an
+adapter only changes the shape of what passes through. _Binding_ suggests
+something generated rather than written.
+
 **Expression**:
 Which named pose a blobatar holds — `idle`, `happy`, `sad`, `mad`. Set by the
 consumer and held until changed; the library never picks one and never returns

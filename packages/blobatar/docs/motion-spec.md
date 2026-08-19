@@ -616,10 +616,9 @@ and `vars` on the outer element, `inner` through `innerHTML` on the root `<g>`.
 Two React-specific memoizations do not carry over, because Vue's reactivity
 replaces them:
 
-- The serialized dependency string (`JSON.stringify` with `generation?.id`) is
-  unnecessary: a `computed` tracks the props it reads, and `generation` is
-  tracked by reference, which is the exact granularity the string was
-  approximating.
+- The serialized dependency string (`JSON.stringify([seed, opts, animate])`) is
+  unnecessary: a `computed` tracks each prop it reads individually, which is
+  the granularity the single string was approximating.
 - The memoized `{__html}` object is unnecessary: the VNode diff compares prop
   values, so a byte-identical `innerHTML` is never rewritten and the DOM below
   the root survives an expression change — the same property React needs the
@@ -628,6 +627,27 @@ replaces them:
 The `<title>`, backdrop and root class are still real children/attributes
 (never part of `inner`), because the geometric argument — the plate must not
 lift with the creature, `<title>` must name the `<svg>` — is framework-neutral.
+
+Two things Vue adds that React does not, both of which the adapter has to
+undo rather than adopt:
+
+- **The props table can invent values.** A prop whose declared type list
+  contains `Boolean` is cast to `false` when the caller omits it, and the
+  adapter would forward that into `BlobatarOptions` as a deliberate choice.
+  Every prop therefore declares `default: undefined`, so an omitted option
+  stays omitted and the core remains the only place a default is written down.
+- **Caller attrs must land last.** `inheritAttrs` is off because the two modes
+  render different elements, so each branch merges by hand — and it merges in
+  React's order, with `attrs` spread after the values derived from props. The
+  other order silently drops a caller's `role` or `width` instead of letting it
+  override, and makes the two modes disagree with each other.
+
+`test/adapters.test.ts` pins both, by rendering the two adapters against the
+same props and comparing, and by asserting the resolved props table injects
+nothing the caller did not pass. The second check exists because the first
+cannot see it: the injected `background: false` matches what the `blob` style
+already defaults to, so it renders identically until some style ships a
+backdrop.
 
 ---
 
