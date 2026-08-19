@@ -8,15 +8,19 @@ import { blobatar } from "blobatar";
 blobatar("alain@example.com"); // => '<svg xmlns="..." viewBox="0 0 100 100">…'
 ```
 
+```sh
+bun add blobatar @blobatar/react
+```
+
 ```tsx
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 
 <Blobatar name={user.email} size={48} />;
 ```
 
 ```html
 <script setup>
-import { Blobatar } from "blobatar/vue";
+import { Blobatar } from "@blobatar/vue";
 </script>
 
 <template>
@@ -153,7 +157,7 @@ the occasional glance to one side. Every timing and direction is drawn from the
 name, so a grid reads as a crowd rather than a drill team.
 
 ```tsx
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import "blobatar/motion.css"; // required — nothing animates without it
 
 <Blobatar name={user.email} animate="hover" size={48} />;
@@ -161,7 +165,7 @@ import "blobatar/motion.css"; // required — nothing animates without it
 
 ```html
 <script setup>
-import { Blobatar } from "blobatar/vue";
+import { Blobatar } from "@blobatar/vue";
 import "blobatar/motion.css"; // required — nothing animates without it
 </script>
 
@@ -189,7 +193,7 @@ pixel. It is worth the most on a profile header, which is what `"always"` is
 for. Eyes may cross outside the body outline on a hard glance; that is intended,
 and reads as a face turning rather than as a bug.
 
-Currently `blobatar/react` and `blobatar/vue` only. The string API still returns static markup:
+Currently `@blobatar/react` and `@blobatar/vue` only. The string API still returns static markup:
 supporting `animate` there means every consumer of `blobatar()` carries the motion
 code whether they animate or not, which is a real cost for a feature most
 callers will never use. If you need animated markup without either framework,
@@ -236,7 +240,7 @@ you hold, not an animation you fire. Without the stylesheet, or under
 a creature with its attention somewhere else. Whatever it is waiting on still
 needs to be announced somewhere real in your DOM — the face is decoration.
 
-The same values work with `blobatar/vue`; only the import of the component
+The same values work with `@blobatar/vue`; only the import of the component
 itself changes.
 
 The first expression you import costs about 340 bytes (the shared serializer and

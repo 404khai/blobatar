@@ -12,6 +12,7 @@
     "//scripts": "No `bun --filter blobatar build &&` prefixes any more, and no `bun run build &&` either. Both orderings are now `dependsOn` entries on the `preview` and `deploy` tasks in the root `turbo.json`, so the library build and this app's own build happen once, in order, whichever entry point is used."
   },
   "dependencies": {
+    "@blobatar/react": "workspace:*",
     "@radix-ui/react-popover": "^1.1.23",
     "@radix-ui/react-slider": "^1.4.7",
     "@radix-ui/react-toggle-group": "^1.1.2",

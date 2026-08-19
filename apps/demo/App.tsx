@@ -23,7 +23,7 @@ import {
   wink,
   type Expression,
 } from "blobatar/expression";
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import { CANDIDATES } from "./candidates";
 
 /**

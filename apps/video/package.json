@@ -14,6 +14,8 @@
     "check": "bun scripts/check-crowd.ts && bun scripts/check-endpoint.ts && bun scripts/check-triangles.ts && bun scripts/check-adapters.ts"
   },
   "dependencies": {
+    "@blobatar/react": "workspace:*",
+    "@blobatar/vue": "workspace:*",
     "@remotion/cli": "^4.0.512",
     "blobatar": "workspace:*",
     "react": "^19",

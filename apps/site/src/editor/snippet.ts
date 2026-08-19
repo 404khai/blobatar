@@ -97,7 +97,7 @@ function react(
   traits: (readonly [string, number | number[]])[],
   motion: Motion,
 ) {
-  const lines = [`import { Blobatar } from "blobatar/react";`];
+  const lines = [`import { Blobatar } from "@blobatar/react";`];
   // The trade the library documents, stated where it is taken rather than in
   // prose beside the box: animating is what moves the blobatar out of a single
   // `<img>` and into a dozen inline SVG nodes.
@@ -136,12 +136,12 @@ function string(
   const lines = [`import { blobatar } from "blobatar";`];
   lines.push("");
 
-  // `animate` is honored by `blobatar/react` only — the string API returns
+  // `animate` is honored by `@blobatar/react` only — the string API returns
   // static markup whatever it is passed. Dropping it silently on the way over
   // would make this snippet a quieter blobatar than the one on screen, so it is
   // dropped out loud.
   if (motion)
-    lines.push(`// animate is a blobatar/react option — this renders static markup`);
+    lines.push(`// animate is a @blobatar/react option — this renders static markup`);
   if (traits.length) lines.push(nameNote);
 
   // Named `seed` here where the component takes `name`: same value, and the
@@ -233,7 +233,7 @@ function http(
     lines.push(`# no url spelling for ${unspellable.join(", ")} — from the name`);
   if (narrowed.length)
     lines.push(`# ${narrowed.join(", ")} narrowed — a url states one value, so this is from the name too`);
-  if (motion) lines.push(`# static svg — animate is a blobatar/react option`);
+  if (motion) lines.push(`# static svg — animate is a @blobatar/react option`);
 
   lines.push(`${ENDPOINT}${encodeURIComponent(seed)}?${query.join("&")}`);
   return lines.join("\n");

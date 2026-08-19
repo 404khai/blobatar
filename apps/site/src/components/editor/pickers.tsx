@@ -1,4 +1,4 @@
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import { palette, type TraitOverrides } from "blobatar";
 import { TONES, toggleShape, toggleTone } from "@/editor/axes";
 import { SHAPES } from "@/shapes";

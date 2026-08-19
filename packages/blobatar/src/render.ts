@@ -51,10 +51,10 @@ export interface BlobatarOptions {
    *
    * Requires `import "blobatar/motion.css"`, and requires the blobatar to be
    * inline SVG — content inside an `<img>` is an isolated document that hover
-   * cannot reach. `blobatar/react` and `blobatar/vue` switch rendering mode
+   * cannot reach. `@blobatar/react` and `@blobatar/vue` switch rendering mode
    * for you; the string API is already inline.
    *
-   * **Honored by the framework adapters (`blobatar/react`, `blobatar/vue`)
+   * **Honored by the framework adapters (`@blobatar/react`, `@blobatar/vue`)
    * only.** `blobatar()` returns static markup regardless: a branch on
    * `animate` inside it keeps the motion module alive for every caller,
    * animating or not, which measured at ~190 B. An animated string API wants

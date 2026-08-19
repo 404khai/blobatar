@@ -65,8 +65,15 @@
       "cache": false
     },
 
+    // `["^build", "build"]`, not `["^build"]`, and the difference is a race that
+    // only shows up under concurrency. A `check` script that runs its own build
+    // starts by deleting `dist` — and other packages' checks read that `dist`
+    // through the real `exports` map, so one package's check could wipe the
+    // declarations another was mid-way through typechecking. Depending on the
+    // `build` task instead means it happens once, before anything reads it, and
+    // no `check` script needs to invoke a build itself.
     "check": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build", "build"]
     }
   }
 }

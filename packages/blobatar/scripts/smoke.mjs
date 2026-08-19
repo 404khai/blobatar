@@ -23,6 +23,7 @@ import { blobatar, palette, traits, normalizeSeed } from "blobatar";
 import { blobatar as blob } from "blobatar/blob";
 import { blobatarUri } from "blobatar/uri";
 import * as poses from "blobatar/expression";
+import { _parts, _layout, serializeVars } from "blobatar/internal";
 import { Blobatar } from "blobatar/react";
 import { Blobatar as VueBlobatar } from "blobatar/vue";
 
@@ -64,6 +65,18 @@ check("blobatar/expression", () => {
     svg(blob("alain", { expression: pose }), `blob + ${name}`);
   }
   return `${named.length} poses — ${named.map(([n]) => n).join(", ")}`;
+});
+
+check("blobatar/internal", () => {
+  // The adapters' entry point, linked the way they link it. It is almost
+  // entirely re-exports, which is the exact module shape that produced the
+  // bundler bug this file exists to catch — so an unlinkable `internal` would
+  // break every `@blobatar/*` package at once while `bun test` stayed green.
+  const p = _parts("alain", { animate: "hover" });
+  assert(p.inner.length > 0, "internal _parts returned no markup");
+  assert(typeof serializeVars(p.vars ?? {}) === "string", "serializeVars did not return a string");
+  assert(typeof _layout("alain").palette === "object", "internal _layout returned no palette");
+  return `_parts ${p.inner.length} chars`;
 });
 
 check("blobatar/uri", () => {

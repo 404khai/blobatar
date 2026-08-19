@@ -7,11 +7,18 @@ import {
   type ComponentObjectPropsOptions,
 } from "vue";
 import { renderToString } from "vue/server-renderer";
-import { Blobatar as React_ } from "../src/react";
-import { Blobatar as Vue_ } from "../src/vue";
+import { Blobatar as React_ } from "@blobatar/react";
+import { Blobatar as Vue_ } from "@blobatar/vue";
 
 /**
  * The adapters must agree.
+ *
+ * Imported by package name, not by relative path into `blobatar/src`. That is
+ * the difference this file gained when it moved out of the library: it now
+ * resolves each adapter through its own published `exports` map and its built
+ * `dist`, so a broken export path or a build that drops the component fails
+ * here rather than in a consumer's install. Nothing in this package aliases
+ * `blobatar/*` back to source, deliberately — see `tsconfig.json`.
  *
  * An adapter owns the outer element and nothing else — it adds no geometry and
  * no defaults of its own — so two adapters handed the same name and the same
@@ -61,6 +68,41 @@ const picture = (markup: string) => {
 
 const attr = (markup: string, name: string) =>
   markup.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
+
+/**
+ * Agreement is not enough on its own.
+ *
+ * Every assertion below compares one adapter against another, and two adapters
+ * that both render nothing agree perfectly. That is not a hypothetical: the
+ * first build of `@blobatar/react` in this workspace emitted
+ * `export{a as Blobatar}` with no `a`, and PR #9's Preact adapter returned a
+ * raw DOM node from a function component, which Preact dropped silently for an
+ * empty string — with a clean typecheck and a green test suite in both cases.
+ *
+ * So each adapter is asserted to produce something before any of them are
+ * compared. A new adapter gets a line here and in the case table below; either
+ * alone leaves a hole.
+ */
+describe("every adapter renders a blobatar at all", () => {
+  const ADAPTERS: [string, (p: Record<string, unknown>) => string | Promise<string>][] = [
+    ["@blobatar/react", react],
+    ["@blobatar/vue", vue],
+  ];
+
+  for (const [name, render] of ADAPTERS) {
+    test(`${name}: static`, async () => {
+      const markup = await render({ name: "alain" });
+      expect(markup.length).toBeGreaterThan(0);
+      expect(markup).toContain("data:image/svg+xml");
+    });
+
+    test(`${name}: animated`, async () => {
+      const markup = await render({ name: "alain", animate: "always" });
+      expect(markup.length).toBeGreaterThan(0);
+      expect(markup).toContain("<svg");
+    });
+  }
+});
 
 describe("the adapters render the same blobatar", () => {
   const CASES: [string, Record<string, unknown>][] = [

@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { Blobatar } from "blobatar/react";
+import { Blobatar } from "@blobatar/react";
 import { Easing, interpolate, useCurrentFrame } from "remotion";
 import { MONO, SANS } from "./fonts";
 import { CROWD } from "./names";

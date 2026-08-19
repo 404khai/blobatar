@@ -1,0 +1,22 @@
+{
+  "name": "@blobatar/harness",
+  "version": "2.1.0",
+  "private": true,
+  "//private": "Never published. It exists to hold the one test that no single package can own — the cross-adapter equivalence check — and a published package would have to declare every adapter as a dependency, which would drag all of them into any install.",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "bun run typecheck && bun test"
+  },
+  "devDependencies": {
+    "@blobatar/react": "workspace:*",
+    "@blobatar/vue": "workspace:*",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "blobatar": "workspace:*",
+    "react": "^19",
+    "react-dom": "^19",
+    "vue": "^3.5.0"
+  }
+}
