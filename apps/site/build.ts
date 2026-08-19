@@ -9,14 +9,12 @@
  */
 import { cp, rm } from "node:fs/promises";
 import tailwind from "bun-plugin-tailwind";
-// `createElement` rather than JSX, so this file stays a plain `.ts` — it is the
-// build, not part of the app, and renaming it to `.tsx` for one call site would
-// be the tail wagging the dog.
-import { createElement, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
+import { writePages } from "./document";
 import { writeFavicon } from "./favicon";
 import { writeLlmsTxt } from "./llms";
-import { App } from "./src/App";
+import { PAGES } from "./manifest";
 
 const OUT = "dist";
 
@@ -40,26 +38,35 @@ const UNCOMPILED = ["@theme", "@apply", "@tailwind"];
 
 await rm(OUT, { recursive: true, force: true });
 
-// Both before the bundle. The favicon has to exist for `index.html` to link it,
-// so the bundler can hash it into `dist` and rewrite the href; `llms.txt` lands
-// in `public/`, which is copied wholesale further down.
+/*
+ * The three generated inputs, all before the bundle.
+ *
+ * The favicon has to exist for a document to link it, so the bundler can hash
+ * it into `dist` and rewrite the href; the documents themselves are what the
+ * bundler is pointed at below; `llms.txt` lands in `public/`, which is copied
+ * wholesale further down. None of the three is in the repo, so a fresh clone
+ * builds only because all three run here.
+ */
 await writeFavicon();
+await writePages();
 await writeLlmsTxt();
 
 const result = await Bun.build({
   /*
-   * Two documents, two bundles.
+   * One document per page, one bundle per document.
    *
    * The editor is not a route on the landing page, and this is where that
    * decision is enforced rather than merely intended: a client-side route would
    * put its slider, its twenty controls and its layout readback into the bundle
    * every visitor downloads before the hero paints — the exact cost the whole
    * rewrite pass below exists to manage. Separate entrypoints mean the landing
-   * page cannot regress from anything the editor grows into.
+   * page cannot regress from anything another page grows into, and that holds
+   * for every page added to the manifest, not just the two that exist today.
    *
-   * The two pages are rewritten differently afterwards; see `finish`.
+   * Pages are rewritten differently afterwards, per their manifest entry; see
+   * `finish`.
    */
-  entrypoints: ["./index.html", "./editor.html"],
+  entrypoints: PAGES.map(page => `./${page.name}.html`),
   outdir: OUT,
   minify: true,
   plugins: [tailwind],
@@ -88,34 +95,34 @@ if (!result.success) {
  * Where this build will be served from.
  *
  * `og:image` and `og:url` have to be absolute — every crawler that matters
- * refuses to resolve a relative one against the page it found it on — and the
- * origin is not knowable from the source, so it arrives as environment.
- * `VERCEL_PROJECT_PRODUCTION_URL` is set on Vercel builds and always names the
- * production domain, including on previews: a preview's own URL changes per
- * deploy, which would leave every shared preview link pointing at an image that
- * outlives it by minutes. `SITE_URL` overrides for anywhere else.
+ * refuses to resolve a relative one against the page it found it on.
  *
- * Absent both — a local `bun run build` — the tags stay relative. They are
- * wrong, but only for a build nothing is crawling.
+ * Defaulted rather than required, and the default is a literal. This read
+ * `VERCEL_PROJECT_PRODUCTION_URL` back when the site deployed to Vercel and
+ * fell through to `null` otherwise, which left the tags relative; after the move
+ * to Cloudflare that variable is never set, so every production build was
+ * silently shipping cards no crawler could resolve. A hardcoded origin cannot
+ * fail that way, and it is what the repo already does elsewhere — `snippet.ts`
+ * hardcodes the same domain for the endpoint it tells people to call.
+ *
+ * `SITE_URL` still overrides, for a staging host or a preview that wants its
+ * own cards.
+ *
+ * The apex rather than `www`, matching the canonical the redirect rule sends
+ * traffic to. Both hostnames are custom domains in `wrangler.jsonc`.
  */
-const ORIGIN =
-  process.env.SITE_URL ??
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : null);
+const ORIGIN = process.env.SITE_URL ?? "https://blobatar.dev";
 
-if (ORIGIN) {
-  for (const name of ["index.html", "editor.html"]) {
-    const page = `${OUT}/${name}`;
-    const html = await Bun.file(page).text();
-    // Narrow on purpose: `content="/…"` is the shape only the OG tags have. The
-    // bundler has already rewritten every real asset reference to a hashed
-    // filename by this point, so nothing else in the file starts a `content`
-    // attribute with a slash.
-    await Bun.write(page, html.replaceAll('content="/', `content="${ORIGIN}/`));
-  }
-  console.log(`  origin                   ${ORIGIN}`);
+for (const { name } of PAGES) {
+  const page = `${OUT}/${name}.html`;
+  const html = await Bun.file(page).text();
+  // Narrow on purpose: `content="/…"` is the shape only the OG tags have. The
+  // bundler has already rewritten every real asset reference to a hashed
+  // filename by this point, so nothing else in the file starts a `content`
+  // attribute with a slash.
+  await Bun.write(page, html.replaceAll('content="/', `content="${ORIGIN}/`));
 }
+console.log(`  origin                   ${ORIGIN}`);
 
 let failed = false;
 
@@ -167,8 +174,10 @@ if (failed) process.exit(1);
  * heading — every word on the page, and none of its sixty SVGs.
  *
  * Two of the three are page-level judgements rather than facts about the build,
- * which is why they are parameters: the editor takes the stylesheet inline and
- * neither of the others. See the call below it for why.
+ * which is why they are parameters rather than done unconditionally — and why
+ * they are stated per page in `manifest.ts`, next to the reasoning for each,
+ * rather than here. The editor takes the stylesheet inline and neither of the
+ * others; a page added tomorrow says which it wants in one field each.
  */
 async function finish(
   name: string,
@@ -286,19 +295,16 @@ async function finish(
 /** Stylesheets that ended up inline, dropped once every page has been through. */
 const inlined = new Set<string>();
 
-await finish("index.html", { prerender: createElement(App), defer: true });
-
 /*
- * The editor gets neither of the other two, and both omissions are the same
- * judgement from opposite ends.
- *
- * No prerender: its first frame is worth nothing until it can be dragged, and
- * it would be a large frame — twenty controls and a dozen shape tiles, well past
- * the 28 KB document that measured *worse* than doing nothing on the landing
- * page. No defer, for the reason in `finish`: a page that is only controls
- * cannot buy paint with interactivity.
+ * Serially, not in parallel: `finish` writes into the shared `inlined` set and
+ * the pages are two file writes, so there is nothing here worth racing.
  */
-await finish("editor.html", { defer: false });
+for (const page of PAGES) {
+  await finish(`${page.name}.html`, {
+    prerender: await page.prerender?.(),
+    defer: page.defer,
+  });
+}
 
 // Nothing else references them, so leaving them in `dist` would only be a
 // second copy for a crawler to find.

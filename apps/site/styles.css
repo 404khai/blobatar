@@ -10,13 +10,15 @@
 @import "tailwindcss" source(none);
 
 @source "./src";
-@source "./frontend.tsx";
-@source "./index.html";
-/* The editor's document and entry, same reason. One stylesheet serves both
-   pages — the build inlines it into each — so a class only the editor uses has
-   to be scanned for here or it never gets compiled. */
-@source "./editor.tsx";
-@source "./editor.html";
+/* Every page entry, by directory rather than by file. One stylesheet serves all
+   of them — the build inlines it into each document — so a class only one page
+   uses has to be scanned for here or it never gets compiled, and naming the
+   directory means adding a page cannot forget to.
+
+   The documents themselves are not scanned: they are generated from
+   `manifest.ts` and carry no utility classes, only metadata. */
+@source "./pages";
+@source "./mount.tsx";
 
 /*
  * Self-hosted rather than pulled from a CDN: the page is meant to be genuinely
@@ -346,8 +348,9 @@
  *
  * Deliberately outside every `@layer`. Tailwind's layers all lose to unlayered
  * rules, and the rule this overrides is itself unlayered — so this has to be
- * too, and `frontend.tsx` has to import this file second. Same specificity,
- * later wins.
+ * too, and `mount.tsx` has to import this file second. Same specificity, later
+ * wins — which is exactly why that import order lives in one shared module
+ * rather than being restated in every page entry.
  */
 .mo-root:hover {
   transform: none;

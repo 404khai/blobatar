@@ -27,13 +27,13 @@ export const FAVICON = blobatar("alain00").replace(
   `viewBox="${INSET} ${INSET} ${100 - INSET * 2} ${100 - INSET * 2}"`,
 );
 
-/** Where `index.html` expects to find it, relative to this directory. */
+/** Where the generated documents expect to find it, relative to this directory. */
 export const FAVICON_PATH = new URL("./favicon.svg", import.meta.url).pathname;
 
 /**
  * Materializes the mark on disk.
  *
- * `index.html` has to reference the icon through a normal `<link href>`, and
+ * A document has to reference the icon through a normal `<link href>`, and
  * Bun's HTML bundler resolves that href against the filesystem — an absolute
  * URL is a build error rather than a passthrough, which is why the trick the
  * fonts use (inline `<style>`, absolute `/fonts/...`) does not transfer here.

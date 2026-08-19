@@ -1,16 +1,55 @@
-import { serve } from "bun";
+import { serve, type HTMLBundle } from "bun";
 import { readdir } from "node:fs/promises";
+import { documentPath, writePages } from "./document";
 import { writeFavicon } from "./favicon";
 import { writeLlmsTxt } from "./llms";
+import { PAGES } from "./manifest";
 
-// Both before anything reads for them: importing `index.html` is what resolves
-// the `<link rel="icon">` href, and the asset routes below enumerate `public/`.
-// On a clean checkout neither generated file exists yet.
+// All three before anything reads for them: importing a document is what
+// resolves its `<link rel="icon">` href, the documents themselves do not exist
+// until `writePages` runs, and the asset routes below enumerate `public/`. On a
+// clean checkout none of the three generated inputs is there yet.
 await writeFavicon();
+await writePages();
 await writeLlmsTxt();
 
-const { default: index } = await import("./index.html");
-const { default: editor } = await import("./editor.html");
+/**
+ * One document per manifest entry.
+ *
+ * Imported by path rather than by a literal specifier, which is what lets this
+ * loop exist at all — Bun resolves an HTML import into a bundle it serves and
+ * hot-reloads, and it does that for a computed path the same as a written one.
+ */
+const documents = new Map<string, HTMLBundle>(
+  await Promise.all(
+    PAGES.map(
+      async page =>
+        [page.name, (await import(documentPath(page.name))).default] as const,
+    ),
+  ),
+);
+
+/**
+ * Manifest routes, in the order `Bun.serve` has to see them.
+ *
+ * The page that claims `"/"` becomes the catch-all and must come last, since a
+ * `"/*"` ahead of anything would swallow it. Every other page is served at both
+ * spellings of its URL, because that is what the deployment does:
+ * `html_handling: "auto-trailing-slash"` in `wrangler.jsonc` maps `/editor`
+ * onto `editor.html`, and a dev server that answered only one of them would
+ * disagree with production about a link somebody had already shared.
+ */
+const routes = Object.fromEntries(
+  PAGES.flatMap(page => {
+    const document = documents.get(page.name)!;
+    return page.route === "/"
+      ? [["/*", document] as const]
+      : [
+          [page.route, document] as const,
+          [`${page.route}.html`, document] as const,
+        ];
+  }).sort(([a], [b]) => (a === "/*" ? 1 : b === "/*" ? -1 : 0)),
+);
 
 /**
  * `public/` at the root, mirroring what the build copies into `dist`.
@@ -40,21 +79,13 @@ const server = serve({
     },
     ...assets,
     /*
-     * Its own document, ahead of the SPA fallback.
-     *
-     * Not a client-side route: the editor is a second entrypoint with its own
-     * bundle, so that nothing it needs — the slider, the control set, the layout
-     * readback — is downloaded by someone who only ever reads the landing page.
-     * See the note on `entrypoints` in `build.ts`.
-     *
-     * Both spellings, because that is what the deployment serves: `cleanUrls`
-     * in `vercel.json` maps `/editor` onto `dist/editor.html` and redirects the
-     * extension away, and a dev server that only answered one of them would
-     * disagree with production about a link somebody had already shared.
+     * Every page, last, so that the catch-all among them cannot shadow an
+     * asset. Not client-side routes: each page is its own entrypoint with its
+     * own bundle, so that nothing one page needs — the editor's slider, its
+     * control set, its layout readback — is downloaded by someone who only ever
+     * reads another. See the note on `entrypoints` in `build.ts`.
      */
-    "/editor": editor,
-    "/editor.html": editor,
-    "/*": index,
+    ...routes,
 	},
 	port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
   development: process.env.NODE_ENV !== "production" && { hmr: true, console: true },
