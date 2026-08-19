@@ -10,8 +10,9 @@ import {
   candidates,
   round3,
   shapeAt,
-  shapePin,
+  narrowPin,
   toggleShape,
+  toggleTone,
 } from "./axes";
 import { blobLayout, resolved } from "./resolved";
 
@@ -128,16 +129,16 @@ describe("a silhouette narrowed to several", () => {
   test("one selected is still a number, so the common snippet never changed", () => {
     // The line that is already in everybody's code and in the README. A list is
     // what appears only when you ask for something a number cannot say.
-    expect(shapePin([0.965])).toBe(0.965);
-    expect(shapePin([0.11, 0.965])).toEqual([0.11, 0.965]);
-    expect(shapePin([])).toBeUndefined();
+    expect(narrowPin([0.965])).toBe(0.965);
+    expect(narrowPin([0.11, 0.965])).toEqual([0.11, 0.965]);
+    expect(narrowPin([])).toBeUndefined();
   });
 
   test("a selection survives the round trip through the trait map", () => {
     // Toggle, store, read back: what the row shows selected has to be what the
     // config says, or the panel and the snippet disagree about the same object.
     for (const ats of [[0.11], [0.11, 0.965], [0.11, 0.825, 0.965]]) {
-      const pin = shapePin(ats);
+      const pin = narrowPin(ats);
       expect(candidates(pin, "round")).toEqual(ats.map(shapeAt) as never);
     }
   });
@@ -147,6 +148,52 @@ describe("a silhouette narrowed to several", () => {
     // axis no selection can show is a control nobody can ever reach.
     const every = SHAPES.map(s => s.name);
     for (const axis of AXES) expect(applies(axis, every)).toBe(true);
+  });
+});
+
+describe("a tone narrowed to several", () => {
+  const [pastel, mid, ink] = TONES.map(t => t.at) as [number, number, number];
+
+  test("toggling is row order, not click order — the snippet emits it literally", () => {
+    const forwards = [pastel, mid, ink].reduce(toggleTone, [] as number[]);
+    const backwards = [ink, mid, pastel].reduce(toggleTone, [] as number[]);
+
+    expect(forwards).toEqual([pastel, mid, ink]);
+    expect(backwards).toEqual(forwards);
+  });
+
+  test("toggling a selected tone removes it", () => {
+    expect(toggleTone([pastel, ink], pastel)).toEqual([ink]);
+    expect(toggleTone([pastel], pastel)).toEqual([]);
+  });
+
+  test("the two rows collapse and clear through the same function", () => {
+    // The whole of what makes this the shape row's feature rather than a second
+    // one: narrowing is a property of the override map, not of the key, so the
+    // tone row needed a table and nothing else.
+    expect(narrowPin([mid])).toBe(mid);
+    expect(narrowPin([pastel, ink])).toEqual([pastel, ink]);
+    expect(narrowPin([])).toBeUndefined();
+  });
+
+  test("every listed tone is one the name can actually come out as", () => {
+    // Narrowing is only honest if the seed's pick lands inside what was chosen.
+    // A midpoint that resolved to its neighbour's swatch would make a picked
+    // chip a lie for some fraction of names, and nothing on screen would say so.
+    const chosen = [pastel, ink];
+    // Hue pinned throughout, or forty names come out forty colours for a reason
+    // that has nothing to do with the axis under test.
+    const wanted = chosen.map(at => blobLayout(NAME, { tone: at, hue: 0.6 }).palette.head);
+
+    const seen = new Set(
+      Array.from(
+        { length: 40 },
+        (_, i) => blobLayout(`user${i}`, { tone: chosen, hue: 0.6 }).palette.head,
+      ),
+    );
+
+    expect(seen.size).toBe(2);
+    for (const head of seen) expect(wanted).toContain(head);
   });
 });
 

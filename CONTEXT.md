@@ -89,7 +89,8 @@ minor version add a trait without disturbing existing blobatars — and what mak
 trait addressable, so it can be pinned instead of hashed.
 
 **Override**:
-A trait pinned to a fixed value by the caller, via the `traits` option. Stated
+A trait fixed by the caller, via the `traits` option — to one
+position, or to several by **narrowing**. Stated
 in the same 0–1 units a hashed trait carries, never in viewBox units or degrees,
 because an override is read through the layout's own range for that key. Sparse:
 whatever is left out still comes from the seed. Overrides are the _only_
@@ -98,6 +99,26 @@ containment guarantee still runs over a configured blobatar.
 _Avoid_: prop, config value, custom trait. There is no per-knob prop and no
 second vocabulary. **`shape` is still derived, not set** — you override the
 trait it is derived from, which is why the rule above survives intact.
+
+**Narrowing**:
+An override that names *several* positions for one key rather than one, leaving
+the seed to pick among them. That makes three things an axis can be: open (the
+key is absent, every position in play), narrowed (some of them), pinned (one).
+The choice rides on that key's own hash, so a narrowed axis keeps every property
+an open one had — per seed, stable, uniform over what is named, independent of
+every other trait — because it *is* the open value, read against a shorter list.
+Narrowing belongs to the configuration, never to a seed: one name still renders
+exactly one blobatar, and "a seed with three shapes" describes something the
+library must never do. The phrase for it is a config narrowed to three shapes,
+of which each name gets one.
+A narrowed key is a **set**, never an interval — "warm hues" is not something
+it can say, and never will be, because naming two positions already means
+"either of these two".
+Every key can be narrowed. What differs between them is only whether the
+positions have names: a silhouette or a tone is a band somebody can point at and
+ask for, while a hue is a place on a wheel that has to be found first.
+_Avoid_: list, multi-select, range. The first two are how it is written and how
+it is chosen; the last is the thing it is not.
 
 **Configured blobatar**:
 One with traits pinned. Fully configured — every trait pinned — the seed stops

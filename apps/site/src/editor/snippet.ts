@@ -204,28 +204,35 @@ function http(
   motion: Motion,
 ) {
   const query = [`gen=${GEN}`];
-  const dropped: string[] = [];
+  const unspellable: string[] = [];
+  const narrowed: string[] = [];
   for (const [k, v] of traits) {
     const unit = URL_UNITS[k];
-    // A narrowed axis is dropped whether or not the URL can spell the key: a
-    // query parameter states one value, and "any of these" is not one. The two
-    // keys a URL carries are colour and neither is narrowable from the panel,
-    // so this is a guard rather than a case — but it is the guard that keeps a
-    // silently wrong `tone=0.1,0.9` from ever being possible.
-    if (unit && !Array.isArray(v)) query.push(`${k}=${unit(v)}`);
-    else dropped.push(k);
+    // Two ways to lose an axis here, and they are not the same thing to say. A
+    // key the URL has no word for is gone because the service does not expose
+    // it; a *narrowed* key is gone because a query parameter states one value
+    // and "any of these" is not one — `tone` is spellable and still cannot be
+    // sent as `tone=0.1,0.965`. Telling someone their tone has no URL spelling
+    // when the very next snippet spells it is the kind of note that teaches
+    // people to stop reading them.
+    if (Array.isArray(v)) narrowed.push(k);
+    else if (unit) query.push(`${k}=${unit(v)}`);
+    else unspellable.push(k);
   }
 
   // Only what the URL cannot say for itself. There is no line explaining `gen`
   // or the name, because both are right there in the URL being explained — a
   // comment on every snippet is a comment nobody reads by the third one. What
-  // is left is the two things a reader cannot see: the axes that did not fit,
-  // and the motion the endpoint will not serve.
+  // is left is what a reader cannot see: the axes that did not fit, why they
+  // did not, and the motion the endpoint will not serve.
   //
   // Short lines on purpose: this box is the narrow column on the page, and a
   // note that needs scrolling sideways to finish is another one nobody reads.
   const lines: string[] = [];
-  if (dropped.length) lines.push(`# no url spelling for ${dropped.join(", ")} — from the name`);
+  if (unspellable.length)
+    lines.push(`# no url spelling for ${unspellable.join(", ")} — from the name`);
+  if (narrowed.length)
+    lines.push(`# ${narrowed.join(", ")} narrowed — a url states one value, so this is from the name too`);
   if (motion) lines.push(`# static svg — animate is a blobatar/react option`);
 
   lines.push(`${ENDPOINT}${encodeURIComponent(seed)}?${query.join("&")}`);

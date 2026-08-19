@@ -155,30 +155,42 @@ export const applies = (axis: Axis, shapes: Shape[]) =>
   !axis.when || shapes.some(s => axis.when!.includes(s));
 
 /**
- * The silhouette row's toggle, as a value rather than as an event.
+ * A picker row's toggle, as a value rather than as an event.
  *
- * Rebuilt from the table rather than pushed and spliced, so what comes out is
- * in row order and not in click order. The snippet emits this list literally —
- * two people who picked the same three silhouettes should get the same line of
- * code, and a config that reshuffles itself as you toggle is a diff for
- * nothing.
+ * Rebuilt from the row's own order rather than pushed and spliced, so what
+ * comes out is in row order and not in click order. The snippet emits this list
+ * literally — two people who picked the same three silhouettes should get the
+ * same line of code, and a config that reshuffles itself as you toggle is a
+ * diff for nothing.
+ *
+ * Generic over the row because narrowing is generic over the key: a trait
+ * override reads a list the same way whatever key it is under, so the two
+ * categorical rows are the same control with a different table behind them.
+ * What decides whether an axis *can* offer this is not the axis — it is whether
+ * its positions have names somebody can point at, which is exactly what having
+ * a table means.
  */
+const toggleAt = (order: number[], chosen: number[], at: number): number[] =>
+  order.filter(p => (p === at ? !chosen.includes(at) : chosen.includes(p)));
+
 export const toggleShape = (chosen: number[], at: number): number[] =>
-  SHAPES.filter(s => (s.at === at ? !chosen.includes(at) : chosen.includes(s.at))).map(
-    s => s.at,
-  );
+  toggleAt(SHAPES.map(s => s.at), chosen, at);
+
+export const toggleTone = (chosen: number[], at: number): number[] =>
+  toggleAt(TONES.map(t => t.at), chosen, at);
 
 /**
  * What a selection becomes in the trait map.
  *
  * The collapse is the point, and it is why this is here rather than in the
  * library: one selected has to keep emitting `{ shape: 0.965 }`, the line that
- * is already in everybody's code and in the README. A list is what appears only
+ * is already in everybody's code and in the README — and the same for
+ * `{ tone: 0.49 }`. A list is what appears only
  * when you have asked for something a number cannot say. Nothing selected is
  * `auto` — the library reads an empty list as an absent key anyway, but leaving
  * the key out keeps it out of the snippet too.
  */
-export const shapePin = (ats: number[]): number | number[] | undefined =>
+export const narrowPin = (ats: number[]): number | number[] | undefined =>
   ats.length === 0 ? undefined : ats.length === 1 ? ats[0]! : ats;
 
 /**

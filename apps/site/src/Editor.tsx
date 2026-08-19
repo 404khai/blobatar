@@ -12,7 +12,7 @@ import {
   applies,
   candidates,
   round3,
-  shapePin,
+  narrowPin,
   type Axis,
   type Group,
   type Shape,
@@ -79,16 +79,16 @@ export function Editor() {
   const pin = (key: string, v: number) =>
     setPinned(p => ({ ...p, [key]: round3(v) }));
 
-  /** The silhouette row, which writes a *set* where every other control writes a number. */
-  const pinShapes = (ats: number[]) =>
-    setPinned(({ shape: _gone, ...rest }) => {
-      const pin = shapePin(ats);
-      return pin === undefined ? rest : { ...rest, shape: pin };
+  /**
+   * The two picker rows, which write a *set* where every slider writes a
+   * number. One selected collapses back to the number, and none removes the key
+   * — see `narrowPin`.
+   */
+  const pinFrom = (key: string, ats: number[]) =>
+    setPinned(({ [key]: _gone, ...rest }) => {
+      const pin = narrowPin(ats);
+      return pin === undefined ? rest : { ...rest, [key]: pin };
     });
-
-  /** The pickers' `auto` chip, which is always a removal rather than a toggle. */
-  const unpin = (key: string) =>
-    setPinned(({ [key]: _gone, ...rest }) => rest);
 
   const toggle = (key: string) =>
     setPinned(p => {
@@ -124,6 +124,8 @@ export function Editor() {
     });
 
   const count = Object.keys(pinned).length;
+  /** Of those, the ones the name still gets a say in. */
+  const loose = narrowed(pinned);
   const code = snippet({ api, name, pinned, motion });
 
   return (
@@ -242,12 +244,12 @@ export function Editor() {
             {count === 0
               ? "Nothing is pinned, so this blobatar is entirely the name — which is the default, and usually the right one. Pin an axis to fix it for everybody."
               : `${count} pinned ${count === 1 ? "axis is" : "axes are"} fixed for every name; everything else still comes from the one you pass.${
-                  // The one pinned axis that is not fixed. Worth its own clause
+                  // The pinned axes that are not fixed. Worth their own clause
                   // rather than a footnote: a list in the snippet reads like a
                   // typo until you know it is the third thing an override can
                   // be, and this is where somebody looks to find out.
-                  Array.isArray(pinned.shape)
-                    ? ` The silhouette is the exception — it is narrowed to ${pinned.shape.length}, and the name still picks between them.`
+                  loose.length
+                    ? ` ${sentence(loose)} narrowed rather than fixed, so the name still picks inside what you chose.`
                     : ""
                 }`}
           </p>
@@ -300,8 +302,7 @@ export function Editor() {
               ghost={key => ghosts[key]}
               onChange={pin}
               onPin={toggle}
-              onUnpin={unpin}
-              onPickShapes={pinShapes}
+              onNarrow={pinFrom}
             />
           ))}
         </div>
@@ -425,8 +426,8 @@ interface GroupProps {
   ghost: (key: string) => number | undefined;
   onChange: (key: string, v: number) => void;
   onPin: (key: string) => void;
-  onUnpin: (key: string) => void;
-  onPickShapes: (ats: number[]) => void;
+  /** A picker row's whole new selection, for the key it drives. */
+  onNarrow: (key: string, ats: number[]) => void;
 }
 
 function GroupBlock({
@@ -439,8 +440,7 @@ function GroupBlock({
   ghost,
   onChange,
   onPin,
-  onUnpin,
-  onPickShapes,
+  onNarrow,
 }: GroupProps) {
   const all = AXES.filter(a => a.group === group);
   const live = all.filter(a => applies(a, shapes));
@@ -459,7 +459,7 @@ function GroupBlock({
               name={name}
               traits={pinned}
               value={pinned.shape}
-              onPick={onPickShapes}
+              onPick={ats => onNarrow("shape", ats)}
             />
             {/*
               Said only when it applies, because until you pick a second tile
@@ -475,15 +475,21 @@ function GroupBlock({
             )}
           </div>
         ) : axis.kind === "tone" ? (
-          <TonePicker
-            key={axis.key}
-            hue={hue}
-            // Narrowing is a silhouette feature today: the chips are still a
-            // choice, so anything but a number here is not a tone this row can
-            // show as selected. The cast the alternative needs is the tell.
-            value={typeof pinned.tone === "number" ? pinned.tone : undefined}
-            onPick={at => (at === null ? onUnpin("tone") : onChange("tone", at))}
-          />
+          <div key={axis.key} className="flex flex-col gap-2">
+            <TonePicker hue={hue} value={pinned.tone} onPick={ats => onNarrow("tone", ats)} />
+            {/*
+              The silhouette row's line, for the silhouette row's reason. No
+              second clause about the controls below, because nothing here is
+              conditional on tone the way the decorations are on shape — a
+              narrowed tone changes what colour a name comes out, and nothing
+              about which controls exist.
+            */}
+            {Array.isArray(pinned.tone) && (
+              <p className="text-muted/60 text-[0.7rem] leading-relaxed lowercase">
+                {pinned.tone.length} selected — each name gets one of them
+              </p>
+            )}
+          </div>
         ) : (
           <Control
             key={axis.key}
@@ -522,6 +528,32 @@ function GroupBlock({
     </section>
   );
 }
+
+/**
+ * The pinned keys that are narrowed rather than fixed, by label.
+ *
+ * Labels rather than keys, because this is read in a sentence and `tone` is the
+ * label anyway while `shape` is not — the row is called silhouette everywhere a
+ * person can see it.
+ */
+const narrowed = (pinned: TraitOverrides) =>
+  AXES.filter(a => Array.isArray(pinned[a.key])).map(a =>
+    a.key === "shape" ? "the silhouette" : `the ${a.label}`,
+  );
+
+/**
+ * `a is`, `a and b are` — the verb included, since it moves with the count, and
+ * so does the noun it agrees with downstream.
+ */
+const sentence = (parts: string[]) => {
+  const said =
+    parts.length === 1
+      ? `${parts[0]} is`
+      : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)} are`;
+  // It opens a sentence in the middle of a paragraph, so it is capitalised
+  // here rather than at the one call site that has to remember to.
+  return said.replace(/^./, c => c.toUpperCase());
+};
 
 /** Missing axes, grouped by the silhouettes they need. */
 function conditions(missing: Axis[]) {

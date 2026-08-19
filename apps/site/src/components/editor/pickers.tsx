@@ -1,6 +1,6 @@
 import { Blobatar } from "blobatar/react";
 import { palette, type TraitOverrides } from "blobatar";
-import { TONES, toggleShape } from "@/editor/axes";
+import { TONES, toggleShape, toggleTone } from "@/editor/axes";
 import { SHAPES } from "@/shapes";
 import { cn } from "@/lib/utils";
 
@@ -15,14 +15,19 @@ import { cn } from "@/lib/utils";
  * Neither is a `<select>`, and for the reason the hero's shape row gives: "nub"
  * and "pale neutral" are words for things nobody has seen yet. Both rows show
  * the thing.
+ *
+ * Both are also *sets* rather than choices, which follows from the same
+ * property that makes them pickers at all: a row with a table behind it can
+ * offer positions to point at, and pointing at three of them is narrowing. An
+ * axis without one — hue, and every slider here — can still be narrowed by the
+ * library, but not by a control that has nothing to enumerate.
  */
 
 /** The `auto` option, in both pickers: unpinned, so the name decides. */
 const AUTO = "auto";
 
 /**
- * The silhouette row, and the one control here that is a *set* rather than a
- * choice.
+ * The silhouette row.
  *
  * One tile fixes the silhouette; several narrow it and leave the name to choose
  * among them, which is the thing a single position could not say — see
@@ -146,12 +151,15 @@ export function TonePicker({
 }: {
   /** The hue currently on screen, in degrees — the swatches wear it. */
   hue: number;
-  value?: number;
-  onPick: (at: number | null) => void;
+  value?: number | number[];
+  /** The whole new selection, in row order. Empty means `auto`. */
+  onPick: (ats: number[]) => void;
 }) {
+  const chosen = value === undefined ? [] : Array.isArray(value) ? value : [value];
+
   return (
     <div className="flex flex-wrap gap-1" role="group" aria-label="Tone">
-      <Chip label={AUTO} selected={value === undefined} onClick={() => onPick(null)} />
+      <Chip label={AUTO} selected={chosen.length === 0} onClick={() => onPick([])} />
       {TONES.map(t => (
         <Chip
           key={t.name}
@@ -160,8 +168,8 @@ export function TonePicker({
           // calls, so what is on the chip is what the body will be — not an
           // approximation of it authored beside the real one.
           swatch={palette(hue, true, t.at).head}
-          selected={value === t.at}
-          onClick={() => onPick(t.at)}
+          selected={chosen.includes(t.at)}
+          onClick={() => onPick(toggleTone(chosen, t.at))}
         />
       ))}
     </div>
@@ -197,6 +205,18 @@ function Chip({
         // and a chip that guessed at one would be wrong for every other name.
         style={swatch ? { background: swatch } : { border: "1px dashed var(--color-muted)" }}
       />
+      {/*
+        The tiles' checkmark, for the tiles' reason: a filled chip beside an
+        unfilled one reads as a radio group, and someone who reads it that way
+        never tries the click that would show them otherwise. Inside the pill
+        rather than cornered on it — there is no corner on a pill, and the row
+        wraps, so a badge hanging off one would collide with the line below.
+      */}
+      {selected && (
+        <span aria-hidden="true" className="text-ink/70 text-[0.6rem] leading-none">
+          ✓
+        </span>
+      )}
       {label}
     </button>
   );

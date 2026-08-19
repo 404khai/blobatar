@@ -206,8 +206,21 @@ describe("a narrowed silhouette", () => {
     // narrowed axis is unspellable in a URL for a second reason on top of the
     // one `shape` already had.
     const code = snip({ api: "http", name: NAME, pinned: NARROW, motion: false });
-    expect(code).toContain("# no url spelling for shape");
+    expect(code).toContain("narrowed");
     expect(code).not.toContain("shape=");
+  });
+
+  test("a narrowed tone is dropped for the other reason, and the note says which", () => {
+    // The case that made the two reasons worth separating: `tone` *is* in the
+    // URL vocabulary, so telling someone it has no spelling would be false —
+    // and demonstrably so, since pinning one tone spells it on the next line.
+    const narrow = snip({ api: "http", name: NAME, pinned: { tone: [0.1, 0.965] }, motion: false });
+    expect(narrow).toContain("tone narrowed");
+    expect(narrow).not.toContain("no url spelling");
+    expect(narrow).not.toContain("tone=");
+
+    const one = snip({ api: "http", name: NAME, pinned: { tone: 0.1 }, motion: false });
+    expect(one).toContain("tone=0.1");
   });
 });
 
