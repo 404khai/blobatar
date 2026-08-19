@@ -109,23 +109,82 @@ check("blobatar/vue animated", () => {
 });
 
 /**
- * The one check here that reads the build rather than running it.
+ * The checks here that read the build rather than running it.
  *
  * A dev-runtime build passes every other assertion in this file: Node resolves
  * `react/jsx-dev-runtime` and `jsxDEV` works, so the component renders and the
- * smoke test goes green on a package that throws
- * `jsxDEV is not a function` for anyone bundling for production. Nothing
- * observable at runtime *here* distinguishes the two builds, so the specifier
- * itself is the assertion. See the `define` in `scripts/build.ts`.
+ * smoke test goes green on a package that throws `jsxDEV is not a function` for
+ * anyone bundling for production. Nothing observable at runtime *here*
+ * distinguishes the two builds, so the specifier itself is the assertion — and
+ * it is asserted over every entry rather than over `react`, because what shipped
+ * was not "the react entry got the wrong runtime", it was "the build resolved a
+ * specifier nobody had stated". See the `define` in `scripts/build.ts`.
+ *
+ * Everything an entry imports is therefore listed. A specifier outside the list
+ * is either a dependency this package does not declare or a build-mode variant
+ * of one that it does; both reach a consumer as a broken install, and neither
+ * shows up in anything above.
  */
-check("blobatar/react ships the production JSX runtime", () => {
-  const path = createRequire(import.meta.url).resolve("blobatar/react");
-  const src = readFileSync(path, "utf8");
-  assert(
-    !src.includes("jsx-dev-runtime") && !src.includes("jsxDEV"),
-    "built with the development JSX transform — it will throw in production bundlers",
-  );
-  return "jsx-runtime";
+const ALLOWED_IMPORTS = new Set(["react", "react/jsx-runtime", "vue"]);
+
+const DEV_ONLY = [
+  ["jsx-dev-runtime", "the development JSX transform — it throws in production bundlers"],
+  ["jsxDEV", "a call into the development JSX transform"],
+  ["process.env", "a bare `process` reference — undefined in browsers and in Workers"],
+];
+
+const dist = (entry) => createRequire(import.meta.url).resolve(`blobatar${entry}`);
+
+const ENTRY_POINTS = ["", "/blob", "/uri", "/expression", "/react", "/vue"];
+
+check("every entry ships production code", () => {
+  for (const entry of ENTRY_POINTS) {
+    const src = readFileSync(dist(entry), "utf8");
+    for (const [token, why] of DEV_ONLY)
+      assert(!src.includes(token), `blobatar${entry} contains \`${token}\` — ${why}`);
+  }
+  return `${ENTRY_POINTS.length} entries`;
+});
+
+check("every entry imports only what the package declares", () => {
+  const seen = new Set();
+  for (const entry of ENTRY_POINTS) {
+    const src = readFileSync(dist(entry), "utf8");
+    // Every specifier the file names, from a minified bundle where an import can
+    // sit at byte zero with no whitespace anywhere in it — matched on the quoted
+    // specifier itself rather than on the statement around it, because a pattern
+    // anchored to `import` missed two of the three real ones and reported a
+    // clean build. Relative specifiers resolve inside `dist` and are skipped;
+    // there are none while each entry bundles standalone.
+    for (const m of src.matchAll(/\bfrom\s*["']([^"']+)["']|\bimport\s*["']([^"']+)["']/g)) {
+      const spec = m[1] ?? m[2];
+      if (spec.startsWith(".") || spec.startsWith("/")) continue;
+      seen.add(spec);
+      assert(
+        ALLOWED_IMPORTS.has(spec),
+        `blobatar${entry} imports \`${spec}\`, which is not a declared peer dependency`,
+      );
+    }
+  }
+  return [...seen].join(", ") || "nothing external";
+});
+
+check("every exports subpath resolves", () => {
+  const pkg = JSON.parse(readFileSync(dist("/package.json"), "utf8"));
+  for (const sub of Object.keys(pkg.exports)) {
+    const path = dist(sub.slice(1));
+    assert(existsSync(path), `${sub} resolves to a file that does not exist: ${path}`);
+    // Types are resolved by hand: `require.resolve` follows the `default`
+    // condition, so a missing declaration file is invisible to every check
+    // above and shows up as `any` in a consumer's editor.
+    const types = pkg.exports[sub]?.types;
+    if (types)
+      assert(
+        existsSync(new URL(types, `file://${dist("/package.json")}`)),
+        `${sub} declares ${types}, which was not built`,
+      );
+  }
+  return `${Object.keys(pkg.exports).length} subpaths`;
 });
 
 check("named exports on the barrel", () => {

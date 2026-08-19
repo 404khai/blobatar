@@ -29,6 +29,75 @@ function corners(e: { cx: number; cy: number; rx: number; ry: number; rot: numbe
   ]);
 }
 
+/** Cubic and quadratic Béziers, flattened fine enough to test points against. */
+const STEPS = 24;
+const bez = (p: [number, number][], t: number): [number, number] => {
+  let q = p;
+  while (q.length > 1)
+    q = q.slice(1).map((c, i) => [
+      q[i]![0] + (c[0] - q[i]![0]) * t,
+      q[i]![1] + (c[1] - q[i]![1]) * t,
+    ] as [number, number]);
+  return q[0]!;
+};
+
+/** One emitted `d` as closed polylines. Absolute commands only, which is all this package emits. */
+function outline(d: string): [number, number][][] {
+  const subs: [number, number][][] = [];
+  let cur: [number, number][] = [];
+  let x = 0, y = 0, sx = 0, sy = 0;
+  for (const m of d.matchAll(/([MCLQHVZ])([^MCLQHVZ]*)/g)) {
+    const a = (m[2]!.match(/-?\d*\.?\d+/g) ?? []).map(Number);
+    switch (m[1]) {
+      case "M":
+        if (cur.length > 1) subs.push(cur);
+        [x, y] = [a[0]!, a[1]!];
+        [sx, sy] = [x, y];
+        cur = [[x, y]];
+        break;
+      case "L": [x, y] = [a[0]!, a[1]!]; cur.push([x, y]); break;
+      case "H": x = a[0]!; cur.push([x, y]); break;
+      case "V": y = a[0]!; cur.push([x, y]); break;
+      case "C":
+      case "Q": {
+        const size = m[1] === "C" ? 6 : 4;
+        for (let i = 0; i + size <= a.length; i += size) {
+          const p: [number, number][] = [[x, y]];
+          for (let j = 0; j < size; j += 2) p.push([a[i + j]!, a[i + j + 1]!]);
+          for (let k = 1; k <= STEPS; k++) cur.push(bez(p, k / STEPS));
+          [x, y] = cur[cur.length - 1]!;
+        }
+        break;
+      }
+      case "Z": cur.push([sx, sy]); subs.push(cur); cur = []; [x, y] = [sx, sy]; break;
+    }
+  }
+  if (cur.length > 1) subs.push(cur);
+  return subs;
+}
+
+/** Even-odd, per part — the fill is a union of parts, so each is tested alone and OR-ed. */
+const inPath = (subs: [number, number][][], px: number, py: number) => {
+  let hits = 0;
+  for (const poly of subs)
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i]!;
+      const [xj, yj] = poly[j]!;
+      if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) hits++;
+    }
+  return hits % 2 === 1;
+};
+
+/** The whole fill: the core path, the petals unioned with it, and any extra outline. */
+function drawn(l: Layout) {
+  const core = outline(l.draw ? l.draw(l.body) : superellipse(l.body));
+  const extra = l.extra.map(outline);
+  return (px: number, py: number) =>
+    inPath(core, px, py) ||
+    l.petals.some(p => Math.hypot(px - p.cx, py - p.cy) <= p.r) ||
+    extra.some(e => inPath(e, px, py));
+}
+
 describe("the frame", () => {
   test("all geometry stays inside the viewBox", () => {
     for (const s of SEEDS) {
@@ -159,8 +228,18 @@ describe("blob", () => {
     if (l.shape === "capsule") return toSpine(px, py, l) <= b.ry;
     const shrink =
       l.shape === "organic" || l.shape === "cloud" ? Math.min(...b.radii) * 0.95 : 1;
-    // Understate squareness: a boxy body is roomier than the ellipse we test.
-    return inside(px, py, { cx: b.cx, cy: b.cy, rx: b.rx * shrink, ry: b.ry * shrink, n: 2 }) < 1;
+    // Squareness is understated and tilt is not: a boxy body is squarer than
+    // `n: 2` and so roomier, but a body whose seeded `n` falls under 2 is drawn
+    // *inside* that ellipse, and measuring it against one was the model
+    // claiming room the shape does not have.
+    const t = (-b.rot * Math.PI) / 180;
+    const dx = px - b.cx;
+    const dy = py - b.cy;
+    return inside(
+      b.cx + dx * Math.cos(t) - dy * Math.sin(t),
+      b.cy + dx * Math.sin(t) + dy * Math.cos(t),
+      { cx: b.cx, cy: b.cy, rx: b.rx * shrink, ry: b.ry * shrink, n: Math.min(b.n, 2) },
+    ) < 1;
   }
 
   const checkEyes = (ls: Layout[]) => {
@@ -173,6 +252,47 @@ describe("blob", () => {
           // only a claim about. This is the assertion that catches a face table
           // retuned past what the shape can actually hold.
           expect(inBody(x!, y!, l)).toBe(true);
+        }
+      }
+    }
+  };
+
+
+  /**
+   * The check that makes `inBody` accountable to what is drawn.
+   *
+   * Everything above measures the eyes against a *model* of the silhouette — a
+   * stadium for the capsule, a shrunken ellipse for the spline shapes, the cut
+   * hull for the polygons. A model is a claim about the path, and nothing above
+   * ever compares the two: the capsule shipped a middle drawn as a superellipse,
+   * which rounds its corners by a fraction of the whole radius and so pinched
+   * away from its own caps, while every test here went on asserting against the
+   * stadium it was supposed to be. The caps stood proud of a waist that had
+   * quietly shrunk, and the seed grid was the only place it showed.
+   *
+   * So the model is held against the outline the renderer emits, by flattening
+   * the curves and testing points. Whichever of the ten drifts from what it
+   * promises fails here — this is not a capsule test that happens to generalize.
+   */
+  const checkDrawn = (ls: Layout[]) => {
+    // A margin, because the two agree exactly along the boundary wherever the
+    // model is tight — the capsule's stadium *is* its outline — and a point
+    // sampled onto that shared edge would decide the test by rounding. Interior
+    // points only: a point counts as the model's when its neighbourhood does.
+    const m = 0.3;
+    for (const l of ls) {
+      const has = drawn(l);
+      for (let px = 2; px <= 98; px += 2) {
+        for (let py = 2; py <= 98; py += 2) {
+          const interior =
+            inBody(px, py, l) &&
+            inBody(px + m, py, l) && inBody(px - m, py, l) &&
+            inBody(px, py + m, l) && inBody(px, py - m, l);
+          if (!interior) continue;
+          if (!has(px, py))
+            throw new Error(
+              `${l.shape}: (${px}, ${py}) is inside the model and outside the drawn outline`,
+            );
         }
       }
     }
@@ -211,6 +331,20 @@ describe("blob", () => {
         expect(l.body.n).toBe(2);
       }
     }
+  });
+
+
+  test("the drawn silhouette covers what the containment model claims", () => {
+    // Sampled per shape rather than off the front of the sweep: `triangle` is
+    // under 4% of seeds, so a flat slice would check it a dozen times while
+    // `round` gets three hundred.
+    const per = new Map<string, Layout[]>();
+    for (const l of layouts) {
+      const seen = per.get(l.shape) ?? [];
+      if (seen.length < 120) seen.push(l);
+      per.set(l.shape, seen);
+    }
+    checkDrawn([...per.values()].flat());
   });
 
   test("every shape in the vocabulary is reachable", () => {
@@ -280,6 +414,10 @@ describe("blob", () => {
 
     test("eyes sit inside the face, and the face inside the body", () => {
       checkEyes(cfg);
+    });
+
+    test("the drawn silhouette covers what the containment model claims", () => {
+      checkDrawn(cfg);
     });
 
     test("all geometry stays inside the viewBox", () => {
