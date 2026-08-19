@@ -29,7 +29,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       # setup-node ships npm 10 with Node 22, and OIDC trusted publishing —
-      # which is how this package authenticates, there is no NPM_TOKEN — landed
+      # which is how these packages authenticate, there is no NPM_TOKEN — landed
       # in npm 11.5.1. On the older client `npm publish` does not even attempt
       # the token exchange; it fails with ENEEDAUTH as if no credentials were
       # configured at all, which is a misleading way to learn this.
@@ -38,34 +38,136 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      # Unfiltered, and that is the change the split forces. `bun --filter
+      # blobatar` was every one of these before, which was complete while core
+      # was the only published package and is now a release that never
+      # typechecks, tests or measures the adapters it is about to publish.
+      # The repo already argues this for the local `check` script: a gate that
+      # is a subset of CI goes green on code CI rejects. A release gate that is
+      # a subset of CI is the same mistake with a worse blast radius.
+      #
+      # `probe` is the one CI task deliberately not here: it drives real
+      # browsers, which this runner does not install, and it warns and exits 0
+      # when it finds none. A gate that cannot fail is worse than an absent one.
+      - name: Typecheck
+        run: bunx turbo run typecheck
+
       - name: Tests
-        run: bun --filter blobatar test
+        run: bunx turbo run test
 
       - name: Size budgets
-        run: bun --filter blobatar size
+        run: bunx turbo run size
 
       - name: Build
-        run: bun --filter blobatar build
+        run: bunx turbo run build
 
       - name: Smoke the built package
-        run: bun --filter blobatar smoke
+        run: bunx turbo run smoke
 
-      - name: Refuse to publish a tag that disagrees with package.json
+      # Every lockstep package, not just core. `scripts/publishable.ts` derives
+      # the set from `private` and from `fixed` in `.changeset/config.json`
+      # rather than restating it here — see its header for why the list is not
+      # written down twice, and why this is not `npm publish --workspaces`.
+      #
+      # This is also the check that proves lockstep held. `changeset version`
+      # bumps the group together, so a package whose version disagrees with the
+      # tag means the release commit is not what it appears to be, and the
+      # adapters would publish pinned to a core major that is not shipping.
+      - name: Refuse to publish a tag that disagrees with any package
+        if: github.event_name == 'push'
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          pkg=$(node -p "require('./packages/blobatar/package.json').version")
-          if [ "$tag" != "$pkg" ]; then
-            echo "tag v$tag does not match package.json $pkg" >&2
+          failed=0
+          while IFS=$'\t' read -r name version group; do
+            case "$group" in
+              lockstep)
+                if [ "$version" != "$tag" ]; then
+                  echo "::error::$name is $version, tag says $tag"
+                  failed=1
+                else
+                  echo "  $name $version"
+                fi
+                ;;
+              # Not an error. `blobatar-codemod` is unscoped precisely so the
+              # library's version cannot drag it along, so it releases on its
+              # own and a `v*` tag is not its tag. Logged so that a package
+              # nobody meant to leave off the train is visible here.
+              *) echo "  (not in this release) $name $version" ;;
+            esac
+          done < <(bun scripts/publishable.ts)
+          [ "$failed" -eq 0 ]
+
+      # The hazard this exists for is a partial release, and it is specific to
+      # how these packages authenticate. A trusted publisher is registered on
+      # npmjs.com against a package that already exists — there is no package
+      # settings page for a name nobody has published — so a package's very
+      # first publish cannot come from this workflow. It needs one manual,
+      # token-authenticated publish, after which the trusted publisher can be
+      # registered and every release after it is OIDC.
+      #
+      # Without this check that failure lands *during* the publish loop, after
+      # some of the lockstep group is already on the registry and cannot be
+      # unpublished after 72 hours. Checking first turns an unrecoverable
+      # partial release into a run that never started.
+      #
+      # npm's own documentation states neither the requirement nor its absence,
+      # so this is written against observed behaviour rather than a spec. If npm
+      # later allows a first publish over OIDC, this step costs one `npm view`
+      # per package and can be deleted.
+      - name: Every package must already exist for OIDC to work
+        run: |
+          missing=""
+          while IFS=$'\t' read -r name version group; do
+            [ "$group" = "lockstep" ] || continue
+            if npm view "$name" version >/dev/null 2>&1; then
+              echo "  $name is on the registry"
+            else
+              missing="$missing $name"
+            fi
+          done < <(bun scripts/publishable.ts)
+          if [ -n "$missing" ]; then
+            echo "::error::never published, so no trusted publisher can exist yet:$missing"
+            echo "Publish each one manually once, with a token, then register its"
+            echo "trusted publisher (this repo, workflow filename release.yml) and"
+            echo "re-run this tag. Nothing was published by this run."
             exit 1
           fi
-        if: github.event_name == 'push'
 
       # npm, not bun: `bun publish` does not yet emit provenance attestations.
       #
-      # No NODE_AUTH_TOKEN. The package is published through npm's trusted
-      # publisher for this repo and this workflow file, so the credential is the
-      # OIDC token `id-token: write` above mints — there is no long-lived npm
-      # token in this repo to leak or rotate. Renaming this file breaks the
-      # trust: the publisher is registered against `release.yml` by name.
+      # No NODE_AUTH_TOKEN. Each package is published through its own npm
+      # trusted publisher for this repo and this workflow file, so the
+      # credential is the OIDC token `id-token: write` above mints — there is no
+      # long-lived npm token in this repo to leak or rotate.
+      #
+      # Renaming this file breaks the trust, and that warning now applies once
+      # per package rather than once: the publisher is registered against
+      # `release.yml` by name, separately for `blobatar`, `@blobatar/react` and
+      # `@blobatar/vue`, and for every adapter added after them.
+      #
+      # One `npm publish` per package rather than one command, so a failure
+      # names the package it happened to, and so the loop cannot be widened by
+      # accident into publishing something the tag gate never checked.
+      # Skipping a version already on the registry is what makes a re-run safe.
+      # The 72-hour rule means a release that dies halfway cannot be undone and
+      # can only be finished, so the recovery path has to be "push the tag
+      # again" — and that only works if publishing is idempotent. It is also the
+      # step that lets a package be bootstrapped by hand (see the check above)
+      # and then rejoin this workflow without the next tag failing on it.
+      #
+      # Safe to skip rather than fail because the gate above has already
+      # asserted that every version here equals the tag: a package that is
+      # already at this version is one this same release published, not a
+      # different build wearing the same number.
       - name: Publish
-        run: npm publish --workspace blobatar --provenance --access public
+        run: |
+          while IFS=$'\t' read -r name version group; do
+            [ "$group" = "lockstep" ] || continue
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "  $name@$version is already published — skipping"
+              continue
+            fi
+            echo "::group::npm publish $name@$version"
+            npm publish --workspace "$name" --provenance --access public
+            echo "::endgroup::"
+          done < <(bun scripts/publishable.ts)
