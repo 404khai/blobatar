@@ -30,4 +30,4 @@ export { normalizeSeed } from "./hash";
  * whole graph being dropped. `scripts/smoke.mjs` links the built barrel under
  * Node on every build and is what will tell you if this stops being true.
  */
-export const VERSION = "2.0.0";
+export const VERSION = "2.1.0";

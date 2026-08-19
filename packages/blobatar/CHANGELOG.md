@@ -12,6 +12,44 @@ one: `blobatar@1` renders gen1, `blobatar@2` renders gen2. See
 [ADR-0006](../../docs/adr/0006-generations.md) and
 [ADR-0008](../../docs/adr/0008-package-majors-select-generations.md).
 
+## 2.1.0
+
+**No blobatar changes.** Nothing here touches the seed → look mapping: the
+golden fixture is untouched, and every entry point that already existed builds
+to the same bytes it did in 2.0.0. This release adds a second adapter and
+nothing else.
+
+### Added
+
+- **`blobatar/vue`** — a Vue 3 adapter, with the same options, the same two
+  rendering modes and the same accessibility handling as `blobatar/react`. A
+  static blobatar is an `<img>`; `animate` switches it to inline SVG. Anything
+  not declared as a prop — `class`, `style`, `alt`, `data-*`, listeners — lands
+  on whichever element the mode renders.
+
+  ```vue
+  <script setup>
+  import { Blobatar } from "blobatar/vue";
+  </script>
+
+  <template>
+    <Blobatar name="alain@example.com" :size="48" />
+  </template>
+  ```
+
+  `vue` is an optional peer dependency, exactly like `react`, and none of this
+  reaches you unless you import it: `blobatar`, `blobatar/blob`, `blobatar/uri`
+  and `blobatar/react` are unchanged and no larger. Only what lands in
+  `node_modules` grows.
+
+  One shape to know: write `:animate="true"` rather than a bare `animate`. Vue
+  only casts a valueless attribute to `true` when `Boolean` leads the prop's
+  type list, and here `String` does — so `<Blobatar animate />` arrives as `""`
+  and reads as off. `"hover"` and `"always"` are the forms worth writing
+  anyway.
+
+Thanks to [@FliPPeDround](https://github.com/FliPPeDround) for the adapter.
+
 ## 2.0.0
 
 **Every seed renders differently.** gen2's ten silhouettes replace gen1's six,
