@@ -234,6 +234,15 @@ numeric ranges can be judged as clusters and outliers rather than one seed at a
 time.
 _Avoid_: demo app, playground, storybook.
 
+**Crowd**:
+Several blobatars shown together to make a point about the whole population
+rather than about any one of them — that no two names come out alike, or that a
+config with something narrowed does not describe a single figure. The README's
+`crowd.png` and the editor's row under the preview are both this; the **wall**
+is the landing page's parallax version of it, and the **tuning grid** is not one
+at all, since it varies a range rather than the name.
+_Avoid_: gallery, facepile, grid.
+
 **Wall**:
 The landing page's parallax field of blobatars illustrating "millions of
 options". Distinct from the tuning grid, which serves design work, not

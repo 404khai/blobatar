@@ -3,6 +3,7 @@ import { Blobatar } from "blobatar/react";
 import { traits as reader, type TraitOverrides } from "blobatar";
 import { Control } from "@/components/editor/control";
 import { ShapePicker, TonePicker } from "@/components/editor/pickers";
+import { Crowd } from "@/components/editor/crowd";
 import { Segmented, SegmentedItem } from "@/components/ui/segmented";
 import { Snippet } from "@/components/ui/snippet";
 import { Install } from "@/components/ui/install";
@@ -395,6 +396,27 @@ function Preview({
           className="size-[min(15rem,34vmin,28vh)]"
         />
       )}
+
+      {/*
+        Between the blobatar and the controls, because it belongs to the first
+        of those: it is the same preview asked of seven other names, not a
+        setting. Clicking one makes it the name — the row doubles as a way to
+        tune from a blobatar you liked rather than from the one you were given.
+      */}
+      <Crowd
+        name={name}
+        pinned={pinned}
+        onPick={setName}
+        // The first thing to go when there is not enough page. The wide layout
+        // is a screen tall and does not scroll, so every row in this column is
+        // spent out of the same budget as the snippet below it — and the
+        // snippet is the deliverable. A short laptop gets the blobatar and the
+        // code, which is the page; the crowd is what the page can do without.
+        // Width in the query as well as height because it is only the wide
+        // layout that cannot scroll: narrow is an ordinary document and has
+        // room for everything.
+        className="[@media(min-width:64rem)_and_(max-height:52rem)]:hidden"
+      />
 
       <div className="flex items-center gap-3">
         <span className="text-muted text-xs lowercase">motion</span>

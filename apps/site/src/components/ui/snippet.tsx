@@ -69,7 +69,12 @@ export function Snippet({ code, className }: { code: string; className?: string 
   return (
     <div
       className={cn(
-        "bg-raised/60 border-line group relative rounded-2xl border",
+        "bg-raised/60 border-line group relative flex flex-col rounded-2xl border",
+        // `overflow-hidden` is what makes the scrolling below possible at all.
+        // A flex parent can shrink this box past its content — the editor's
+        // column does, on a short viewport — and without a clip here the code
+        // simply paints out of the bottom and over whatever is next.
+        "overflow-hidden",
         className,
       )}
     >
@@ -90,13 +95,15 @@ export function Snippet({ code, className }: { code: string; className?: string 
       </button>
 
       {/*
-        `h-full` so the box can be handed a height by a flex parent — the
-        editor's column does exactly that — and `overflow-auto` rather than
-        `overflow-x-auto` so that when it is, the code scrolls inside the box
-        instead of out of it. Neither does anything where the parent's height is
-        the content's, which is every other place this is used.
+        `flex-1 min-h-0` rather than `h-full`, and the difference is the whole
+        behaviour: a percentage height against a parent that has no resolved one
+        computes to `auto`, so the box would grow to its content and `overflow`
+        would never have anything to do. Sized by the flex line instead, it
+        takes whatever height the box was actually given — and scrolls the code
+        inside when that is less than the code needs, which is what the editor's
+        column relies on. `overflow-auto`, not `-x-`: the squeeze is vertical.
       */}
-      <pre className="h-full overflow-auto p-5 pr-14 font-mono text-[0.8rem] leading-[1.7]">
+      <pre className="min-h-0 flex-1 overflow-auto p-5 pr-14 font-mono text-[0.8rem] leading-[1.7]">
         <code>{highlight(code)}</code>
       </pre>
     </div>
