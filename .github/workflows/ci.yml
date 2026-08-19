@@ -28,14 +28,19 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      # Through turbo rather than calling `tsc` directly, so this and
+      # `bun run typecheck` in the package are the same command. The package
+      # script is still the only place the `tsc` invocation is written down —
+      # a local gate that is a subset of CI is a gate that goes green on code
+      # CI rejects.
       - name: Typecheck
-        run: bunx tsc -p packages/blobatar/tsconfig.json --noEmit
+        run: bunx turbo run typecheck --filter=blobatar
 
       - name: Tests
-        run: bun --filter blobatar test
+        run: bunx turbo run test --filter=blobatar
 
       - name: Size budgets
-        run: bun --filter blobatar size
+        run: bunx turbo run size --filter=blobatar
 
       # `probe-compose.ts` warns and exits 0 when it finds no browser, so that a
       # local run without one is not a hard stop. In CI that would turn the only
@@ -47,15 +52,15 @@ jobs:
           firefox --version
 
       - name: Composition gate
-        run: bun --filter blobatar probe
+        run: bunx turbo run probe --filter=blobatar
 
       - name: Build
-        run: bun --filter blobatar build
+        run: bunx turbo run build --filter=blobatar
 
       # Links the built package under Node, through its own `exports` map. This
       # is the step that catches a dist that is broken for everyone outside Bun.
       - name: Smoke the built package
-        run: bun --filter blobatar smoke
+        run: bunx turbo run smoke --filter=blobatar
 
       - name: Pack
         run: npm pack --workspace blobatar --pack-destination /tmp
@@ -94,13 +99,13 @@ jobs:
       # Worker imports the endpoint from `apps/api/src`, so the site's tests
       # cross into that unaliased resolution too.
       - name: Build the library
-        run: bun --filter blobatar build
+        run: bunx turbo run build --filter=blobatar
 
       - name: Site tests
-        run: bun --filter site test
+        run: bunx turbo run test --filter=site
 
       - name: Endpoint tests, against the built package
-        run: bun --filter blobatar-api test
+        run: bunx turbo run test --filter=blobatar-api
 
       # Bundles `blobatar` the way a deploy does: through the workspace symlink
       # and therefore through the real `exports` map, not the tsconfig alias to

@@ -42,3 +42,4 @@ apps/site/*.html
 
 # apps/img — wrangler local state
 .wrangler
+.turbo/
