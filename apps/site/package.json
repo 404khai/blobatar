@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "bun --hot server.ts",
     "build": "bun build.ts",
-    "preview": "bun run build && wrangler dev",
-    "deploy": "bun --filter blobatar build && bun run build && wrangler deploy",
+    "preview": "wrangler dev",
+    "deploy": "wrangler deploy",
     "test": "bun test",
-    "check": "bun test"
+    "check": "bun test",
+    "//scripts": "No `bun --filter blobatar build &&` prefixes any more, and no `bun run build &&` either. Both orderings are now `dependsOn` entries on the `preview` and `deploy` tasks in the root `turbo.json`, so the library build and this app's own build happen once, in order, whichever entry point is used."
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.23",
