@@ -28,6 +28,17 @@ import {
 import { Snippet } from "@/components/ui/snippet";
 import { SHAPES, type ShapeOption } from "@/shapes";
 import { Install } from "@/components/ui/install";
+import { Caret, FrameworkMenu } from "@/components/ui/framework-menu";
+import {
+  attrExpr,
+  attrString,
+  close,
+  comment,
+  infoFor,
+  installFor,
+  wrap,
+  type Framework,
+} from "@/frameworks";
 import { EggMark, eggFor } from "@/eggs";
 import { cn } from "@/lib/utils";
 
@@ -127,16 +138,22 @@ function useWide() {
 }
 
 /**
- * JSX attribute strings are not JS strings — no backslash escapes — so a name
- * containing a quote cannot be written as `name="…"` at all. Fall through to an
- * expression container, where the JS literal `JSON.stringify` produces is
- * exactly right.
+ * The hero's generator, in whichever framework you are reading.
+ *
+ * Four axes rather than the editor's twenty, and otherwise the same job — so
+ * the spellings come from the same table (`@/frameworks`) rather than being
+ * decided again here. Two generators is a deliberate split; two answers to
+ * "how does Vue write a bound prop" would not be.
+ *
+ * Exported for `Hero.test.ts` and for nothing else. The editor's equivalent got
+ * a module of its own on the grounds that a generator inside a component is
+ * testable only by rendering one; that is true of a *private* one, and a named
+ * export is the cheaper half of the same fix. It stays here because its inputs
+ * — `Bg`, `Pose`, `Shape` — are this file's, and moving four types out to
+ * follow one function would be the larger change, not the smaller one.
  */
-function attr(value: string) {
-  return /["\\]/.test(value) ? `{${JSON.stringify(value)}}` : `"${value}"`;
-}
-
-function snippet(
+export function snippet(
+  fw: Framework,
   seed: string,
   bg: Bg,
   hue: number | null,
@@ -144,35 +161,38 @@ function snippet(
   shape: Shape | null,
 ) {
   const posed = pose.value !== idle;
+  const { pkg, flavor } = infoFor(fw);
 
-  const imports = [`import { Blobatar } from "@blobatar/react";`];
+  const imports = [`import { Blobatar } from "${pkg}";`];
+  // Expressions are values, not strings, and they are core's rather than any
+  // adapter's — so this import is the one line of the five that is identical in
+  // all five.
   if (posed) imports.push(`import { ${pose.name} } from "blobatar/expression";`);
   imports.push(`import "blobatar/motion.css";`);
 
   // Only what differs from the defaults. A snippet that restates every default
   // reads as configuration you are obliged to supply, which is the opposite of
   // what a one-prop library wants to advertise.
-  const props = [`name=${attr(seed || "blobatar")}`];
-  if (shape) props.push(`traits={{ shape: ${shape.at} }}`);
-  if (bg !== "none") props.push(`background="${bg}"`);
-  if (hue !== null) props.push(`hue={${hue}}`);
-  if (posed) props.push(`expression={${pose.name}}`);
-  props.push(`animate="hover"`);
+  const props = [attrString(flavor, "name", seed || "blobatar")];
+  if (shape) props.push(attrExpr(flavor, "traits", `{ shape: ${shape.at} }`));
+  if (bg !== "none") props.push(attrString(flavor, "background", bg));
+  if (hue !== null) props.push(attrExpr(flavor, "hue", String(hue)));
+  if (posed) props.push(attrExpr(flavor, "expression", pose.name));
+  props.push(attrString(flavor, "animate", "hover"));
 
   // The one line here that cannot be read off the code. `0.885` is a position in
   // a range, not a measurement, and nothing about it says "cloud" — so the name
-  // goes above the element, where a `//` is legal. Inside the attribute list it
-  // would not be: JSX has no line comments between props.
-  const note = shape ? [`// shape: ${shape.name}`] : [];
+  // goes above the element, where a comment is legal. Inside the attribute list
+  // it would not be: no flavor here has a line comment between props. Which
+  // comment it is belongs to the flavor — `//` renders as text in a template.
+  const note = shape ? [comment(flavor, `shape: ${shape.name}`)] : [];
 
-  return [
-    imports.join("\n"),
-    "",
+  return wrap(flavor, imports, [
     ...note,
     `<Blobatar`,
     ...props.map((p) => `  ${p}`),
-    `/>`,
-  ].join("\n");
+    close(flavor),
+  ]);
 }
 
 export function Hero() {
@@ -181,6 +201,19 @@ export function Hero() {
   const [hue, setHue] = useState<number | null>(null);
   const [pose, setPose] = useState<Pose>(POSES[0]);
   const [shape, setShape] = useState<Shape | null>(null);
+
+  /**
+   * Which adapter the snippet is written in.
+   *
+   * The hero's four axes are about the blobatar; this one is about you, and it
+   * is the only control here that changes no pixel of the preview. It earns its
+   * place anyway: the page's argument is "this is four lines you can paste",
+   * and that argument is only made to a React reader if the four lines are the
+   * only ones on offer.
+   */
+  const [fw, setFw] = useState<Framework>("react");
+  /** Whether the framework list is open. Controlled — see `FrameworkMenu`. */
+  const [picking, setPicking] = useState(false);
 
   /**
    * A reaction is a temporary override of the picked pose, not a replacement
@@ -710,14 +743,44 @@ export function Hero() {
           a command pill as wide as the snippet stops reading as a thing you
           press.
         */}
-        <Install command="bun add blobatar" className="self-start" />
+        <Install command={installFor(fw)} className="self-start" />
 
         <div className="flex flex-col gap-3">
-          <div className="text-muted flex items-baseline justify-between text-xs lowercase">
+          <div className="text-muted flex items-baseline justify-between gap-4 text-xs lowercase">
             <span>your config</span>
-            <span className="font-mono normal-case">Blobatar.tsx</span>
+            {/*
+              The picker sits with the filename rather than with the tuning
+              controls above, and that is the placement doing the explaining:
+              both of these describe the *file*, not the creature. The filename
+              follows the framework for the same reason — `.svelte` is how you
+              know the code below changed language.
+            */}
+            <span className="flex items-baseline gap-3">
+              <FrameworkMenu
+                value={fw}
+                onChange={setFw}
+                open={picking}
+                onOpenChange={setPicking}
+                align="end"
+              >
+                <button
+                  type="button"
+                  onClick={() => setPicking(open => !open)}
+                  aria-label={`Framework: ${fw}`}
+                  className={cn(
+                    "hover:text-ink flex items-center gap-1.5 rounded-full px-2 py-1",
+                    "hover:bg-raised/60 -mx-2 transition-colors duration-150",
+                    picking && "text-ink",
+                  )}
+                >
+                  {fw}
+                  <Caret className={cn(picking && "rotate-180")} />
+                </button>
+              </FrameworkMenu>
+              <span className="font-mono normal-case">{infoFor(fw).file}</span>
+            </span>
           </div>
-          <Snippet code={snippet(seed, bg, hue, pose, shape)} />
+          <Snippet code={snippet(fw, seed, bg, hue, pose, shape)} />
           <p className="text-muted text-xs leading-relaxed">
             Every prop is optional except the name. Drop{" "}
             <code className="font-mono">animate</code> and the blobatar renders as a

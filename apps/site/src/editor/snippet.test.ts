@@ -20,7 +20,10 @@ const snip = (input: SnippetInput) => snippet(input);
 
 /** The `traits` literal from a generated snippet, evaluated. */
 function pasted(code: string): Record<string, number | number[]> {
-  const body = code.match(/traits[=:]\s*\{\{?([\s\S]*?)\}\}?[,\n]/);
+  // The optional quotes are Vue's: its expression attributes wrap the literal in
+  // `"`, so the same object arrives one layer deeper than in JSX. Single-quoted
+  // keys inside it are still JS, which is all `new Function` needs.
+  const body = code.match(/traits[=:]\s*"?\{\{?([\s\S]*?)\}\}?"?[,\n]/);
   if (!body) return {};
   // `new Function` on our own generated string, in a test, is the point: it is
   // the closest thing to "paste this into a file" that a test can do, and it
@@ -115,11 +118,11 @@ describe("what it emits", () => {
   });
 
   test("the string API drops `animate` out loud rather than silently", () => {
-    // `blobatar()` returns static markup whatever it is passed — animation is a
-    // `@blobatar/react` option. Emitting it would be a snippet that lies.
+    // `blobatar()` returns static markup whatever it is passed — animation is
+    // an adapter option. Emitting it would be a snippet that lies.
     const code = snip({ api: "string", name: NAME, pinned: {}, motion: "always" });
     expect(code).not.toContain("animate:");
-    expect(code).toContain("// animate is a @blobatar/react option");
+    expect(code).toContain("// animate is a component option");
   });
 
   test("the endpoint spelling is a url, with the generation pinned", () => {
@@ -169,6 +172,118 @@ describe("what it emits", () => {
   test("an empty name falls back rather than emitting nothing", () => {
     const code = snip({ api: "react", name: "", pinned: {}, motion: false });
     expect(code).toContain(`name="blobatar"`);
+  });
+});
+
+/**
+ * Five adapters, one component.
+ *
+ * The generator emits them from one table rather than five functions, so what
+ * is worth testing is not each framework's happy path — it is the places the
+ * flavors genuinely disagree, because those are where a shared emitter can be
+ * quietly wrong for four of them. Each test below is a mistake this file caught
+ * while it was being written.
+ */
+describe("every adapter", () => {
+  const FRAMEWORKS: Api[] = ["react", "vue", "svelte", "solid", "preact"];
+
+  test("each imports its own package, and none imports another's", () => {
+    for (const api of FRAMEWORKS) {
+      const code = snip({ api, name: NAME, pinned: {}, motion: false });
+      expect(code).toContain(`import { Blobatar } from "@blobatar/${api}";`);
+      for (const other of FRAMEWORKS.filter(f => f !== api))
+        expect(code).not.toContain(`@blobatar/${other}`);
+    }
+  });
+
+  test("the name reaches every one of them", () => {
+    for (const api of FRAMEWORKS)
+      expect(snip({ api, name: NAME, pinned: {}, motion: false })).toContain(NAME);
+  });
+
+  test("the pinned traits survive the trip into every flavor", () => {
+    // The acceptance property, per framework: whatever the attribute syntax is,
+    // the object inside it is the map the preview rendered.
+    for (const api of FRAMEWORKS) {
+      const one = snip({ api, name: NAME, pinned: { shape: 0.965 }, motion: false });
+      expect(pasted(one)).toEqual({ shape: 0.965 });
+
+      const many = snip({
+        api,
+        name: NAME,
+        pinned: { shape: 0.14, "eye.gap": 0.8, hue: 0.2 },
+        motion: false,
+      });
+      expect(pasted(many)).toEqual({ shape: 0.14, "eye.gap": 0.8, hue: 0.2 });
+    }
+  });
+
+  test("the single-file formats wrap the element, and the JSX ones do not", () => {
+    const vue = snip({ api: "vue", name: NAME, pinned: {}, motion: false });
+    expect(vue).toContain("<script setup>");
+    expect(vue).toContain("<template>");
+
+    const svelte = snip({ api: "svelte", name: NAME, pinned: {}, motion: false });
+    expect(svelte).toContain("<script>");
+    // Svelte has no `<template>`: the markup is the module body.
+    expect(svelte).not.toContain("<template>");
+
+    for (const api of ["react", "solid", "preact"] as Api[]) {
+      const code = snip({ api, name: NAME, pinned: {}, motion: false });
+      expect(code).not.toContain("<script");
+      expect(code).not.toContain("<template>");
+    }
+  });
+
+  test("a note in markup position is a markup comment, never `//`", () => {
+    // The bug this exists for: `//` beside a JSX element is a comment, and the
+    // identical line inside a Vue or Svelte template is *text* — it renders.
+    // A snippet that pasted its own annotation onto the page beside the
+    // blobatar would be worse than one with no annotation at all.
+    for (const api of ["vue", "svelte"] as Api[]) {
+      const code = snip({ api, name: NAME, pinned: { shape: 0.14 }, motion: false });
+      const markup = code.slice(code.indexOf("</script>"));
+      expect(markup).toContain("<!-- everything below comes from the name");
+      expect(markup).not.toContain("//");
+    }
+  });
+
+  test("Vue binds expressions and quotes keys so the attribute survives", () => {
+    // A double-quoted key inside a double-quoted attribute closes it early and
+    // the template stops parsing there.
+    const code = snip({ api: "vue", name: NAME, pinned: { "eye.gap": 0.8 }, motion: false });
+    expect(code).toContain(`:traits="{ 'eye.gap': 0.8 }"`);
+    expect(code).not.toContain('"eye.gap"');
+  });
+
+  test("a name that cannot be written plainly is escaped the way its flavor escapes", () => {
+    const quoted = 'say "hi"';
+
+    // Vue's template is HTML, so the quote is an entity and the prop stays
+    // static. JSX and Svelte have no entity layer and fall through to an
+    // expression container instead.
+    expect(snip({ api: "vue", name: quoted, pinned: {}, motion: false })).toContain(
+      'name="say &quot;hi&quot;"',
+    );
+    for (const api of ["react", "svelte", "solid", "preact"] as Api[])
+      expect(snip({ api, name: quoted, pinned: {}, motion: false })).toContain(
+        'name={"say \\"hi\\""}',
+      );
+  });
+
+  test("only JSX carries a statement terminator", () => {
+    for (const api of ["react", "solid", "preact"] as Api[])
+      expect(snip({ api, name: NAME, pinned: {}, motion: false }).trimEnd()).toEndWith("/>;");
+    for (const api of ["vue", "svelte"] as Api[])
+      expect(snip({ api, name: NAME, pinned: {}, motion: false }).trimEnd()).not.toContain("/>;");
+  });
+
+  test("animating says so in every flavor, and imports the stylesheet", () => {
+    for (const api of FRAMEWORKS) {
+      const code = snip({ api, name: NAME, pinned: {}, motion: "hover" });
+      expect(code).toContain(`import "blobatar/motion.css"`);
+      expect(code).toContain(`animate="hover"`);
+    }
   });
 });
 

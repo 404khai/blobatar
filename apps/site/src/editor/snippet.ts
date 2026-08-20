@@ -11,13 +11,35 @@
  */
 import type { TraitOverrides } from "blobatar";
 import { KEY_ORDER } from "./axes";
+import {
+  attrExpr,
+  attrString,
+  close,
+  comment,
+  exprClose,
+  exprOpen,
+  infoFor,
+  objectKey,
+  wrap,
+  type Flavor,
+  type Framework,
+} from "@/frameworks";
 
-export type Api = "react" | "string" | "http";
+/**
+ * The call sites, which is what the tab strip is an axis over.
+ *
+ * Five of the seven are frameworks and differ only in package name and
+ * attribute spelling, so they are one member of this union expanded rather than
+ * five hand-written emitters — see `@/frameworks`. The other two are genuinely
+ * different APIs: `string` returns markup and `http` is a URL, and neither has
+ * a component to configure.
+ */
+export type Api = Framework | "string" | "http";
 export type Motion = false | "hover" | "always";
 
 export interface SnippetInput {
   api: Api;
-  /** The name the preview is showing. Emitted literally — see `nameNote`. */
+  /** The name the preview is showing. Emitted literally — see `NAME_NOTE`. */
   name: string;
   /** The pinned traits. Empty means no `traits` at all in the output. */
   pinned: TraitOverrides;
@@ -29,11 +51,11 @@ export interface SnippetInput {
  *
  * Quoting every key would be uniform and slightly uglier; both are defensible
  * and the rule is to pick one. This picks the one a person writing the object
- * by hand would produce, since looking hand-written is the whole brief.
+ * by hand would produce, since looking hand-written is the whole brief. Which
+ * quote character it reaches for is the flavor's call, not this module's —
+ * `objectKey` carries that, and the reason.
  */
-const bare = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-
-const key = (k: string) => (bare.test(k) ? k : JSON.stringify(k));
+const key = objectKey;
 
 /**
  * Panel order, then anything else.
@@ -62,15 +84,6 @@ const literal = (v: number | number[]) =>
   Array.isArray(v) ? `[${v.join(", ")}]` : String(v);
 
 /**
- * JSX attribute strings are not JS strings — no backslash escapes — so a name
- * containing a quote cannot be written as `name="…"` at all. Fall through to an
- * expression container, where the JS literal `JSON.stringify` produces is
- * exactly right. Same helper as the hero's, same reason.
- */
-const attr = (value: string) =>
-  /["\\]/.test(value) ? `{${JSON.stringify(value)}}` : `"${value}"`;
-
-/**
  * The name is emitted literally, and it has to be.
  *
  * A real call site says `name={user.email}`, and the temptation is to emit that
@@ -78,54 +91,71 @@ const attr = (value: string) =>
  * substitutes a variable for the string the preview used renders a different
  * blobatar. The literal is the honest output; the comment is what tells you
  * which half of it is yours to replace.
+ *
+ * Spelled by the flavor rather than written out, because it sits in markup
+ * position: see `comment`.
  */
-const nameNote = "// everything below comes from the name unless it is pinned";
+const NAME_NOTE = "everything below comes from the name unless it is pinned";
 
 export function snippet({ api, name, pinned, motion }: SnippetInput): string {
   const traits = entries(pinned);
   const seed = name || "blobatar";
 
-  return api === "react"
-    ? react(seed, traits, motion)
-    : api === "string"
-      ? string(seed, traits, motion)
-      : http(seed, traits, motion);
+  return api === "string"
+    ? string(seed, traits, motion)
+    : api === "http"
+      ? http(seed, traits, motion)
+      : component(api, seed, traits, motion);
 }
 
-function react(
+/**
+ * Any of the five adapters.
+ *
+ * One emitter rather than five because the adapters are one component with five
+ * publishers: the props are identical, so what a Svelte snippet and a Preact
+ * snippet disagree about is the package they import and how their template
+ * spells an attribute — both of which are table lookups. The alternative, five
+ * near-identical functions, is five places for a prop to be added to four of.
+ */
+function component(
+  id: Framework,
   seed: string,
   traits: (readonly [string, number | number[]])[],
   motion: Motion,
 ) {
-  const lines = [`import { Blobatar } from "@blobatar/react";`];
+  const { pkg, flavor } = infoFor(id);
+
+  const imports = [`import { Blobatar } from "${pkg}";`];
   // The trade the library documents, stated where it is taken rather than in
   // prose beside the box: animating is what moves the blobatar out of a single
   // `<img>` and into a dozen inline SVG nodes.
   if (motion)
-    lines.push(
+    imports.push(
       `import "blobatar/motion.css"; // animate renders inline SVG, not one <img>`,
     );
 
-  lines.push("");
-  if (traits.length) lines.push(nameNote);
+  const lines: string[] = [];
+  if (traits.length) lines.push(comment(flavor, NAME_NOTE));
 
-  lines.push(`<Blobatar`, `  name=${attr(seed)}`);
+  lines.push(`<Blobatar`, `  ${attrString(flavor, "name", seed)}`);
   // One key inline, several over lines. A person writing `{ shape: 0.14 }`
   // does not break it across four lines, and a person writing six of them does
   // not leave it on one.
   if (traits.length === 1) {
     const [k, v] = traits[0]!;
-    lines.push(`  traits={{ ${key(k)}: ${literal(v)} }}`);
+    lines.push(`  ${attrExpr(flavor, "traits", `{ ${key(flavor, k)}: ${literal(v)} }`)}`);
   } else if (traits.length) {
-    lines.push(`  traits={{`);
-    for (const [k, v] of traits) lines.push(`    ${key(k)}: ${literal(v)},`);
-    lines.push(`  }}`);
+    // The delimiters end up on different lines, so this takes the pair rather
+    // than `attrExpr`, which closes what it opens.
+    lines.push(`  ${exprOpen(flavor, "traits")}`);
+    for (const [k, v] of traits) lines.push(`    ${key(flavor, k)}: ${literal(v)},`);
+    lines.push(`  ${exprClose(flavor)}`);
   }
 
-  if (motion) lines.push(`  animate="${motion}"`);
-  lines.push(`/>;`);
+  if (motion) lines.push(`  ${attrString(flavor, "animate", motion)}`);
+  lines.push(close(flavor, true));
 
-  return lines.join("\n");
+  return wrap(flavor, imports, lines);
 }
 
 function string(
@@ -136,13 +166,14 @@ function string(
   const lines = [`import { blobatar } from "blobatar";`];
   lines.push("");
 
-  // `animate` is honored by `@blobatar/react` only — the string API returns
-  // static markup whatever it is passed. Dropping it silently on the way over
-  // would make this snippet a quieter blobatar than the one on screen, so it is
-  // dropped out loud.
+  // `animate` is honored by the adapters only — the string API returns static
+  // markup whatever it is passed. Dropping it silently on the way over would
+  // make this snippet a quieter blobatar than the one on screen, so it is
+  // dropped out loud. Named for the option rather than for one package: there
+  // are five adapters now, and the reader is on whichever tab they are on.
   if (motion)
-    lines.push(`// animate is a @blobatar/react option — this renders static markup`);
-  if (traits.length) lines.push(nameNote);
+    lines.push(`// animate is a component option — this renders static markup`);
+  if (traits.length) lines.push(`// ${NAME_NOTE}`);
 
   // Named `seed` here where the component takes `name`: same value, and the
   // words differ because they are read in different positions. See CONTEXT.md.
@@ -153,7 +184,9 @@ function string(
   lines.push(`${call}, {`);
   if (traits.length) {
     lines.push(`  traits: {`);
-    for (const [k, v] of traits) lines.push(`    ${key(k)}: ${literal(v)},`);
+    // Plain JS, so the JSX flavor's quoting is simply JS quoting — there is no
+    // template around this literal for a double quote to escape from.
+    for (const [k, v] of traits) lines.push(`    ${key("jsx", k)}: ${literal(v)},`);
     lines.push(`  },`);
   }
   lines.push(`});`);
@@ -233,7 +266,7 @@ function http(
     lines.push(`# no url spelling for ${unspellable.join(", ")} — from the name`);
   if (narrowed.length)
     lines.push(`# ${narrowed.join(", ")} narrowed — a url states one value, so this is from the name too`);
-  if (motion) lines.push(`# static svg — animate is a @blobatar/react option`);
+  if (motion) lines.push(`# static svg — animate is a component option`);
 
   lines.push(`${ENDPOINT}${encodeURIComponent(seed)}?${query.join("&")}`);
   return lines.join("\n");
