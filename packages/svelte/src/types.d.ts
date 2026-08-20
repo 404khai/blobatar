@@ -1,8 +1,17 @@
+import type { HTMLImgAttributes, SVGAttributes } from "svelte/elements";
 import type { Animate, BlobatarOptions } from "blobatar/internal";
 
-type StaticProps = { animate?: false };
+/**
+ * Two rendering modes, and the props follow the mode — the same union core's
+ * React component declares, for the same reason. `onload` should stop
+ * type-checking the moment animation is on, because it stops firing.
+ */
+type StaticProps = { animate?: false } & Omit<HTMLImgAttributes, "src">;
 
-type AnimatedProps = { animate: Animate };
+type AnimatedProps = { animate: Animate } & Omit<
+  SVGAttributes<SVGSVGElement>,
+  "children" | "viewBox"
+>;
 
 export type BlobatarProps = {
   /**
@@ -11,7 +20,5 @@ export type BlobatarProps = {
    * same blobatar. The only required prop.
    */
   name: string;
-  class?: string;
-  style?: string;
 } & BlobatarOptions &
   (StaticProps | AnimatedProps);

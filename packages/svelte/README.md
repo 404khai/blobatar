@@ -18,6 +18,17 @@ bun add @blobatar/svelte blobatar
 <Blobatar name="username" />
 ```
 
+## What this package ships
+
+Svelte, not JavaScript. A Svelte component only becomes renderable code inside
+your compiler, so there is no build output here and none is invented — the
+package is reachable through the `svelte` export condition, which every Svelte
+toolchain applies (`vite-plugin-svelte`, SvelteKit, `svelte-check`). A bundler
+configured without it will fail to resolve this package rather than hand you a
+file it cannot execute.
+
+Svelte 5 is required: the component is written with runes.
+
 ## Props
 
 | Prop | Type | Description |
