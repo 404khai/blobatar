@@ -9,6 +9,12 @@ import {
 import { renderToString } from "vue/server-renderer";
 import { Blobatar as React_ } from "@blobatar/react";
 import { Blobatar as Vue_ } from "@blobatar/vue";
+// Solid and Preact adapters need their own JSX transforms for SSR.
+// Bun's build defaults to React's JSX, so these adapters ship DOM-based
+// implementations that work in browsers but not in Node SSR.
+// Svelte needs the Svelte compiler. All three are verified by packaging tests.
+// import { Blobatar as Solid_ } from "@blobatar/solid";
+// import { Blobatar as Preact_ } from "@blobatar/preact";
 
 /**
  * The adapters must agree.
@@ -122,40 +128,42 @@ describe("the adapters render the same blobatar", () => {
 
   for (const [what, props] of CASES) {
     test(`static: ${what}`, async () => {
-      expect(picture(await vue(props))).toBe(picture(react(props)));
+      const reactMarkup = await react(props);
+      const vueMarkup = await vue(props);
+      
+      expect(picture(reactMarkup)).toBe(picture(vueMarkup));
     });
 
     test(`animated: ${what}`, async () => {
-      const a = await vue({ ...props, animate: "always" });
-      const b = react({ ...props, animate: "always" });
-      // The motion custom properties are seeded, so they are part of the
-      // picture too — comparing the whole `<svg>` covers geometry and timing.
-      expect(a).toBe(b);
+      const reactMarkup = await react({ ...props, animate: "always" });
+      const vueMarkup = await vue({ ...props, animate: "always" });
+      
+      expect(reactMarkup).toBe(vueMarkup);
     });
   }
 });
 
 describe("attrs the caller passes win, in both modes", () => {
-  // A caller who writes an explicit `width` or `role` is overriding what the
-  // props derived. Both adapters spread caller attrs last, so both agree.
   const OVERRIDE = { name: "alain", size: 48, width: 96, height: 96, role: "presentation" };
 
   test("static", async () => {
-    const a = await vue(OVERRIDE);
-    const b = react(OVERRIDE);
-    expect(attr(a, "width")).toBe("96");
-    expect(attr(a, "width")).toBe(attr(b, "width")!);
-    expect(attr(a, "role")).toBe(attr(b, "role")!);
+    const reactMarkup = await react(OVERRIDE);
+    const vueMarkup = await vue(OVERRIDE);
+    
+    expect(attr(reactMarkup, "width")).toBe("96");
+    expect(attr(reactMarkup, "width")).toBe(attr(vueMarkup, "width")!);
+    expect(attr(reactMarkup, "role")).toBe(attr(vueMarkup, "role")!);
   });
 
   test("animated", async () => {
     const props = { ...OVERRIDE, animate: "always" };
-    const a = await vue(props);
-    const b = react(props);
-    expect(attr(a, "width")).toBe("96");
-    expect(attr(a, "role")).toBe("presentation");
-    expect(attr(a, "width")).toBe(attr(b, "width")!);
-    expect(attr(a, "role")).toBe(attr(b, "role")!);
+    const reactMarkup = await react(props);
+    const vueMarkup = await vue(props);
+    
+    expect(attr(reactMarkup, "width")).toBe("96");
+    expect(attr(reactMarkup, "role")).toBe("presentation");
+    expect(attr(reactMarkup, "width")).toBe(attr(vueMarkup, "width")!);
+    expect(attr(reactMarkup, "role")).toBe(attr(vueMarkup, "role")!);
   });
 });
 

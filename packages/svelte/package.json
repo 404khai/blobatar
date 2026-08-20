@@ -1,0 +1,52 @@
+{
+  "name": "@blobatar/svelte",
+  "version": "2.2.0",
+  "description": "Svelte adapter for blobatar — deterministic geometric avatars.",
+  "type": "module",
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "svelte": "./src/Blobatar.svelte",
+      "default": "./src/index.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json",
+    "check": "bun run typecheck"
+  },
+  "peerDependencies": {
+    "blobatar": "2.x",
+    "svelte": ">=5"
+  },
+  "devDependencies": {
+    "blobatar": "workspace:*",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0"
+  },
+  "keywords": [
+    "blobatar",
+    "avatar",
+    "identicon",
+    "svelte",
+    "svg",
+    "deterministic"
+  ],
+  "license": "MIT",
+  "author": "Alain",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alain00/blobatar.git",
+    "directory": "packages/svelte"
+  },
+  "homepage": "https://github.com/Alain00/blobatar#readme",
+  "bugs": "https://github.com/Alain00/blobatar/issues"
+}

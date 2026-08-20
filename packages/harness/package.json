@@ -14,11 +14,18 @@
   "devDependencies": {
     "@blobatar/react": "workspace:*",
     "@blobatar/vue": "workspace:*",
+    "@blobatar/svelte": "workspace:*",
+    "@blobatar/solid": "workspace:*",
+    "@blobatar/preact": "workspace:*",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "blobatar": "workspace:*",
     "react": "^19",
     "react-dom": "^19",
-    "vue": "^3.5.0"
+    "vue": "^3.5.0",
+    "svelte": "^5.0.0",
+    "solid-js": "^1.0.0",
+    "preact": "^10.0.0",
+    "preact-render-to-string": "^6.0.0"
   }
 }

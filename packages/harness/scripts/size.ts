@@ -49,6 +49,8 @@ const INSTALLED: { name: string; from: string }[] = [
   { name: "blobatar", from: "../blobatar" },
   { name: "@blobatar/react", from: "../react" },
   { name: "@blobatar/vue", from: "../vue" },
+  { name: "@blobatar/solid", from: "../solid" },
+  { name: "@blobatar/preact", from: "../preact" },
 ];
 
 const ENTRIES: {
@@ -58,6 +60,8 @@ const ENTRIES: {
   source: string;
   /** Entry file extension. Defaults to a TSX consumer. */
   ext?: string;
+  /** Skip this entry (e.g., source-resolved adapters). */
+  skip?: boolean;
 }[] = [
   {
     // The row PR 3 exists for: the number a consumer pays for
@@ -118,6 +122,34 @@ const ENTRIES: {
     source: `import { Blobatar } from "blobatar/vue";
              globalThis.x = Blobatar;`,
   },
+  {
+    // Svelte adapter - uses source resolution for the Svelte compiler
+    // No compiled output size check needed
+    name: "@blobatar/svelte",
+    budget: 0,
+    external: [],
+    ext: "ts",
+    source: "",
+    skip: true,
+  },
+  {
+    // Solid adapter - uses SolidJS JSX transform
+    name: "@blobatar/solid",
+    budget: 5500,
+    external: ["solid-js", "solid-js/web"],
+    ext: "tsx",
+    source: `import { Blobatar } from "@blobatar/solid";
+             globalThis.x = Blobatar;`,
+  },
+  {
+    // Preact adapter - uses Preact JSX transform
+    name: "@blobatar/preact",
+    budget: 5500,
+    external: ["preact", "preact/compat", "preact/hooks"],
+    ext: "tsx",
+    source: `import { Blobatar } from "@blobatar/preact";
+             globalThis.x = Blobatar;`,
+  },
 
   // The two rows below are the only place the externals in each adapter's
   // `scripts/build.ts` are falsifiable, and finding that out cost a wrong
@@ -161,6 +193,30 @@ const ENTRIES: {
     source: `import { Blobatar } from "@blobatar/vue";
              globalThis.x = Blobatar;`,
   },
+  {
+    name: "@blobatar/svelte alone",
+    budget: 0,
+    external: [],
+    ext: "ts",
+    source: "",
+    skip: true,
+  },
+  {
+    name: "@blobatar/solid alone",
+    budget: 110,
+    external: ["solid-js", "solid-js/web", "blobatar", "blobatar/internal", "blobatar/uri"],
+    ext: "tsx",
+    source: `import { Blobatar } from "@blobatar/solid";
+             globalThis.x = Blobatar;`,
+  },
+  {
+    name: "@blobatar/preact alone",
+    budget: 110,
+    external: ["preact", "preact/compat", "preact/hooks", "blobatar", "blobatar/internal", "blobatar/uri"],
+    ext: "tsx",
+    source: `import { Blobatar } from "@blobatar/preact";
+             globalThis.x = Blobatar;`,
+  },
 ];
 
 rmSync(DIR, { recursive: true, force: true });
@@ -176,6 +232,8 @@ for (const pkg of INSTALLED) {
 let failed = false;
 
 for (const entry of ENTRIES) {
+  if (entry.skip) continue;
+  
   const file = `${DIR}/${entry.name.replace(/\W+/g, "-")}.${entry.ext ?? "tsx"}`;
   writeFileSync(file, entry.source);
 
