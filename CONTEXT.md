@@ -160,6 +160,23 @@ _Avoid_: wrapper, binding, integration. A _wrapper_ adds behavior on top; an
 adapter only changes the shape of what passes through. _Binding_ suggests
 something generated rather than written.
 
+**Built adapter** / **Source-resolved adapter**:
+What an adapter publishes. A **built adapter** ships JavaScript: its own
+compiler ran here, and `dist` is what a consumer loads. A **source-resolved**
+one ships its framework's own language — a `.svelte` file, JSX — because the
+compiler that turns it into runnable code belongs to the consumer and cannot be
+run in advance. `@blobatar/react`, `@blobatar/vue`, `@blobatar/preact` and
+`@blobatar/solid` are built; `@blobatar/svelte` is source-resolved, and Solid is
+both at once, shipping JSX behind the `solid` condition beside two builds.
+The distinction is about the artifact, never about the tier: a source-resolved
+adapter owes every guarantee a built one does, and is _more_ exposed rather than
+less, since no build step stands between a mistake and a consumer. It is
+reachable only through its framework's export condition, and offers no `default`
+— a resolver without that condition gets a resolution error, which is true,
+rather than a file it cannot execute, which is not.
+_Avoid_: unbuilt, raw, uncompiled. All three suggest something unfinished; the
+source _is_ the artifact. See ADR-0010.
+
 **Expression**:
 Which named pose a blobatar holds — `idle`, `happy`, `sad`, `mad`. Set by the
 consumer and held until changed; the library never picks one and never returns
@@ -278,11 +295,17 @@ keeping apart by name. The **source gate**
 `../../src/*`, so it answers "what does this code tree-shake to" — it is the
 one that catches a palette tweak doubling the colour code, and it depends on no
 build. The **ship gate** (`packages/harness/scripts/size.ts`) resolves every
-package by name through its built `exports` map, so it answers "what does
+package by name through its real `exports` map, so it answers "what does
 `bun add @blobatar/react` cost" and cannot run before those packages are built.
 A component measured by both comes out at two different numbers — core's publish
 build minifies better than a synthetic consumer of its source does — and neither
-is wrong. It lives in the harness because core cannot depend on an adapter
+is wrong.
+The ship gate covers every published package, including the source-resolved
+ones, which it measures as the bytes they publish rather than as a bundle they
+do not have. That number is larger and is not comparable to a built row: source
+ships its comments, and what it compiles *to* is the consumer's compiler's
+business. A package the ship gate skips is a package outside the sentence that
+defines it. It lives in the harness because core cannot depend on an adapter
 without making `^build` cyclic.
 _Avoid_: calling either one "the size gate"; the ambiguity is the whole reason
 they have names.
