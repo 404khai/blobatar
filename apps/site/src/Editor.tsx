@@ -22,6 +22,8 @@ import { blobLayout, resolved } from "@/editor/resolved";
 import { snippet, type Api, type Motion } from "@/editor/snippet";
 import { NAMES } from "@/names";
 import { cn } from "@/lib/utils";
+import { ExportMenu } from "@/components/editor/export";
+import { PLACEHOLDER_SEED } from "@/editor/placeholder";
 
 /**
  * The editor.
@@ -62,7 +64,7 @@ export function Editor() {
   // The resolved geometry, for the two things only it can answer: which
   // silhouette the name produced when `shape` is unpinned, and where the eye
   // cluster ended up when `fit` scaled it.
-  const layout = useMemo(() => blobLayout(name || " ", pinned), [name, pinned]);
+  const layout = useMemo(() => blobLayout(name || PLACEHOLDER_SEED, pinned), [name, pinned]);
   const ghosts = useMemo(() => resolved(layout, t), [layout, t]);
 
   /**
@@ -216,18 +218,28 @@ export function Editor() {
             "lg:col-start-1 lg:row-start-2 lg:h-full lg:min-h-0 lg:overflow-hidden",
           )}
         >
-          <div className="text-muted flex items-baseline justify-between gap-4 text-xs lowercase">
+          <div className="text-muted flex items-center justify-between gap-4 text-xs lowercase">
             <span>your config</span>
-            <Segmented
-              type="single"
-              value={api}
-              onValueChange={(v: string) => v && setApi(v as Api)}
-              aria-label="API"
-            >
-              <SegmentedItem value="react">react</SegmentedItem>
-              <SegmentedItem value="string">string</SegmentedItem>
-              <SegmentedItem value="http">http</SegmentedItem>
-            </Segmented>
+            {/*
+              Two things on the right, and only one of them is on the strip.
+              The tabs are three call sites — the axis is *how do I call this* —
+              and an export is not a fourth answer to that question: it is a
+              file, with no seed and no generation in it, so it belongs beside
+              the strip rather than on it.
+            */}
+            <div className="flex items-center gap-2">
+              <Segmented
+                type="single"
+                value={api}
+                onValueChange={(v: string) => v && setApi(v as Api)}
+                aria-label="API"
+              >
+                <SegmentedItem value="react">react</SegmentedItem>
+                <SegmentedItem value="string">string</SegmentedItem>
+                <SegmentedItem value="http">http</SegmentedItem>
+              </Segmented>
+              <ExportMenu name={name} traits={pinned} motion={motion} />
+            </div>
           </div>
 
           {/*
@@ -382,7 +394,7 @@ function Preview({
       */}
       {motion ? (
         <Blobatar
-          name={name || " "}
+          name={name || PLACEHOLDER_SEED}
           traits={pinned}
           animate={motion}
           title={`Blobatar for ${name}`}
@@ -390,13 +402,12 @@ function Preview({
         />
       ) : (
         <Blobatar
-          name={name || " "}
+          name={name || PLACEHOLDER_SEED}
           traits={pinned}
           alt={`Blobatar for ${name}`}
           className="size-[min(15rem,34vmin,28vh)]"
         />
       )}
-
       {/*
         Between the blobatar and the controls, because it belongs to the first
         of those: it is the same preview asked of seven other names, not a

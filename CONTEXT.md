@@ -251,6 +251,39 @@ when that default changes; an explicit supported `?gen=` names an immutable
 generation. Unknown generations are rejected.
 _Avoid_: server, API, image service.
 
+**Editor**:
+The tuning page (`apps/site`, `/editor`) where axes are pinned and narrowed
+against a live preview. It has two deliverables and they are not the same kind
+of thing: the **snippet** is the one that matters, and an **export** is the
+other one.
+_Avoid_: playground, configurator, builder. Nothing is built here — a blobatar
+already exists for every name, and the page only decides which axes stop coming
+from the name.
+
+**Snippet**:
+The code the editor hands you: an API call naming a seed and the traits you
+pinned. A recipe, not a result — whoever runs it re-derives the blobatar, so it
+tracks the library and moves with it. Pinned against the live preview, since
+"paste this and get the blobatar that was on screen" is the only correctness
+property the page has.
+_Avoid_: sample, example. Both suggest something illustrative; this one is
+exact.
+
+**Export**:
+A finished render taken out of the editor as a file — SVG, or PNG at one size.
+The opposite of a snippet in the one way that matters: already derived and never
+derivable again, because it carries no seed, no overrides and no generation. It
+stops tracking the library the moment it is saved, so when the default
+generation moves, every snippet keeps rendering the right blobatar for its major
+and every export quietly becomes a picture of one that is no longer rendered.
+That is the trade, and it is a fair one for a slide.
+Its filename is a label rather than an identifier — two different blobatars can
+land on the same one — and that is deliberate: the snippet is what identifies a
+blobatar.
+_Avoid_: static blobatar, download. An export is static *and* fully configured,
+which is exactly the collision **Configured blobatar** warns about. _Download_
+is what the browser does with it, fine on a button and wrong everywhere else.
+
 **Tuning grid**:
 The internal design tool (`apps/demo`) that renders blobatars in aggregate so
 numeric ranges can be judged as clusters and outliers rather than one seed at a
