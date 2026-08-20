@@ -1,6 +1,6 @@
 {
   "name": "@blobatar/svelte",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Svelte adapter for blobatar — deterministic geometric avatars.",
   "type": "module",
   "files": [
