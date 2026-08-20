@@ -58,7 +58,66 @@ export const infoFor = (id: Framework): FrameworkInfo => BY_ID.get(id) ?? FRAMEW
  * produces an unmet peer warning and no renderer. See the adapters'
  * `//peerDependencies` note.
  */
-export const installFor = (id: Framework) => `bun add blobatar ${infoFor(id).pkg}`;
+/**
+ * How you get it — which is not the same axis as which framework you get.
+ *
+ * `bun`, `npm` and `pnpm` differ only in the verb; the code below the command
+ * is identical for all three. `shadcn` is the odd one and belongs here anyway:
+ * it is still the answer to "how do I install this", it is just an answer that
+ * also changes what you import, because what it installs is a file in your own
+ * tree rather than a package in `node_modules`.
+ *
+ * No `yarn`. The README says "npm / pnpm / yarn all work too" and that is still
+ * true — this is a strip of four on a hero, not a compatibility matrix, and the
+ * fourth slot buys more as shadcn than as a fourth spelling of `add`.
+ */
+export type Manager = "bun" | "npm" | "pnpm" | "shadcn";
+
+export const MANAGERS: readonly Manager[] = ["bun", "npm", "pnpm", "shadcn"];
+
+export const isManager = (v: string): v is Manager => MANAGERS.includes(v as Manager);
+
+/**
+ * The install command.
+ *
+ * `pm` is optional and defaults to `bun` so the editor, which has no such
+ * selector and no room for one, keeps calling this with a single argument.
+ */
+export function installFor(id: Framework, pm: Manager = "bun"): string {
+  const { pkg } = infoFor(id);
+  if (pm === "shadcn") return SHADCN_ADD;
+  const verb = pm === "npm" ? "npm i" : `${pm} add`;
+  return `${verb} blobatar ${pkg}`;
+}
+
+/**
+ * The shadcn/ui registry item, as one command you can paste.
+ *
+ * A manager rather than a sixth row in the table above, and the difference is
+ * not pedantry: every row there is an adapter, spelled the same way — a package
+ * you install and a `Blobatar` you import. This is a distribution channel for
+ * the React one, so it sits on the axis that already means "how do I get it".
+ * A row would have made both snippet generators emit it, including the
+ * editor's, where twenty tuned axes would have to nest inside a `blobatar` prop.
+ *
+ * The direct URL rather than the two-step `registry add @blobatar=…` the READMEs
+ * teach. Both work; this one is a single line, and a hero is not where somebody
+ * registers a namespace they have not decided to use yet.
+ *
+ * `apps/site/registry.test.ts` asserts this names the item the repo actually
+ * publishes. It is a hardcoded string against a JSON file two directories up,
+ * which is precisely the pair that drifts.
+ */
+export const SHADCN_ADD = "npx shadcn@latest add https://blobatar.dev/r/avatar.json";
+
+/**
+ * What the shadcn item installs into your tree, which is not a package import.
+ *
+ * The wrapper lands at the consumer's own UI alias, so the snippet under this
+ * manager is the only one on the page that imports from `@/` rather than from
+ * a published name — and the only one whose filename is theirs to change.
+ */
+export const SHADCN_FILE = "blobatar.tsx";
 
 /**
  * A string-valued attribute.

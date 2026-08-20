@@ -25,7 +25,14 @@ export function Install({ command, className }: { command: string; className?: s
       // announced without a live region.
       aria-label={copied ? "Copied" : `Copy: ${command}`}
       className={cn(
-        "group border-line bg-raised/60 inline-flex items-center gap-3 rounded-xl border",
+        /*
+          `items-start` and `text-left`, both for the one command that does not
+          fit on a line: the shadcn install is a URL, and a button centers its
+          text by default, so a wrapped command came out centered under a `$`
+          floating in the middle of the pill. On every single-line command the
+          two rules change nothing — there is no second line to align to.
+        */
+        "group border-line bg-raised/60 inline-flex items-start gap-3 rounded-xl border text-left",
         "py-2.5 pr-3 pl-4 font-mono text-sm",
         "hover:border-muted/50 hover:bg-raised transition-colors duration-150",
         className,

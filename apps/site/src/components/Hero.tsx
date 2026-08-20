@@ -34,8 +34,14 @@ import {
   attrString,
   close,
   comment,
+  exprClose,
+  exprOpen,
   infoFor,
   installFor,
+  isManager,
+  MANAGERS,
+  SHADCN_FILE,
+  type Manager,
   wrap,
   type Framework,
 } from "@/frameworks";
@@ -195,6 +201,62 @@ export function snippet(
   ]);
 }
 
+/**
+ * The same four axes, as the shadcn item's usage.
+ *
+ * A separate emitter rather than a sixth flavor of the one above, because
+ * nothing it shares with the adapters survives the change of subject: the
+ * import is the consumer's own alias, the element takes a `src` no adapter has,
+ * and every tuned option moves one level down into a `blobatar` prop. A branch
+ * inside `snippet` would have been five conditionals in a function whose whole
+ * shape is "spell these props for this flavor".
+ *
+ * JSX only, and not by omission — the wrapper is React. `installFor` is what
+ * decides this snippet is on screen, and it returns the shadcn command for
+ * every framework, which is a small dishonesty the picker's disappearance
+ * covers: under this manager the framework axis has no meaning to express.
+ */
+export function shadcnSnippet(
+  seed: string,
+  bg: Bg,
+  hue: number | null,
+  pose: Pose,
+  shape: Shape | null,
+) {
+  const posed = pose.value !== idle;
+
+  // The filename with its extension dropped, not `SHADCN_FILE` itself — that
+  // constant is the label above the code box, and an import specifier that
+  // carried `.tsx` would not resolve in any of the bundlers this lands in.
+  const from = SHADCN_FILE.replace(/\.tsx$/, "");
+  const imports = [`import { Blobatar } from "@/components/ui/${from}";`];
+  if (posed) imports.unshift(`import { ${pose.name} } from "blobatar/expression";`);
+  imports.push(`import "blobatar/motion.css";`);
+
+  // Everything the adapters take as props, one level down. `animate` is always
+  // here, so the object is never empty and never needs a conditional.
+  const opts: string[] = [];
+  if (shape) opts.push(`traits: { shape: ${shape.at} },`);
+  if (bg !== "none") opts.push(`background: "${bg}",`);
+  if (hue !== null) opts.push(`hue: ${hue},`);
+  if (posed) opts.push(`expression: ${pose.name},`);
+  opts.push(`animate: "hover",`);
+
+  return wrap("jsx", imports, [
+    ...(shape ? [comment("jsx", `shape: ${shape.name}`)] : []),
+    `<Blobatar`,
+    `  ${attrString("jsx", "name", seed || "blobatar")}`,
+    // The whole point of the wrapper: a real picture when there is one, the
+    // blobatar when there is not. A snippet that omitted it would be the
+    // adapter's usage with a longer import.
+    `  src={user.avatarUrl}`,
+    `  ${exprOpen("jsx", "blobatar")}`,
+    ...opts.map(line => `    ${line}`),
+    `  ${exprClose("jsx")}`,
+    close("jsx"),
+  ]);
+}
+
 export function Hero() {
   const [seed, setSeed] = useState("alain00");
   const [bg, setBg] = useState<Bg>("none");
@@ -212,8 +274,21 @@ export function Hero() {
    * only ones on offer.
    */
   const [fw, setFw] = useState<Framework>("react");
+  /**
+   * How you install it, which under `shadcn` also decides what you import.
+   *
+   * Separate state from `fw` rather than folded into it: the two are genuinely
+   * independent for three of the four values, and a reader who picked pnpm and
+   * then picked svelte expects to still be on pnpm.
+   */
+  const [pm, setPm] = useState<Manager>("bun");
   /** Whether the framework list is open. Controlled — see `FrameworkMenu`. */
   const [picking, setPicking] = useState(false);
+
+  // Under shadcn the framework axis has nothing to say — the item is React, and
+  // the file it installs is the consumer's own. Hoisted so the three places
+  // that branch on it read as one decision rather than three.
+  const shadcn = pm === "shadcn";
 
   /**
    * A reaction is a temporary override of the picked pose, not a replacement
@@ -739,11 +814,31 @@ export function Hero() {
           hero and two of wall — which put the page's only call to action behind
           the entire page.
 
-          `self-start` is load-bearing: a flex column stretches its children, and
-          a command pill as wide as the snippet stops reading as a thing you
-          press.
+          `self-start` is load-bearing on both: a flex column stretches its
+          children, and a command pill as wide as the snippet stops reading as a
+          thing you press.
+
+          The strip sits above the command rather than beside it, and lighter
+          than it: it picks which of four commands you are being shown, so it
+          has to be read first and weigh less than the thing it labels.
         */}
-        <Install command={installFor(fw)} className="self-start" />
+        <div className="flex flex-col gap-3">
+          <Segmented
+            type="single"
+            value={pm}
+            onValueChange={v => v && isManager(v) && setPm(v)}
+            aria-label="Install with"
+            className="self-start"
+          >
+            {MANAGERS.map(m => (
+              <SegmentedItem key={m} value={m} className="px-3">
+                {m}
+              </SegmentedItem>
+            ))}
+          </Segmented>
+
+          <Install command={installFor(fw, pm)} className="self-start" />
+        </div>
 
         <div className="flex flex-col gap-3">
           <div className="text-muted flex items-baseline justify-between gap-4 text-xs lowercase">
@@ -756,31 +851,47 @@ export function Hero() {
               know the code below changed language.
             */}
             <span className="flex items-baseline gap-3">
-              <FrameworkMenu
-                value={fw}
-                onChange={setFw}
-                open={picking}
-                onOpenChange={setPicking}
-                align="end"
-              >
-                <button
-                  type="button"
-                  onClick={() => setPicking(open => !open)}
-                  aria-label={`Framework: ${fw}`}
-                  className={cn(
-                    "hover:text-ink flex items-center gap-1.5 rounded-full px-2 py-1",
-                    "hover:bg-raised/60 -mx-2 transition-colors duration-150",
-                    picking && "text-ink",
-                  )}
+              {/*
+                Gone rather than disabled under shadcn. A greyed picker is a
+                control you are being refused; an absent one is an axis this
+                install does not have — which is the true statement, since the
+                item is React and the file it writes is yours.
+              */}
+              {!shadcn && (
+                <FrameworkMenu
+                  value={fw}
+                  onChange={setFw}
+                  open={picking}
+                  onOpenChange={setPicking}
+                  align="end"
                 >
-                  {fw}
-                  <Caret className={cn(picking && "rotate-180")} />
-                </button>
-              </FrameworkMenu>
-              <span className="font-mono normal-case">{infoFor(fw).file}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPicking(open => !open)}
+                    aria-label={`Framework: ${fw}`}
+                    className={cn(
+                      "hover:text-ink flex items-center gap-1.5 rounded-full px-2 py-1",
+                      "hover:bg-raised/60 -mx-2 transition-colors duration-150",
+                      picking && "text-ink",
+                    )}
+                  >
+                    {fw}
+                    <Caret className={cn(picking && "rotate-180")} />
+                  </button>
+                </FrameworkMenu>
+              )}
+              <span className="font-mono normal-case">
+                {shadcn ? SHADCN_FILE : infoFor(fw).file}
+              </span>
             </span>
           </div>
-          <Snippet code={snippet(fw, seed, bg, hue, pose, shape)} />
+          <Snippet
+            code={
+              shadcn
+                ? shadcnSnippet(seed, bg, hue, pose, shape)
+                : snippet(fw, seed, bg, hue, pose, shape)
+            }
+          />
           <p className="text-muted text-xs leading-relaxed">
             Every prop is optional except the name. Drop{" "}
             <code className="font-mono">animate</code> and the blobatar renders as a

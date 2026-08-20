@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { idle, happy } from "blobatar/expression";
-import { snippet } from "./Hero";
+import { shadcnSnippet, snippet } from "./Hero";
 import { SHAPES } from "@/shapes";
 import { FRAMEWORKS, type Framework } from "@/frameworks";
 
@@ -79,5 +79,46 @@ describe("the hero snippet", () => {
   test("an empty name falls back rather than emitting nothing", () => {
     for (const id of IDS)
       expect(snippet(id, "", "none", null, IDLE, null)).toContain("blobatar");
+  });
+});
+
+/**
+ * The shadcn manager's snippet, which is a different document from the five
+ * above rather than a sixth flavor of them — see `shadcnSnippet`. What is worth
+ * pinning is exactly the three things that make it different, because each of
+ * them is a silent failure: an adapter import would send a reader to a package
+ * the item did not install, a flat prop would be dropped on the floor by a
+ * wrapper that reads options out of `blobatar`, and a missing `src` would leave
+ * the whole reason for the wrapper unstated.
+ */
+describe("the shadcn snippet", () => {
+  const tuned = () => shadcnSnippet("alain00", "squircle", 210, HAPPY, CLOUD);
+
+  test("imports the file the item writes, never an adapter", () => {
+    expect(tuned()).toContain(`import { Blobatar } from "@/components/ui/blobatar";`);
+    for (const id of IDS) expect(tuned()).not.toContain(`@blobatar/${id}`);
+  });
+
+  test("the expression import is still core's", () => {
+    expect(tuned()).toContain(`import { happy } from "blobatar/expression";`);
+  });
+
+  test("every tuned axis lands inside the blobatar prop, not beside it", () => {
+    const code = tuned();
+    const opts = code.slice(code.indexOf("blobatar={{"), code.indexOf("}}"));
+    for (const axis of ["traits", "background", "hue", "expression", "animate"])
+      expect(opts).toContain(axis);
+    // The wrapper's own props are the only ones at element level.
+    const element = code.slice(code.indexOf("<Blobatar"), code.indexOf("blobatar={{"));
+    expect(element).toContain(`name="alain00"`);
+    expect(element).toContain("src={user.avatarUrl}");
+    expect(element).not.toContain("hue");
+  });
+
+  test("untuned, it is still the wrapper rather than the adapter's snippet", () => {
+    const bare = shadcnSnippet("alain00", "none", null, IDLE, null);
+    expect(bare).toContain("src={user.avatarUrl}");
+    expect(bare).not.toContain("expression");
+    expect(bare).not.toContain("hue");
   });
 });
