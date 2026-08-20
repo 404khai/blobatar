@@ -22,7 +22,8 @@ import { blobLayout, resolved } from "@/editor/resolved";
 import { snippet, type Api, type Motion } from "@/editor/snippet";
 import { NAMES } from "@/names";
 import { cn } from "@/lib/utils";
-import DownloadMenu from "@/components/editor/download";
+import { ExportMenu } from "@/components/editor/export";
+import { PLACEHOLDER_SEED } from "@/editor/placeholder";
 
 /**
  * The editor.
@@ -63,7 +64,7 @@ export function Editor() {
   // The resolved geometry, for the two things only it can answer: which
   // silhouette the name produced when `shape` is unpinned, and where the eye
   // cluster ended up when `fit` scaled it.
-  const layout = useMemo(() => blobLayout(name || " ", pinned), [name, pinned]);
+  const layout = useMemo(() => blobLayout(name || PLACEHOLDER_SEED, pinned), [name, pinned]);
   const ghosts = useMemo(() => resolved(layout, t), [layout, t]);
 
   /**
@@ -383,7 +384,7 @@ function Preview({
       */}
       {motion ? (
         <Blobatar
-          name={name || " "}
+          name={name || PLACEHOLDER_SEED}
           traits={pinned}
           animate={motion}
           title={`Blobatar for ${name}`}
@@ -391,13 +392,13 @@ function Preview({
         />
       ) : (
         <Blobatar
-          name={name || " "}
+          name={name || PLACEHOLDER_SEED}
           traits={pinned}
           alt={`Blobatar for ${name}`}
           className="size-[min(15rem,34vmin,28vh)]"
         />
       )}
-      <DownloadMenu name={name || ""} traits={pinned} motion={motion} />
+      <ExportMenu name={name} traits={pinned} motion={motion} />
       {/*
         Between the blobatar and the controls, because it belongs to the first
         of those: it is the same preview asked of seven other names, not a
