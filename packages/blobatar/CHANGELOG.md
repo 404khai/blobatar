@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3.1
+
+### Patch Changes
+
+- Document the shadcn/ui registry item, and add `shadcn` keywords so the packages
+  are findable from that side.
+  
+  No runtime change: the READMEs and the `keywords` arrays are the whole diff.
+  This is a release because an npm package page is written by a publish and by
+  nothing else, so the registry item stays invisible on the two pages most likely
+  to be read until one happens.
+
 ## 2.3.0
 
 ## 2.2.0
