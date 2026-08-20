@@ -7,8 +7,15 @@ import {
   type ComponentObjectPropsOptions,
 } from "vue";
 import { renderToString } from "vue/server-renderer";
+import { renderToString as renderSolid } from "solid-js/web";
+import { render as renderPreact } from "preact-render-to-string";
+import { h as preactH } from "preact";
+import { render as renderSvelte } from "svelte/server";
 import { Blobatar as React_ } from "@blobatar/react";
 import { Blobatar as Vue_ } from "@blobatar/vue";
+import { Blobatar as Solid_ } from "@blobatar/solid";
+import { Blobatar as Preact_ } from "@blobatar/preact";
+import { Blobatar as Svelte_ } from "@blobatar/svelte";
 
 /**
  * The adapters must agree.
@@ -60,6 +67,34 @@ const react = (props: Record<string, unknown>) =>
 const vue = async (props: Record<string, unknown>) =>
   normalize(await renderToString(h(Vue_ as never, props as never)));
 
+/**
+ * Three more renderers, each with its own bookkeeping in the output.
+ *
+ * Solid stamps `data-hk` hydration keys; Svelte writes `<!--[-->` block anchors,
+ * a marker comment around every `{@html}`, and an empty `class` where a template
+ * had none. Those are artifacts of how each framework resynchronizes markup it
+ * later hydrates — the same category as Vue's `<!---->` above — and none of them
+ * is part of the blobatar.
+ *
+ * Every comment goes, not an enumerated list of them: a comment is never part of
+ * the picture, and matching the exact anchors would make this the place a
+ * framework upgrade breaks rather than the place a blobatar regression shows.
+ */
+const artifacts = (s: string) =>
+  s
+    .replace(/ data-hk="[^"]*"/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/ class=""/g, "");
+
+const solid = (props: Record<string, unknown>) =>
+  artifacts(normalize(renderSolid(() => (Solid_ as never as (p: unknown) => unknown)(props))));
+
+const preact = (props: Record<string, unknown>) =>
+  artifacts(normalize(renderPreact(preactH(Preact_ as never, props as never))));
+
+const svelte = (props: Record<string, unknown>) =>
+  artifacts(normalize(renderSvelte(Svelte_ as never, { props } as never).body));
+
 /** The blobatar itself, out of whichever element carried it. */
 const picture = (markup: string) => {
   const src = markup.match(/src="([^"]*)"/);
@@ -83,12 +118,31 @@ const attr = (markup: string, name: string) =>
  * compared. A new adapter gets a line here and in the case table below; either
  * alone leaves a hole.
  */
-describe("every adapter renders a blobatar at all", () => {
-  const ADAPTERS: [string, (p: Record<string, unknown>) => string | Promise<string>][] = [
-    ["@blobatar/react", react],
-    ["@blobatar/vue", vue],
-  ];
+type Render = (p: Record<string, unknown>) => string | Promise<string>;
 
+/**
+ * The roster, in one place, because every table below reads from it — adding a
+ * framework means adding a line here and nothing else. The comment above says a
+ * new adapter needs a line in this list *and* in the case table; it needs one
+ * line now, which is the version of that rule worth having.
+ *
+ * React is first and is the reference every other adapter is compared against.
+ * That is arbitrary in principle — the contract is mutual agreement, not
+ * agreement with React — and deliberate in practice: comparing each adapter
+ * against one fixed other keeps a failure naming the adapter that broke, where
+ * an all-pairs comparison would fail in n places and name none of them.
+ */
+const ADAPTERS: [string, Render][] = [
+  ["@blobatar/react", react],
+  ["@blobatar/vue", vue],
+  ["@blobatar/solid", solid],
+  ["@blobatar/preact", preact],
+  ["@blobatar/svelte", svelte],
+];
+
+const OTHERS = ADAPTERS.filter(([name]) => name !== "@blobatar/react");
+
+describe("every adapter renders a blobatar at all", () => {
   for (const [name, render] of ADAPTERS) {
     test(`${name}: static`, async () => {
       const markup = await render({ name: "alain" });
@@ -121,17 +175,19 @@ describe("the adapters render the same blobatar", () => {
   ];
 
   for (const [what, props] of CASES) {
-    test(`static: ${what}`, async () => {
-      expect(picture(await vue(props))).toBe(picture(react(props)));
-    });
+    for (const [name, render] of OTHERS) {
+      test(`static: ${what} — ${name}`, async () => {
+        expect(picture(await render(props))).toBe(picture(react(props)));
+      });
 
-    test(`animated: ${what}`, async () => {
-      const a = await vue({ ...props, animate: "always" });
-      const b = react({ ...props, animate: "always" });
-      // The motion custom properties are seeded, so they are part of the
-      // picture too — comparing the whole `<svg>` covers geometry and timing.
-      expect(a).toBe(b);
-    });
+      test(`animated: ${what} — ${name}`, async () => {
+        const a = await render({ ...props, animate: "always" });
+        const b = react({ ...props, animate: "always" });
+        // The motion custom properties are seeded, so they are part of the
+        // picture too — comparing the whole `<svg>` covers geometry and timing.
+        expect(a).toBe(b);
+      });
+    }
   }
 });
 
@@ -140,23 +196,25 @@ describe("attrs the caller passes win, in both modes", () => {
   // props derived. Both adapters spread caller attrs last, so both agree.
   const OVERRIDE = { name: "alain", size: 48, width: 96, height: 96, role: "presentation" };
 
-  test("static", async () => {
-    const a = await vue(OVERRIDE);
-    const b = react(OVERRIDE);
-    expect(attr(a, "width")).toBe("96");
-    expect(attr(a, "width")).toBe(attr(b, "width")!);
-    expect(attr(a, "role")).toBe(attr(b, "role")!);
-  });
+  for (const [name, render] of OTHERS) {
+    test(`static — ${name}`, async () => {
+      const a = await render(OVERRIDE);
+      const b = react(OVERRIDE);
+      expect(attr(a, "width")).toBe("96");
+      expect(attr(a, "width")).toBe(attr(b, "width")!);
+      expect(attr(a, "role")).toBe(attr(b, "role")!);
+    });
 
-  test("animated", async () => {
-    const props = { ...OVERRIDE, animate: "always" };
-    const a = await vue(props);
-    const b = react(props);
-    expect(attr(a, "width")).toBe("96");
-    expect(attr(a, "role")).toBe("presentation");
-    expect(attr(a, "width")).toBe(attr(b, "width")!);
-    expect(attr(a, "role")).toBe(attr(b, "role")!);
-  });
+    test(`animated — ${name}`, async () => {
+      const props = { ...OVERRIDE, animate: "always" };
+      const a = await render(props);
+      const b = react(props);
+      expect(attr(a, "width")).toBe("96");
+      expect(attr(a, "role")).toBe("presentation");
+      expect(attr(a, "width")).toBe(attr(b, "width")!);
+      expect(attr(a, "role")).toBe(attr(b, "role")!);
+    });
+  }
 });
 
 describe("the adapter injects no option the caller did not pass", () => {

@@ -39,7 +39,8 @@
  * on its own, after everything else has finished.
  */
 
-import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const DIR = "scripts/.consumer";
 const MODULES = `${DIR}/node_modules`;
@@ -60,8 +61,6 @@ const ENTRIES: {
   source: string;
   /** Entry file extension. Defaults to a TSX consumer. */
   ext?: string;
-  /** Skip this entry (e.g., source-resolved adapters). */
-  skip?: boolean;
 }[] = [
   {
     // The row PR 3 exists for: the number a consumer pays for
@@ -123,29 +122,27 @@ const ENTRIES: {
              globalThis.x = Blobatar;`,
   },
   {
-    // Svelte adapter - uses source resolution for the Svelte compiler
-    // No compiled output size check needed
-    name: "@blobatar/svelte",
-    budget: 0,
-    external: [],
-    ext: "ts",
-    source: "",
-    skip: true,
-  },
-  {
-    // Solid adapter - uses SolidJS JSX transform
+    // The first two rows for an adapter that holds a component rather than
+    // re-exporting one, so this is core plus real adapter code — not core plus
+    // an indirection. Expect it to sit above the React row by whatever the
+    // component costs, and see the `alone` row below for that number on its own.
+    // 6432 B measured. ~1.2 kB over the React row, which is the component
+    // itself: Solid's compiled output carries its own `template`/`insert`
+    // scaffolding per element, where React's row is a re-export standing in
+    // front of core's already-minified `dist/react.js`.
     name: "@blobatar/solid",
-    budget: 5500,
+    budget: 6470,
     external: ["solid-js", "solid-js/web"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/solid";
              globalThis.x = Blobatar;`,
   },
   {
-    // Preact adapter - uses Preact JSX transform
+    // 6011 B measured, ~780 B over React's row and ~420 B under Solid's — the
+    // same component written against a runtime that needs less per element.
     name: "@blobatar/preact",
-    budget: 5500,
-    external: ["preact", "preact/compat", "preact/hooks"],
+    budget: 6050,
+    external: ["preact", "preact/hooks", "preact/jsx-runtime"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/preact";
              globalThis.x = Blobatar;`,
@@ -193,30 +190,57 @@ const ENTRIES: {
     source: `import { Blobatar } from "@blobatar/vue";
              globalThis.x = Blobatar;`,
   },
+  // The two rows below are the same instrument pointed at a different shape.
+  // React's and Vue's `alone` rows measure a re-export and are budgeted at
+  // 110 B because there is no correct change that puts more there. These two
+  // hold an actual component, so the number is real code and the budget has to
+  // be. What it still catches is the same thing: core turning up inside a
+  // package that peer-depends on core would move this row by two orders of
+  // magnitude, not by tens of bytes.
   {
-    name: "@blobatar/svelte alone",
-    budget: 0,
-    external: [],
-    ext: "ts",
-    source: "",
-    skip: true,
-  },
-  {
+    // 996 B measured.
     name: "@blobatar/solid alone",
-    budget: 110,
+    budget: 1030,
     external: ["solid-js", "solid-js/web", "blobatar", "blobatar/internal", "blobatar/uri"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/solid";
              globalThis.x = Blobatar;`,
   },
   {
+    // 570 B measured.
     name: "@blobatar/preact alone",
-    budget: 110,
-    external: ["preact", "preact/compat", "preact/hooks", "blobatar", "blobatar/internal", "blobatar/uri"],
+    budget: 600,
+    external: ["preact", "preact/hooks", "preact/jsx-runtime", "blobatar", "blobatar/internal", "blobatar/uri"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/preact";
              globalThis.x = Blobatar;`,
   },
+];
+
+/**
+ * The source-resolved adapters, measured as what they publish.
+ *
+ * `@blobatar/svelte` has no `dist` for a fixture to import, so the row above
+ * cannot exist for it — and the first draft of this file answered that by
+ * skipping it, with a `budget: 0` and a `skip: true`. That is the wrong answer
+ * twice over. It leaves the one package whose published artifact is source
+ * unmeasured, and it quietly changes what the ship gate means: `CONTEXT.md`
+ * defines it as "what does `bun add @blobatar/react` cost", not "what does it
+ * cost when it happens to have a dist".
+ *
+ * A source-resolved package has a perfectly good number — the bytes it ships,
+ * gzipped. It is not comparable to a bundled row and is not meant to be: it
+ * answers what crosses the wire, and the compiler on the far side is the
+ * consumer's, so what it compiles *to* is not this package's to report.
+ */
+const SHIPPED: { name: string; from: string; budget: number }[] = [
+  // 2613 B measured, and larger than any bundled row above for a reason worth
+  // stating rather than optimizing away: this is source, so it ships its
+  // comments. The consumer's compiler drops them before they reach a bundle, so
+  // the number a *user* pays is smaller than this one and is not measurable
+  // here — what this row gates is the wire, which is the only part this package
+  // controls.
+  { name: "@blobatar/svelte", from: "../svelte/src", budget: 2650 },
 ];
 
 rmSync(DIR, { recursive: true, force: true });
@@ -232,8 +256,6 @@ for (const pkg of INSTALLED) {
 let failed = false;
 
 for (const entry of ENTRIES) {
-  if (entry.skip) continue;
-  
   const file = `${DIR}/${entry.name.replace(/\W+/g, "-")}.${entry.ext ?? "tsx"}`;
   writeFileSync(file, entry.source);
 
@@ -259,6 +281,23 @@ for (const entry of ENTRIES) {
   console.log(
     `${ok ? "✓" : "✗"} ${entry.name.padEnd(21)} ${String(gz).padStart(5)} B gz` +
       ` / ${String(entry.budget).padStart(5)} B  (${Math.round((gz / entry.budget) * 100)}%)`,
+  );
+}
+
+for (const pkg of SHIPPED) {
+  // `.d.ts` excluded: declarations are erased before anything runs, and a type
+  // is not a byte a consumer's bundle carries.
+  const bytes = readdirSync(pkg.from)
+    .filter((f) => !f.endsWith(".d.ts"))
+    .map((f) => readFileSync(join(pkg.from, f)));
+
+  const gz = Bun.gzipSync(Buffer.concat(bytes)).byteLength;
+  const ok = gz <= pkg.budget;
+  failed ||= !ok;
+
+  console.log(
+    `${ok ? "✓" : "✗"} ${`${pkg.name} shipped`.padEnd(21)} ${String(gz).padStart(5)} B gz` +
+      ` / ${String(pkg.budget).padStart(5)} B  (${Math.round((gz / pkg.budget) * 100)}%)`,
   );
 }
 
