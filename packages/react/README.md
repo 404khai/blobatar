@@ -27,6 +27,27 @@ import "blobatar/motion.css";
 
 Full option reference lives in the [main README](https://github.com/Alain00/blobatar#readme).
 
+## With shadcn/ui
+
+There is a registry item that composes this adapter with shadcn's `Avatar`,
+falling back to a blobatar when a user has no profile image:
+
+```sh
+npx shadcn@latest registry add @blobatar=https://blobatar.dev/r/{name}.json
+npx shadcn@latest add @blobatar/avatar
+```
+
+```tsx
+import { Blobatar } from "@/components/ui/blobatar";
+
+<Blobatar name={user.email} src={user.avatarUrl} />;
+```
+
+That `Blobatar` is the wrapper, not this one — it takes a `src` alongside the
+`name`, and every option above goes in a `blobatar` prop. `shadcn add` installs
+this package for it, so a project using both imports one of the two under
+another name.
+
 ## Versioning
 
 Every package in the set publishes the same version, and the major names the

@@ -88,6 +88,32 @@ The React section with the import swapped, which is the whole difference — eac
 is compiled by its own framework's JSX transform rather than re-using React's,
 so `solid-js` reactivity and Preact's runtime both behave as they should.
 
+### shadcn/ui
+
+The registry serves shadcn's `Avatar` with a blobatar as the fallback for a
+missing profile image:
+
+```sh
+npx shadcn@latest registry add @blobatar=https://blobatar.dev/r/{name}.json
+npx shadcn@latest add @blobatar/avatar
+```
+
+```tsx
+import { Blobatar } from "@/components/ui/blobatar";
+
+<Blobatar name={user.email} src={user.avatarUrl} />;
+```
+
+That `Blobatar` is not the adapter's — it takes a `src` alongside the `name`,
+and everything the adapter takes goes in a `blobatar` prop. A project using both
+imports one of them under another name.
+
+It is also all that gets copied into your project: the composition, which you
+own and edit. The generator stays in `blobatar` and `@blobatar/react`, installed
+as ordinary dependencies — a copied-in generator would be pinned to whichever
+generation you took it from, and the whole point is that a name renders the same
+picture everywhere.
+
 ### Anywhere else
 
 `blobatar()` returns SVG markup as a string, and `blobatarUri()` wraps it in a

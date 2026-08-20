@@ -47,7 +47,10 @@
     "identicon",
     "react",
     "svg",
-    "deterministic"
+    "deterministic",
+    "shadcn",
+    "shadcn-ui",
+    "shadcn-registry"
   ],
   "license": "MIT",
   "author": "Alain",

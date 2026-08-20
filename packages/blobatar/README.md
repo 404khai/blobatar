@@ -28,6 +28,24 @@ import { Blobatar } from "@blobatar/vue";
 </template>
 ```
 
+```sh
+npx shadcn@latest registry add @blobatar=https://blobatar.dev/r/{name}.json
+npx shadcn@latest add @blobatar/avatar
+```
+
+```tsx
+import { Blobatar } from "@/components/ui/blobatar";
+
+<Blobatar name={user.email} src={user.avatarUrl} />;
+```
+
+The shadcn item is a composition rather than a copy of the generator: it wraps
+shadcn's `Avatar`, takes a `src` alongside the `name`, and falls back to a
+blobatar when there is no profile image. What it installs into your project is
+that wrapper, which you own; the generator stays in `blobatar` and
+`@blobatar/react` as ordinary dependencies, so it keeps rendering what this
+version of this package renders.
+
 A blobatar always stands for somebody — a user, a bot, a team, a repo — so the
 value it is generated from is that somebody's `name`: a username, a display
 name, an email, a handle, an id. Any string works and the same string always

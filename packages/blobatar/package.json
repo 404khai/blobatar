@@ -80,7 +80,8 @@
     "identicon",
     "svg",
     "deterministic",
-    "no-dependencies"
+    "no-dependencies",
+    "shadcn"
   ],
   "license": "MIT",
   "author": "Alain",
