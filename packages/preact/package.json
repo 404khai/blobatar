@@ -1,6 +1,6 @@
 {
   "name": "@blobatar/preact",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Preact adapter for blobatar — deterministic geometric avatars.",
   "type": "module",
   "sideEffects": [
