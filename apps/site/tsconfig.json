@@ -14,5 +14,15 @@
       "blobatar/motion.css": ["../../packages/blobatar/src/motion.css"]
     }
   },
-  "include": ["."]
+  "include": ["."],
+
+  /*
+   * `registry/` holds the sources `shadcn build` inlines into `public/r`. They
+   * import `@/components/ui/...` — the *consumer's* alias, which the shadcn CLI
+   * rewrites on install and which resolves to nothing here, since this app has
+   * no shadcn components of its own. Excluded rather than made to resolve: a
+   * local alias that made it typecheck is a local alias that would ship in the
+   * item JSON and break on every project whose `components.json` says otherwise.
+   */
+  "exclude": ["registry"]
 }

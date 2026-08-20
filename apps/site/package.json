@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "bun --hot server.ts",
-    "build": "bun build.ts",
+    "//registry": "The shadcn registry, built into `public/r` so `build.ts`'s wholesale copy of `public/` carries it into `dist` — which is what puts it at `blobatar.dev/r/*.json`, on the free asset route rather than through the Worker. Chained ahead of `build` and not left to a release checklist: the output is generated and gitignored, so a deploy that skipped this step would serve last build's item, or none at all. `shadcn` is a pinned devDependency rather than a `bunx ...@latest`, because a deploy that reaches for the network to find out what its own artifact looks like is a deploy that breaks on somebody else's release. The `rm -rf` is not tidiness: `shadcn build` writes items and overwrites, but never deletes, so a renamed or removed item leaves its old JSON sitting in `public/r` and `blobatar.dev` keeps serving it. Found exactly that way — an item was renamed and both names answered.",
+    "registry": "rm -rf public/r && shadcn build",
+    "build": "bun run registry && bun build.ts",
     "preview": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "bun test",
@@ -27,8 +29,9 @@
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "tailwindcss": "^4",
     "bun-plugin-tailwind": "latest",
+    "shadcn": "^4.18.0",
+    "tailwindcss": "^4",
     "wrangler": "^4"
   }
 }
