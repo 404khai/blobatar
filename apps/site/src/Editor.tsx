@@ -20,6 +20,8 @@ import {
 } from "@/editor/axes";
 import { blobLayout, resolved } from "@/editor/resolved";
 import { snippet, type Api, type Motion } from "@/editor/snippet";
+import { Caret, FrameworkMenu } from "@/components/ui/framework-menu";
+import { installFor, isFramework, type Framework } from "@/frameworks";
 import { NAMES } from "@/names";
 import { cn } from "@/lib/utils";
 import { ExportMenu } from "@/components/editor/export";
@@ -49,7 +51,19 @@ export function Editor() {
   const [name, setName] = useState("alain00");
   const [pinned, setPinned] = useState<TraitOverrides>({});
   const [api, setApi] = useState<Api>("react");
+  /**
+   * Which framework the first tab stands for, held apart from `api`.
+   *
+   * The strip has three slots and five of its seven values live in the first
+   * one, so the tab needs a label even while you are on `string` or `http` —
+   * and going back to it should return the framework you were reading, not
+   * React. That is a second piece of state by necessity: `api` cannot remember
+   * a framework it is not currently set to.
+   */
+  const [framework, setFramework] = useState<Framework>("react");
   const [motion, setMotion] = useState<Motion>("hover");
+  /** Whether the framework list is open. Controlled — see `FrameworkMenu`. */
+  const [picking, setPicking] = useState(false);
 
   /**
    * Every trait's current position, pinned or hashed — the same reader the
@@ -130,6 +144,14 @@ export function Editor() {
   /** Of those, the ones the name still gets a say in. */
   const loose = narrowed(pinned);
   const code = snippet({ api, name, pinned, motion });
+
+  /*
+    `http` needs no install at all and says so by keeping the bare package: the
+    endpoint is the one call site here you can use without one, and the pill is
+    left in place rather than removed so the column does not change height when
+    you tab across it.
+  */
+  const installCommand = isFramework(api) ? installFor(api) : "bun add blobatar";
 
   return (
     /*
@@ -234,7 +256,39 @@ export function Editor() {
                 onValueChange={(v: string) => v && setApi(v as Api)}
                 aria-label="API"
               >
-                <SegmentedItem value="react">react</SegmentedItem>
+                {/*
+                  The first slot is a tab and a menu at once, which is the whole
+                  trick that keeps five adapters off a strip with room for
+                  three. Clicking it while another tab is active only selects it
+                  — you asked for the framework you can see, not for a list —
+                  and clicking it while it is already active opens the list,
+                  which is the only remaining thing the click could mean.
+                */}
+                <FrameworkMenu
+                  value={framework}
+                  onChange={next => {
+                    setFramework(next);
+                    setApi(next);
+                  }}
+                  open={picking}
+                  onOpenChange={setPicking}
+                >
+                  <SegmentedItem
+                    value={framework}
+                    onClick={() => {
+                      if (isFramework(api)) setPicking(open => !open);
+                    }}
+                    // `inline-flex` is this chip's, not the base's: every other
+                    // segment is a word, and only this one has a second thing
+                    // to sit beside it. Without it the caret is a separate
+                    // inline box that wraps under the label and makes one
+                    // segment taller than the strip it is in.
+                    className="inline-flex items-center gap-1.5 pr-2.5"
+                  >
+                    {framework}
+                    <Caret className={cn(picking && "rotate-180")} />
+                  </SegmentedItem>
+                </FrameworkMenu>
                 <SegmentedItem value="string">string</SegmentedItem>
                 <SegmentedItem value="http">http</SegmentedItem>
               </Segmented>
@@ -267,7 +321,14 @@ export function Editor() {
                 }`}
           </p>
 
-          <Install command="bun add blobatar" className="mt-2 self-start" />
+          {/*
+            Follows the tab, because the two are one instruction read in order:
+            install this, then paste that. An adapter is a second package and
+            core is its peer rather than its dependency, so the framework tabs
+            name both — a pill that said `bun add blobatar` under a Svelte
+            snippet is a paste that cannot resolve its own import.
+          */}
+          <Install command={installCommand} className="mt-2 self-start" />
         </div>
 
         {/*
