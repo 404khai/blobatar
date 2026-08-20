@@ -11,8 +11,20 @@
  *
  * That is a fair trade for the person who wants a PNG for a slide, and it is
  * the whole reason this is an *export* rather than a second way to get a
- * blobatar. The button says "Download" because that is what the browser is
- * about to do; everything else here says export, because that is what it is.
+ * blobatar.
+ *
+ * It lives in the snippet column's header, beside the API tabs, and not under
+ * the preview where it started. Two reasons, and the second is the real one.
+ * A labelled pill is the largest thing on that side of the page for the
+ * smallest thing anybody does there. And it had been wedged between the
+ * blobatar and the crowd row, which are deliberately adjacent — the crowd is
+ * the same preview asked of seven other names, and it only reads that way while
+ * it is touching the preview it varies.
+ *
+ * Beside the tabs rather than inside the code box, because the box's copy icon
+ * is scoped to the tab you are on and a download icon next to it would read as
+ * downloading *that* — which is nothing, on the react tab. Out in the header it
+ * is what it is: leave with the code, or leave with a file.
  *
  * Static in the rendering-mode sense — never animated. Not in the other sense
  * the word carries around here: an export is a fully *configured* blobatar too,
@@ -21,6 +33,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PLACEHOLDER_SEED } from "@/editor/placeholder";
+import { cn } from "@/lib/utils";
 import type { Motion } from "@/editor/snippet";
 import { blobatar, type TraitOverrides } from "blobatar";
 
@@ -89,60 +102,76 @@ export function ExportMenu({ name, traits, motion }: ExportMenuProps) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="bg-ink text-ground inline-flex h-11 overflow-hidden rounded-full">
+    <Popover>
+      <PopoverTrigger asChild>
         <button
           type="button"
-          onClick={exportSvg}
-          className="flex cursor-pointer items-center gap-2 px-5 text-sm transition-opacity hover:opacity-80"
+          aria-haspopup="menu"
+          aria-label="Export this blobatar"
+          title="Export"
+          className={cn(
+            "text-muted hover:text-ink hover:bg-line/50 flex size-7 cursor-pointer items-center justify-center",
+            "rounded-lg transition-colors duration-150",
+          )}
         >
           <DownloadIcon />
-          <span>Download SVG</span>
         </button>
+      </PopoverTrigger>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-label="Choose export format"
-              className="border-ground/20 flex w-11 cursor-pointer items-center justify-center border-l transition-opacity hover:opacity-70"
-            >
-              <ChevronDownIcon />
-            </button>
-          </PopoverTrigger>
+      <PopoverContent align="end" sideOffset={8} className="w-56 p-2" role="menu">
+        {/*
+          Both formats as menu items, where the split button had SVG promoted to
+          a labelled default. Out here there is no room to promote anything, and
+          nothing to promote: the two are a choice between vector and raster,
+          not a default and its alternative.
+        */}
+        <Item label="SVG" note="scales to any size" onClick={exportSvg} />
+        <Item label="PNG" note={`${PNG_SIZE} × ${PNG_SIZE} image`} onClick={exportPng} />
 
-          <PopoverContent align="center" sideOffset={8} className="w-56 p-2" role="menu">
-            <button
-              type="button"
-              role="menuitem"
-              onClick={exportPng}
-              className="hover:bg-line/60 flex w-full cursor-pointer flex-col rounded-xl px-3 py-2.5 text-left transition-colors"
-            >
-              <span className="text-sm">PNG</span>
-              <span className="text-muted text-xs">
-                {PNG_SIZE} × {PNG_SIZE} image
-              </span>
-            </button>
+        {/*
+          Only when motion is on. A note explaining that exports are static,
+          sitting under a preview that is already holding still, would be
+          answering a question nobody asked.
+        */}
+        {motion && (
+          <p className="text-muted border-line mt-2 border-t px-3 pt-3 text-xs leading-relaxed">
+            Motion is preview-only. Exports are static.
+          </p>
+        )}
 
-            {/*
-              Only when motion is on. A note explaining that exports are static,
-              sitting under a preview that is already holding still, would be
-              answering a question nobody asked.
-            */}
-            {motion && (
-              <p className="text-muted border-line mt-2 border-t px-3 pt-3 text-xs leading-relaxed">
-                Motion is preview-only. Exports are static.
-              </p>
-            )}
-          </PopoverContent>
-        </Popover>
-      </div>
+        {/*
+          In the menu rather than the header row, because the header has no
+          space for a line of text that is empty almost always — and because
+          this is where the click that failed happened. The popover stays open
+          on a click, so the message lands somewhere still on screen.
+        */}
+        <p aria-live="polite" className="text-muted mt-2 px-3 text-xs empty:hidden">
+          {failed ? "Could not encode the PNG — the SVG still works." : ""}
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
-      <p aria-live="polite" className="text-muted h-4 text-xs">
-        {failed ? "Could not encode the PNG — the SVG still works." : ""}
-      </p>
-    </div>
+function Item({
+  label,
+  note,
+  onClick,
+}: {
+  label: string;
+  note: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="hover:bg-line/60 flex w-full cursor-pointer flex-col rounded-xl px-3 py-2.5 text-left transition-colors"
+    >
+      <span className="text-sm">{label}</span>
+      <span className="text-muted text-xs">{note}</span>
+    </button>
   );
 }
 
@@ -220,19 +249,3 @@ function DownloadIcon() {
   );
 }
 
-function ChevronDownIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="size-4"
-    >
-      <path d="m7 9 5 5 5-5" />
-    </svg>
-  );
-}
