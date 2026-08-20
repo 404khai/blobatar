@@ -51,6 +51,43 @@ The same props and the same behavior as the React adapter. Anything not
 declared as a prop lands on the underlying element, so `class`, `style`, `alt`
 and the rest behave as you would expect.
 
+### Svelte
+
+```sh
+bun add blobatar @blobatar/svelte
+```
+
+```svelte
+<script>
+  import { Blobatar } from "@blobatar/svelte";
+</script>
+
+<Blobatar name="alain@example.com" size={48} />
+```
+
+Svelte 5 or newer. This package ships its component as source rather than as
+built JavaScript, because a `.svelte` file only becomes renderable code inside
+your own compiler — any toolchain that resolves the `svelte` export condition
+handles that with no configuration, and one that does not reports an unresolved
+import naming the package rather than handing your bundler a file it cannot
+execute. See [ADR-0010](./docs/adr/0010-svelte-ships-source.md).
+
+### Solid and Preact
+
+```sh
+bun add blobatar @blobatar/solid     # or @blobatar/preact
+```
+
+```tsx
+import { Blobatar } from "@blobatar/solid";
+
+<Blobatar name={user.email} size={48} />;
+```
+
+The React section with the import swapped, which is the whole difference — each
+is compiled by its own framework's JSX transform rather than re-using React's,
+so `solid-js` reactivity and Preact's runtime both behave as they should.
+
 ### Anywhere else
 
 `blobatar()` returns SVG markup as a string, and `blobatarUri()` wraps it in a
@@ -74,7 +111,7 @@ import { blobatar } from "blobatar/blob";
 
 ### Configuring
 
-Options are the same across the React, Vue and string APIs. `background`, `hue`
+Options are the same across every adapter and the string API. `background`, `hue`
 and `tone` cover the common cases; `traits` pins any individual axis as the 0–1
 position the hash would otherwise have produced:
 
@@ -106,7 +143,7 @@ import "blobatar/motion.css"; // required — nothing animates without it
 <Blobatar name={user.email} animate="hover" expression={happy} size={64} />;
 ```
 
-The same props work with `@blobatar/vue` — only the component import changes.
+The same props work in every adapter — only the component import changes.
 
 ### Coming from `blobatar/react` or `blobatar/vue`
 
