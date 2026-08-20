@@ -58,12 +58,23 @@ const routes = Object.fromEntries(
  * front of the SPA fallback and have to decide, per request, whether a miss is
  * a missing asset or a route the page should render. One entry per real file
  * has no such ambiguity — anything not in the directory never matches.
+ *
+ * Recursive, and that is not a refinement. A flat `readdir` yields `r` and
+ * `eggs` as *directory* names, so `/r/avatar.json` matched nothing here and fell
+ * through to the SPA catch-all, which answers every unmatched path with the
+ * index document — a request for JSON or an image got HTML and a 200, which is
+ * worse than a 404 because nothing reports it. Production never showed it:
+ * Cloudflare serves `dist/` as a static tree and does not care how deep a file
+ * sits. Directory entries are dropped rather than served, since `Bun.file` on a
+ * directory is not a response.
  */
 const assets = Object.fromEntries(
-  (await readdir("public")).map(name => [
-    `/${name}`,
-    new Response(Bun.file(`./public/${name}`)),
-  ]),
+  (await readdir("public", { recursive: true, withFileTypes: true }))
+    .filter(entry => entry.isFile())
+    // `parentPath` is the directory the entry was found in, `public` included;
+    // the route is what is left after that prefix.
+    .map(entry => `${entry.parentPath}/${entry.name}`.slice("public/".length))
+    .map(path => [`/${path}`, new Response(Bun.file(`./public/${path}`))]),
 );
 
 const server = serve({
