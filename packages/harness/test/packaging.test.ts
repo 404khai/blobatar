@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 /**
  * What each adapter *ships*, read rather than run.
@@ -20,11 +21,68 @@ import { readFileSync } from "node:fs";
  */
 
 const require_ = createRequire(import.meta.url);
-const read = (pkg: string) => readFileSync(require_.resolve(pkg), "utf8");
+
+/**
+ * What "what it ships" resolves to differs by adapter, and the difference is
+ * the one ADR-0010 names.
+ *
+ * A built adapter has a `dist` Node can resolve, so `require.resolve` finds the
+ * exact file a consumer loads. A source-resolved one does not: `@blobatar/svelte`
+ * publishes Svelte behind the `svelte` export condition, which Node does not
+ * apply and never will, so `require.resolve` throws on it. Skipping it there
+ * would leave the one package whose published artifact is *source* as the only
+ * one nothing reads — which is backwards, since source is the thing a build
+ * step is not standing between a mistake and a consumer.
+ *
+ * So the entry is resolved the way the condition says, and every file the
+ * package ships is read rather than just the entry: for a source-resolved
+ * package there is no bundle, so "the entry" is not the whole of what runs.
+ */
+const dir = (pkg: string) =>
+  dirname(require_.resolve(`${pkg}/package.json`));
+
+const manifest = (pkg: string) =>
+  require_(`${pkg}/package.json`) as {
+    version: string;
+    files?: string[];
+    exports?: Record<string, Record<string, string>>;
+    peerDependencies?: Record<string, string>;
+  };
+
+/**
+ * Every file the package publishes as code, as one string.
+ *
+ * `readdirSync` over the shipped directory rather than a hand-listed set: a
+ * source-resolved package grows a file by someone adding one, and a list here
+ * would go stale silently — which is the failure mode this whole file exists to
+ * refuse.
+ */
+const read = (pkg: string): string => {
+  const entry = sourceEntry(pkg);
+  if (!entry) return readFileSync(require_.resolve(pkg), "utf8");
+
+  const src = join(dir(pkg), dirname(entry));
+  return readdirSync(src)
+    .filter((f) => !f.endsWith(".d.ts"))
+    .map((f) => readFileSync(join(src, f), "utf8"))
+    .join("\n");
+};
+
+/**
+ * The `.` entry of a source-resolved package, or `undefined` for a built one.
+ *
+ * Keyed off the `svelte` condition rather than off the package name, so a
+ * second source-resolved adapter is covered by arriving rather than by being
+ * remembered here.
+ */
+const sourceEntry = (pkg: string) => manifest(pkg).exports?.["."]?.svelte;
 
 const ADAPTERS: [string, string[]][] = [
   ["@blobatar/react", ["blobatar", "blobatar/react", "blobatar/internal", "blobatar/uri", "react", "react/jsx-runtime"]],
   ["@blobatar/vue", ["blobatar", "blobatar/vue", "blobatar/internal", "blobatar/uri", "vue"]],
+  ["@blobatar/solid", ["blobatar", "blobatar/internal", "blobatar/uri", "solid-js", "solid-js/web"]],
+  ["@blobatar/preact", ["blobatar", "blobatar/internal", "blobatar/uri", "preact", "preact/hooks", "preact/jsx-runtime"]],
+  ["@blobatar/svelte", ["blobatar", "blobatar/internal", "blobatar/uri", "svelte", "svelte/elements"]],
 ];
 
 const DEV_ONLY: [string, string][] = [
@@ -100,6 +158,43 @@ describe("the adapters pin core to one major", () => {
       expect(manifest.peerDependencies?.blobatar).toBe(`${major}.x`);
       // Lockstep: the adapter's own version must be core's version.
       expect(manifest.version).toBe(core.version);
+    });
+  }
+});
+
+/**
+ * What a source-resolved package has instead of a build.
+ *
+ * A built adapter cannot ship a broken entry quietly: `scripts/build.ts` writes
+ * `dist` and every other test in this file resolves through it, so a missing
+ * file fails long before a consumer sees it. A source-resolved one has no such
+ * step — its `exports` map points straight at files in the repo, and the only
+ * thing standing between "renamed a file" and "the package does not resolve"
+ * is `files` in `package.json` and this test.
+ *
+ * Both halves are checked, because they fail apart: an entry that exists but is
+ * outside `files` publishes a tarball missing it, and `npm pack` is the only
+ * other place that would have shown it.
+ */
+describe("what a source-resolved adapter ships instead of a build", () => {
+  for (const [pkg] of ADAPTERS) {
+    const entry = sourceEntry(pkg);
+    if (!entry) continue;
+
+    test(`${pkg} resolves its ${entry} entry to a file that exists`, () => {
+      expect(existsSync(join(dir(pkg), entry)), `${pkg} exports ${entry}, which is not there`).toBe(true);
+    });
+
+    test(`${pkg} publishes the directory that entry lives in`, () => {
+      const top = entry.replace(/^\.\//, "").split("/")[0]!;
+      expect(manifest(pkg).files, `${pkg} exports ${entry} but does not ship ${top}`).toContain(top);
+    });
+
+    test(`${pkg} ships no built output to drift from it`, () => {
+      expect(
+        existsSync(join(dir(pkg), "dist")),
+        `${pkg} is source-resolved but has a dist — two definitions of one component`,
+      ).toBe(false);
     });
   }
 });

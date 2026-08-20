@@ -79,12 +79,19 @@ jobs:
         run: bunx turbo run smoke --filter=blobatar
 
       # Every publishable package, not just core — a broken `files` or
-      # `exports` in an adapter should fail here rather than at publish.
+      # `exports` in an adapter should fail here rather than at publish. A new
+      # adapter with no line here is a package whose tarball nothing has ever
+      # opened, which for `@blobatar/svelte` is the whole artifact: it ships
+      # source, so `files` is the only thing deciding what a consumer receives
+      # and there is no build step that would have noticed a gap (ADR-0010).
       - name: Pack
         run: |
           npm pack --workspace blobatar --pack-destination /tmp
           npm pack --workspace @blobatar/react --pack-destination /tmp
           npm pack --workspace @blobatar/vue --pack-destination /tmp
+          npm pack --workspace @blobatar/svelte --pack-destination /tmp
+          npm pack --workspace @blobatar/solid --pack-destination /tmp
+          npm pack --workspace @blobatar/preact --pack-destination /tmp
           npm pack --workspace blobatar-codemod --pack-destination /tmp
 
       - uses: actions/upload-artifact@v4
