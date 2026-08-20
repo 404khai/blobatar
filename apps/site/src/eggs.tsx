@@ -5,15 +5,21 @@ import { cn } from "@/lib/utils";
  * A handful of names that do not get a blobatar.
  *
  * The hero asks you to type a name, and the names people actually try first are
- * not their own — they are the agents they have been talking to all day, plus the
- * platform this page is served from. Getting a hashed blob back is a correct
- * answer to a question nobody asked; getting the thing itself back is the joke
- * landing.
+ * not their own — they are the agents they have been talking to all day, the
+ * platform this page is served from, and whoever's registry they arrived through.
+ * Getting a hashed blob back is a correct answer to a question nobody asked;
+ * getting the thing itself back is the joke landing.
  *
- * Deliberately four marks. The gag only works while every hit is something you
+ * Deliberately few marks. The gag only works while every hit is something you
  * recognise on sight — a registry of twenty is a brand directory, and the one
  * nobody knows turns a surprise into a lookup table you are now trying to
- * exhaust.
+ * exhaust. Five of these are tools; the sixth is the person who made one of them,
+ * and he clears the same bar the others do.
+ *
+ * That last pair is also the only case where two names get two different marks
+ * rather than one shared between spellings. `shadcn` and `shadcn/ui` are a man and
+ * a library, and handing back the same picture for both would be answering a
+ * question nobody asked in exactly the way this file exists to avoid.
  *
  * Everything about this lives in `apps/site`. The library has no concept of a
  * name that renders as something other than its hash, and it must not grow one:
@@ -63,14 +69,17 @@ type MarkProps = Omit<
  * command below.
  *
  * 32 bits is not a lot of hash, and a collision would render the wrong mark for
- * an innocent name. Across eight keys the odds of any given name landing on one
- * are about 1 in 500 million, against a failure mode of one visitor getting a
+ * an innocent name. Across eleven keys the odds of any given name landing on one
+ * are about 1 in 400 million, against a failure mode of one visitor getting a
  * funnier blobatar than they asked for.
  */
 const KEYS: Record<string, Egg["Mark"]> = {
+  "077730e0": SlashMark,
+  "414e5dc2": PortraitMark,
   "9400450a": TriangleMark,
   a08285c6: DiscMark,
   b0d11833: PixelMark,
+  c249f3fd: SlashMark,
   d4cde064: CloudMark,
   d7676fa1: DiscMark,
   dfaa85c4: PixelMark,
@@ -373,6 +382,145 @@ function TriangleMark(props: MarkProps) {
   return (
     <Mark {...props}>
       <path d="M50 11 L95 89 L5 89 Z" fill="var(--color-ink)" />
+    </Mark>
+  );
+}
+
+/**
+ * The silhouette, and it is not a drawing of one — it is the library's own.
+ *
+ * Lifted verbatim from `blobatar("shadcn", { traits: { shape: 0.11 } })`, which is
+ * this seed's blobatar pinned to the round band. A hand-drawn lump was an earlier
+ * attempt and it read as a circle, because what makes these shapes look generated
+ * is the asymmetry nobody draws on purpose.
+ *
+ * Pasted rather than imported, which keeps the direction of the dependency right:
+ * the site may know what the library produces, the library must never know this
+ * file exists. It is frozen output either way — gen2's seed→look mapping is fixed,
+ * so this path is as much a constant as the pixel grid above.
+ *
+ * Copy the *whole* body when refreshing it. The unpinned shape for this seed is a
+ * cloud, which the library emits as four `<circle>` lobes plus a path; taking only
+ * the path produced a cloud with its lobes amputated, and it took a screenshot to
+ * notice. `round` is a single path, which is the other reason it is the one pinned
+ * here.
+ */
+const ROUND =
+  "M83.28 48.92C83.28 68.03 69.37 81.8 50.08 81.8C30.79 81.8 16.89 68.03 16.89 48.92C16.89 29.8 30.79 16.03 50.08 16.03C69.37 16.03 83.28 29.8 83.28 48.92Z";
+
+/**
+ * The person, as himself.
+ *
+ * Paired with `SlashMark` below, and the pair is the point: one name is a man and
+ * the other is the thing he made, so they are not the same joke and must not be the
+ * same picture. Typing `shadcn` gets a face; typing `shadcn/ui` gets a logo.
+ *
+ * This half is the man, and what stands for him is a picture — a cartoon in a suit
+ * and sunglasses with a sunset behind it. Several passes tried to say that in paths,
+ * and every one of them lost the thing that made it recognisable: redrawn as flat
+ * shapes it is a pink circle with something on its face, which is a description of
+ * the avatar rather than the avatar.
+ *
+ * So the picture goes in as a picture, clipped to the silhouette so the slot still
+ * holds a blobatar-shaped thing and the hero does not move when it lands.
+ *
+ * It is the one mark here that is not vector, and that costs something real: an
+ * `<image>` cannot take the page's colours, cannot invert on a light theme, and does
+ * not scale past its own pixels. Accepted deliberately — a likeness is the whole
+ * payload of this particular joke.
+ *
+ * Fetched rather than inlined. A data URI would make the mark self-contained like
+ * the others, at the price of ~18 KB in the hero bundle for every visitor, on a page
+ * whose headline is how small the library is. As a file it is requested only when
+ * this mark renders, which is only when somebody types his name — the joke costs
+ * nothing until it lands. 320px at WebP q82: 13.8 KB, against 142 KB for the same
+ * frame as a PNG.
+ *
+ * Named by hash for the same reason `KEYS` is keyed by one. `public/` is served
+ * verbatim at `blobatar.dev`, so a file called `shadcn.webp` would hand the
+ * punchline to anyone reading a directory listing. This is `key("shadcn")`.
+ */
+function PortraitMark(props: MarkProps) {
+  // Per-instance, for the same reason `CloudMark` is — see the note there. Two of
+  // these on a page sharing one `#head` is a bug that looks fine until one moves.
+  const id = useId().replace(/\W/g, "");
+  const head = `${id}-head`;
+
+  return (
+    <Mark {...props}>
+      <defs>
+        <clipPath id={head}>
+          <path d={ROUND} />
+        </clipPath>
+      </defs>
+      {/*
+        Drawn over the silhouette's own box rather than the full 100×100, so the
+        framing is the head's framing. `slice` because the source is square and the
+        box is a hair wider than it is tall — the alternative letterboxes his chin
+        against nothing.
+      */}
+      <image
+        href="/eggs/414e5dc2.webp"
+        x="16.89"
+        y="16.03"
+        width="66.39"
+        height="65.77"
+        preserveAspectRatio="xMidYMid slice"
+        clipPath={`url(#${head})`}
+      />
+    </Mark>
+  );
+}
+
+/**
+ * The product, as a face.
+ *
+ * A coincidence worth taking: shadcn/ui's mark is two tilted strokes at a 2:1 length
+ * ratio, and a blobatar's expression is two tilted capsules — the same two shapes,
+ * arranged the same way, by two people who were not thinking about each other.
+ * Rounding the caps is the entire edit, and it turns the logo into a face without
+ * adding anything to it. It reads as both at once, and neither reading is a costume
+ * over the other.
+ *
+ * What is preserved is what makes the logo that logo: 45°, the exact 2:1 ratio
+ * between the strokes, and the perpendicular offset between them. Every coordinate
+ * below is the real mark's, measured off it and scaled from its own 60-unit box, so
+ * the proportions are not an impression of the logo — they are the logo.
+ *
+ * Modifying it is allowed here in a way it is not two marks up. The wedge has no
+ * eyes because its owner's guidelines list altering the mark as misuse; shadcn/ui is
+ * MIT with no such document, so rounding its caps is a liberty that can actually be
+ * taken rather than one assumed.
+ *
+ * Vector, tokenised, and inverting — everything `PortraitMark` gives up. That is the
+ * right way round: the mark that has to be a photograph is the one nobody can draw,
+ * and this one nobody needed to.
+ */
+function SlashMark(props: MarkProps) {
+  return (
+    <Mark {...props}>
+      <path d={ROUND} fill="var(--color-ink)" />
+      {/*
+        Written in the logo's own coordinates and placed with a transform, rather
+        than baked into pre-multiplied numbers. The endpoints stay legible as what
+        they are — two strokes on a 45° — and anyone checking them against the real
+        mark can, which is not true of the twelve decimals the same shapes become
+        once the scale is folded in.
+      *
+        The stroke scales with the group: 11 here renders at 6.6, which is the weight
+        the library's own eyes carry. Halving the scale without touching this number
+        is therefore a real change, not a reframing.
+      */}
+      <g
+        transform="translate(19 19) scale(0.6)"
+        fill="none"
+        stroke="var(--color-ground)"
+        strokeWidth="11"
+        strokeLinecap="round"
+      >
+        <line x1="21.7" y1="68.3" x2="68.3" y2="21.7" />
+        <line x1="48.3" y1="73.3" x2="73.3" y2="48.3" />
+      </g>
     </Mark>
   );
 }
