@@ -23,17 +23,23 @@ export const SANS = "Geist";
 export const MONO = "Geist Mono";
 
 /**
- * Two minutes rather than the 28-second default, and not because the fonts are
+ * Five minutes rather than the 28-second default, and not because the fonts are
  * slow — they are two local woff2 files.
  *
- * Remotion renders several frames concurrently, each in its own tab, and the
- * crowd frames paint 120 animated blobatars apiece. A tab that opens on one of
+ * Remotion renders several frames concurrently, each in its own tab, and a
+ * crowd frame paints every blobatar in the shot. A tab that opens on one of
  * those spends long enough with a busy main thread that a font load queued
  * behind it can miss the default deadline, which fails the whole render at
  * whatever frame happened to be unlucky. The wait is bounded by the work, so
  * the timeout only needs to be longer than the slowest frame.
+ *
+ * Two minutes covered the launch film's 120 creatures and did not survive the
+ * thank-you film's 590 — its closing frames timed out here rather than
+ * anywhere near the fonts, which is exactly as misleading as it sounds. The
+ * ceiling costs nothing when it is not hit, so it is set well past the worst
+ * frame rather than just past it.
  */
-const handle = delayRender("Loading Geist", { timeoutInMilliseconds: 120_000 });
+const handle = delayRender("Loading Geist", { timeoutInMilliseconds: 300_000 });
 
 const load = async () => {
   const faces = [

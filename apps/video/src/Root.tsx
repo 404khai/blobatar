@@ -9,6 +9,8 @@ import { END as EP_END } from "./url";
 import { Triangles, END as TRI_END } from "./Triangles";
 import { Adapters } from "./Adapters";
 import { END as SWAP_END } from "./swap";
+import { Thanks } from "./Thanks";
+import { END as STARS_END } from "./stars";
 
 export const RemotionRoot: FC = () => (
   <>
@@ -64,6 +66,19 @@ export const RemotionRoot: FC = () => (
       id="Adapters"
       component={Adapters}
       durationInFrames={SWAP_END}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+    {/*
+      The thank-you. The only composition whose crowd is not a list of names
+      chosen to make a point — it is the stargazers, and the camera is fitted to
+      them rather than authored, so the shot re-cuts itself if the list moves.
+    */}
+    <Composition
+      id="Thanks"
+      component={Thanks}
+      durationInFrames={STARS_END}
       fps={FPS}
       width={WIDTH}
       height={HEIGHT}
