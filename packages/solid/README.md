@@ -18,6 +18,14 @@ function App() {
 }
 ```
 
+## What this package ships
+
+Three builds, picked by your toolchain: JSX source behind the `solid` condition
+for anything running `vite-plugin-solid`, an SSR build under `node`, and a DOM
+build by default. Solid compiles differently per target rather than branching at
+runtime, so a consumer handed the wrong one renders nothing — the conditions are
+what keep that from happening.
+
 ## Props
 
 | Prop | Type | Description |

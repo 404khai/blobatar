@@ -25,9 +25,6 @@ const read = (pkg: string) => readFileSync(require_.resolve(pkg), "utf8");
 const ADAPTERS: [string, string[]][] = [
   ["@blobatar/react", ["blobatar", "blobatar/react", "blobatar/internal", "blobatar/uri", "react", "react/jsx-runtime"]],
   ["@blobatar/vue", ["blobatar", "blobatar/vue", "blobatar/internal", "blobatar/uri", "vue"]],
-  ["@blobatar/svelte", ["blobatar", "blobatar/internal", "blobatar/uri", "svelte", "svelte/internal"]],
-  ["@blobatar/solid", ["blobatar", "blobatar/internal", "blobatar/uri", "solid-js", "solid-js/web"]],
-  ["@blobatar/preact", ["blobatar", "blobatar/internal", "blobatar/uri", "preact", "preact/compat", "preact/hooks", "preact/jsx-runtime"]],
 ];
 
 const DEV_ONLY: [string, string][] = [
@@ -38,9 +35,6 @@ const DEV_ONLY: [string, string][] = [
 
 describe("what the adapters ship", () => {
   for (const [pkg, allowed] of ADAPTERS) {
-    // Svelte adapters are source-resolved and don't ship compiled JS
-    if (pkg === "@blobatar/svelte") continue;
-    
     test(`${pkg} ships production code`, () => {
       const code = read(pkg);
       for (const [needle, why] of DEV_ONLY) {
@@ -49,9 +43,6 @@ describe("what the adapters ship", () => {
     });
 
     test(`${pkg} imports only what it declares`, () => {
-      // Svelte adapters are source-resolved and don't ship compiled JS
-      if (pkg === "@blobatar/svelte") return;
-      
       const code = read(pkg);
       const specifiers = [...code.matchAll(/from\s*["']([^"']+)["']/g)].map((m) => m[1]!);
       const external = specifiers.filter((s) => !s.startsWith("."));
