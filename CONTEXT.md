@@ -73,6 +73,9 @@ generation's silhouettes. The bands *are* the weighting: rounds and pebbles get
 wide bands because they are the everyday shapes, suns a narrow one because they
 should be a find. Frozen per generation, and the reason adding a silhouette is
 never additive — a new band takes its mass from its neighbours.
+The same structure partitions the **tone** set, which is banded pale to ink by
+the same rule — so "band" is the word for both, and neither is inclusive at its
+top edge.
 _Avoid_: threshold, weight. A band is the interval; a threshold is one of its
 two edges.
 
@@ -126,8 +129,18 @@ mattering, which is how a consumer builds a single fixed blobatar.
 _Avoid_: custom blobatar, static blobatar. _Static_ already means "not animated".
 
 **Tone**:
-A position in the frozen swatch set for `blob`, expressible as 0–1. Distinct
-from `hue`, which is an absolute angle in degrees.
+A position in the frozen swatch set for `blob`, expressible as 0–1, running
+pale to ink. The swatch set is a **band** table like the silhouettes' and has
+the same half-open edges, so a position picks the first swatch whose upper edge
+it falls under. A hashed trait is always below 1 and every position it can
+produce lands in a swatch; an explicit `tone: 1` is the one value that does not,
+since it sits *on* the top edge rather than under it, and falls back to the
+first swatch — `tone: 1` renders what `tone: 0` renders. That is the edge
+showing through, not a second spelling of pastel, and it is why the top of the
+range is the one place to state a position as 0.999 rather than 1.
+Distinct from `hue`, which is an absolute angle in degrees, is inclusive at both
+ends, and wraps on purpose: 360 is 0 because a circle says so, where tone's top
+edge means nothing of the kind.
 
 **Rendering mode**:
 Static blobatars are a single `<img>`; animated ones are inline SVG of roughly a
@@ -235,9 +248,10 @@ consumer and is not gated at all. A blobatar can be sad and still breathing.
 
 **Package**:
 A workspace member under `packages/` — publishable. `blobatar` is the renderer
-and carries no framework; each adapter is its own package beside it. Two
-members are publishable-shaped but are not: `harness` is private, and
-`codemod` is unscoped on purpose so the lockstep group cannot drag it along.
+and carries no framework; each adapter is its own package beside it, and
+`@blobatar/cli` is the terminal surface. Two members are publishable-shaped but
+are not: `harness` is private, and `codemod` is unscoped on purpose so the
+lockstep group cannot drag it along.
 
 **Lockstep**:
 That `blobatar` and every `@blobatar/*` package publish the same version,
@@ -247,6 +261,21 @@ adds nothing, so it has no semantics of its own to version, and its number is
 the library's number. Enforced twice, because neither half is sufficient:
 `fixed` keeps *published* versions in step, and an exact-major peer range
 refuses the *install* that npm would otherwise resolve happily.
+**The scope is the membership.** `fixed` names `@blobatar/*` as a glob, so a
+package joins by being named and leaves by being renamed — which is why
+`codemod` is unscoped on purpose, and why `@blobatar/cli` is in.
+The CLI is the one member the adapter reasoning above does not cover: it *has*
+semantics of its own — flags, output format, exit codes — and still publishes
+on the library's number. That is a cost accepted, not a fact observed. It
+means a flag rename cannot have its own major and waits for the library's, and
+that a library patch republishes a CLI whose behavior nobody touched. The trade
+is deliberate: one number across everything called blobatar is worth more to a
+reader than an accurate minor on one of them.
+It pins the major with a real dependency rather than the adapters' peer range,
+which is the one half of the enforcement above it spells differently: someone
+running `npx @blobatar/cli` has nothing else installed, so an unmet peer is a
+broken command where for an adapter it is a warning in a project that already
+has the library.
 _Avoid_: synced, pinned. _Pinned_ is what the peer range does, which is the
 other half.
 
