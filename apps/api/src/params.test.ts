@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { happy } from "blobatar/expression";
-import { BadRequest, MAX_NAME, parseName, parseOptions } from "../src";
+import { BadRequest, MAX_NAME, parseName, parseOptions } from "./params";
 
 const parsed = (qs: string) => parseOptions(new URLSearchParams(qs));
 const opts = (qs: string) => parsed(qs).options;
@@ -81,18 +81,10 @@ test("the other numeric bounds are inclusive and enforced", () => {
   expect(opts("hue=360").hue).toBe(360);
   expect(opts("hue=0").hue).toBe(0);
   expect(opts("tone=0").tone).toBe(0);
+  expect(opts("tone=1").tone).toBe(1);
   bad(() => opts("tone=1.1"));
   bad(() => opts("hue=361"));
   bad(() => opts("hue=abc"));
-});
-
-test("tone=1 lands in the last swatch, not back in the first", () => {
-  // The library's tone buckets are half-open (`v < edge`), so an exact 1
-  // matches nothing and falls back to the first swatch — tone=1 rendering
-  // byte-identically to tone=0. The table clamps just inside the top edge so
-  // the documented 0–1 range ends where a caller expects: in ink, not pastel.
-  expect(opts("tone=1").tone).toBe(0.999999);
-  expect(opts("tone=0.999").tone).toBe(0.999);
 });
 
 test("inherited object keys are not expressions, backgrounds or generations", () => {

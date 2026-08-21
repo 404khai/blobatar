@@ -1,18 +1,3 @@
-/**
- * render-core — the endpoint's param table, shared by every string surface.
- *
- * A URL and a terminal spell blobatars the same way: `?tone=0.4&expression=shy`
- * and `--tone 0.4 --expression shy` must be one vocabulary, one set of ranges
- * and one set of error messages, or `tone=0.4` quietly means two different
- * things depending on where it was typed. This package is that vocabulary made
- * once: `apps/api` parses its query strings through it, and `blobatar-cli`
- * feeds its flags through the same functions, so the two surfaces cannot
- * drift a param apart without a test noticing.
- *
- * It contains nothing else — no rasterization, no cache logic, no I/O. Private
- * and never published: wrangler bundles it into the Worker and the CLI build
- * inlines it into the distributed bin (see each consumer's config for how).
- */
 import type { BlobatarOptions } from "blobatar/blob";
 import type { Expression } from "blobatar/expression";
 import {
@@ -122,12 +107,9 @@ export const MAX_SIZE = 1024;
  * nobody documents is a typo, and `?expresion=happy` rendering a perfectly
  * valid blobatar wearing the wrong face is a bug the caller cannot see.
  */
-export const IGNORED = ["d", "default", "f", "forcedefault", "r", "rating"];
+const IGNORED = ["d", "default", "f", "forcedefault", "r", "rating"];
 
-// Exported alongside `IGNORED` for the CLI's parity test: a param added here
-// must surface as a flag, or that suite fails — divergence between the two
-// string surfaces is a test failure, not a code review catch.
-export const KNOWN = ["s", "size", "background", "hue", "tone", "expression", "title", "gen", ...IGNORED];
+const KNOWN = ["s", "size", "background", "hue", "tone", "expression", "title", "gen", ...IGNORED];
 
 function number(raw: string, key: string, min: number, max: number): number {
   const n = Number(raw);
@@ -203,12 +185,11 @@ export function parseOptions(params: URLSearchParams): RenderRequest {
   // circle, callers compute into it, and rejecting the value that a full turn
   // lands on would be a trap. The library takes it modulo.
   if (hue !== null) opts.hue = number(hue, "hue", 0, 360);
-  // Clamped just inside the top edge: the library's tone buckets are half-open
-  // (`v < edge`), so an exact 1 matches no bucket and falls back to the first
-  // swatch — tone=1 rendering byte-identically to tone=0. Held fractionally
-  // under 1, the documented range ends where a caller expects: in the last
-  // swatch. Both generations bucket the same way, so the clamp covers each.
-  if (tone !== null) opts.tone = Math.min(number(tone, "tone", 0, 1), 0.999999);
+  // Inclusive at 1, matching the library: the tone swatches are banded with
+  // half-open edges, so an exact 1 sits on the top edge and renders as tone=0.
+  // The endpoint does not paper over that — one value means one thing in a URL,
+  // in argv and in a library call. See CONTEXT.md's Tone entry.
+  if (tone !== null) opts.tone = number(tone, "tone", 0, 1);
   if (expression !== null) opts.expression = oneOf(expression, "expression", EXPRESSIONS);
   if (title !== null) {
     if (title.length > MAX_TITLE) {

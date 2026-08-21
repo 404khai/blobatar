@@ -1,8 +1,0 @@
-{
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    // No react here — the root default lists it and this member never renders.
-    "types": ["bun"]
-  },
-  "include": ["src", "test"]
-}
