@@ -1,4 +1,32 @@
-import { useEffect, useRef, useState } from "react";
+import { Caret, FrameworkMenu } from "@/components/ui/framework-menu";
+import { Install } from "@/components/ui/install";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Segmented, SegmentedItem } from "@/components/ui/segmented";
+import { Snippet } from "@/components/ui/snippet";
+import { eggFor, EggMark } from "@/eggs";
+import {
+  attrExpr,
+  attrString,
+  close,
+  comment,
+  exprClose,
+  exprOpen,
+  infoFor,
+  installFor,
+  isManager,
+  MANAGERS,
+  SHADCN_FILE,
+  wrap,
+  type Framework,
+  type Manager,
+} from "@/frameworks";
+import { cn } from "@/lib/utils";
+import { SHAPES, type ShapeOption } from "@/shapes";
 import { Blobatar } from "@blobatar/react";
 import type { BlobatarOptions } from "blobatar";
 import {
@@ -18,37 +46,18 @@ import {
   wink,
   type Expression,
 } from "blobatar/expression";
-import { Segmented, SegmentedItem } from "@/components/ui/segmented";
 import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Snippet } from "@/components/ui/snippet";
-import { SHAPES, type ShapeOption } from "@/shapes";
-import { Install } from "@/components/ui/install";
-import { Caret, FrameworkMenu } from "@/components/ui/framework-menu";
-import {
-  attrExpr,
-  attrString,
-  close,
-  comment,
-  exprClose,
-  exprOpen,
-  infoFor,
-  installFor,
-  isManager,
-  MANAGERS,
-  SHADCN_FILE,
-  type Manager,
-  wrap,
-  type Framework,
-} from "@/frameworks";
-import { EggMark, eggFor } from "@/eggs";
-import { cn } from "@/lib/utils";
+  createParser,
+  debounce,
+  parseAsNumberLiteral,
+  parseAsString,
+  parseAsStringLiteral,
+  useQueryStates,
+} from "nuqs";
+import { useEffect, useRef, useState } from "react";
 
-type Bg = "none" | "squircle" | "circle" | "square";
+const backgrounds = ["none", "squircle", "circle", "square"] as const;
+type Bg = (typeof backgrounds)[number];
 
 /**
  * Eight stops around the wheel plus an auto chip.
@@ -58,7 +67,7 @@ type Bg = "none" | "squircle" | "circle" | "square";
  * has nowhere to express "unset", and implies a precision nobody tuning a
  * landing page wants.
  */
-const HUES = [12, 40, 78, 140, 190, 225, 275, 320];
+const HUES = [12, 40, 78, 140, 190, 225, 275, 320] as const;
 
 /**
  * One silhouette option: its name and the trait position that selects it.
@@ -92,6 +101,31 @@ const POSES = [
 ] as const;
 
 type Pose = (typeof POSES)[number];
+
+function parseAsNamedObject<T extends { name: string }>(list: readonly T[]) {
+  return createParser({
+    parse(query) {
+      const item = list.find((p) => p.name === query);
+      return item ?? null;
+    },
+    serialize(item) {
+      return item.name;
+    },
+    eq: (a, b) => a.name === b.name,
+  });
+}
+
+const controlsSearchParams = {
+  seed: parseAsString.withDefault("alain00"),
+  bg: parseAsStringLiteral(backgrounds).withDefault("none"),
+  hue: parseAsNumberLiteral(HUES),
+  pose: parseAsNamedObject(POSES).withDefault(POSES[0]),
+  shape: parseAsNamedObject(SHAPES),
+};
+
+function useControls() {
+  return useQueryStates(controlsSearchParams);
+}
 
 /**
  * How many of the roster the panel shows without being asked.
@@ -258,11 +292,7 @@ export function shadcnSnippet(
 }
 
 export function Hero() {
-  const [seed, setSeed] = useState("alain00");
-  const [bg, setBg] = useState<Bg>("none");
-  const [hue, setHue] = useState<number | null>(null);
-  const [pose, setPose] = useState<Pose>(POSES[0]);
-  const [shape, setShape] = useState<Shape | null>(null);
+  const [{ seed, bg, hue, pose, shape }, setControls] = useControls();
 
   /**
    * Which adapter the snippet is written in.
@@ -353,7 +383,7 @@ export function Hero() {
   const pick = (p: Pose) => {
     clearTimeout(release.current ?? undefined);
     setBurst(null);
-    setPose(p);
+    setControls({ pose: p });
   };
 
   const opts: BlobatarOptions = {
@@ -472,7 +502,14 @@ export function Hero() {
                   // from a previous name lands the click reaction on the reveal
                   // of the next one, and the two transforms fight.
                   onChange={(e) => {
-                    setSeed(e.target.value);
+                    setControls(
+                      { seed: e.target.value },
+                      {
+                        limitUrlUpdates: e.target.value
+                          ? debounce(250)
+                          : undefined,
+                      },
+                    );
                     setNudge(false);
                   }}
                   spellCheck={false}
@@ -617,7 +654,7 @@ export function Hero() {
                       seed={seed}
                       opts={{ ...opts, traits: undefined }}
                       selected={shape === null}
-                      onClick={() => setShape(null)}
+                      onClick={() => setControls({ shape: null })}
                     />
                     {SHAPES.map((s) => (
                       <ShapeTile
@@ -626,7 +663,7 @@ export function Hero() {
                         seed={seed}
                         opts={{ ...opts, traits: { shape: s.at } }}
                         selected={shape?.name === s.name}
-                        onClick={() => setShape(s)}
+                        onClick={() => setControls({ shape: s })}
                       />
                     ))}
                   </div>
@@ -737,7 +774,7 @@ export function Hero() {
                   <Segmented
                     type="single"
                     value={bg}
-                    onValueChange={(v) => v && setBg(v as Bg)}
+                    onValueChange={(v) => v && setControls({ bg: v as Bg })}
                     aria-label="Background"
                   >
                     {/*
@@ -767,7 +804,7 @@ export function Hero() {
                     aria-label="Hue"
                   >
                     <button
-                      onClick={() => setHue(null)}
+                      onClick={() => setControls({ hue: null })}
                       aria-pressed={hue === null}
                       className={cn(
                         "border-line rounded-full border px-2.5 py-0.5 text-[0.7rem] lowercase transition-colors",
@@ -781,7 +818,7 @@ export function Hero() {
                     {HUES.map((h) => (
                       <button
                         key={h}
-                        onClick={() => setHue(h)}
+                        onClick={() => setControls({ hue: h })}
                         aria-label={`Hue ${h} degrees`}
                         aria-pressed={hue === h}
                         style={{ background: `oklch(0.72 0.15 ${h})` }}
