@@ -1,4 +1,5 @@
 import { PREFIX, avatar } from "../../api/src/avatar";
+import { PREFIX as WALL, wall, type WallEnv } from "./wall/index";
 
 /**
  * blobatar.dev, whole.
@@ -12,17 +13,30 @@ import { PREFIX, avatar } from "../../api/src/avatar";
  * imported rather than copied so that the endpoint anyone can host and the
  * endpoint blobatar.dev serves cannot drift into two different answers.
  *
+ * The wall is the other half, and it deliberately does *not* live in
+ * `apps/api`: ADR 0005 keeps that Worker free of anything account-specific so
+ * that a fork can deploy it unchanged, and a D1 binding there would break every
+ * fork's deploy. It is here, where the site's own account already is.
+ *
  * `run_worker_first` in `wrangler.jsonc` limits what reaches this function to
- * `/avatar/*`, so the site is served by Cloudflare's asset pipeline without a
- * Worker invocation — free and unmetered, where every request through here is
- * billed. The `startsWith` below is therefore belt-and-braces rather than the
- * routing itself: if the config were ever widened, the site must still be
- * served by assets rather than 404 out of the avatar parser.
+ * `/avatar/*` and `/wall/*`, so the rest of the site is served by Cloudflare's
+ * asset pipeline without a Worker invocation — free and unmetered, where every
+ * request through here is billed. The prefix checks below are therefore
+ * belt-and-braces rather than the routing itself: if the config were ever
+ * widened, the site must still be served by assets rather than 404 out of one
+ * of the two parsers.
  */
 export default {
-  fetch(request: Request, env: { ASSETS: { fetch(request: Request): Promise<Response> } }) {
-    return new URL(request.url).pathname.startsWith(PREFIX)
-      ? avatar(request)
-      : env.ASSETS.fetch(request);
+  async fetch(request: Request, env: WallEnv & { ASSETS: { fetch(request: Request): Promise<Response> } }) {
+    const { pathname } = new URL(request.url);
+    if (pathname.startsWith(PREFIX)) return avatar(request);
+    // `null` is the wall declining a path under its own prefix — `/wall/` is
+    // the preview *page*, not an endpoint — and it falls through to the site
+    // like anything else.
+    if (pathname.startsWith(WALL)) {
+      const response = await wall(request, env);
+      if (response) return response;
+    }
+    return env.ASSETS.fetch(request);
   },
 };

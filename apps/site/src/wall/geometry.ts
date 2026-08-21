@@ -31,16 +31,29 @@ export const CAPACITY = CHUNK * CHUNK;
  * How far from the crowd a blob may be placed, in cells.
  *
  * Deliberately generous — this is the "I want to be alone for a while" number.
- * At ~80px a cell, 16 puts you a full screen clear of everyone, far enough to
- * be visibly by yourself and still close enough that somebody panning outward
- * finds you. Tightening it turns the wall into a queue; loosening it lets blobs
- * be planted in voids nobody will ever pan to.
+ * At ~80px a cell, 32 puts you two full screens clear of everyone, far enough
+ * to be visibly by yourself and still close enough that somebody panning
+ * outward finds you. Tightening it turns the wall into a queue; loosening it
+ * lets blobs be planted in voids nobody will ever pan to.
+ *
+ * It was 16, which is a screen. The number that settled it is the cost of a
+ * bridge: reach is also how far apart the stones are when a group walks out
+ * into the quiet to draw something, and at 16 the fixture's two-letter word
+ * cost five stones before the first letter — five people, at one blob per
+ * address per day. 32 halves every bridge on the wall. Changing it later is
+ * cheap only until somebody has placed something; a wall built under one reach
+ * cannot be re-walked under another, so it is set here, before the first write.
  *
  * Measured as a true (Euclidean) distance rather than a square halo, so the
  * wall grows as a disc. A Chebyshev reach is cheaper by one multiply and grows
  * a square, which reads as a UI element rather than as a crowd.
+ *
+ * One cell short of a chunk, and that bound is deliberate: a reach box is
+ * `2 * REACH + 1` cells on a side, which spans at most three chunks per axis.
+ * The write path does not read chunks — it queries the cell box directly — but
+ * the ceiling is what keeps that query a small one.
  */
-export const REACH = 16;
+export const REACH = 32;
 
 export type Cell = { x: number; y: number };
 export type Chunk = { cx: number; cy: number };
@@ -120,11 +133,11 @@ export function cellKey(x: number, y: number): string {
 /**
  * Every chunk touching an inclusive cell-space box, row-major.
  *
- * One function serves both callers, which is the point: the client asks for the
- * chunks under its viewport, and the Worker asks for the chunks under a
- * candidate placement's reach box. Because that box is only `2 * REACH + 1`
- * cells on a side, validating a write reads at most four chunks — the same
- * shape of query the read path already makes.
+ * The client asks for the chunks under its viewport, which is what it has to
+ * fetch to draw. The Worker does not use it to validate a write: a reach box at
+ * `REACH = 32` spans up to nine chunks, and reading nine chunk-fulls of seeds
+ * and names to answer one distance question is the wrong query — the write path
+ * asks for the cells in the box directly instead.
  */
 export function chunksCovering(x0: number, y0: number, x1: number, y1: number): Chunk[] {
   const from = chunkOf(Math.min(x0, x1), Math.min(y0, y1));

@@ -7,7 +7,12 @@ import worker from "./index";
 
 const ORIGIN = "https://blobatar.dev";
 const ASSETS = { fetch: async (r: Request) => new Response(`asset:${new URL(r.url).pathname}`) };
-const fetchIt = (path: string) => worker.fetch(new Request(ORIGIN + path), { ASSETS });
+// No database: nothing here reaches `/wall/*`, and the wall's own behaviour is
+// tested against a real one in `worker/wall/wall.test.ts`. The binding is
+// declared and left unusable on purpose — a stub that answered queries would
+// let a routing mistake pass as a passing test.
+const env = { ASSETS, WALL: null as never };
+const fetchIt = (path: string) => worker.fetch(new Request(ORIGIN + path), env);
 
 test("the site is served by the asset pipeline, not the Worker", async () => {
   for (const path of ["/", "/editor", "/og.png", "/robots.txt", "/llms.txt", "/fonts/geist-variable.woff2"]) {

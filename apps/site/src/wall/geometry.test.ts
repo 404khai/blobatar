@@ -97,16 +97,17 @@ describe("chunks under a box", () => {
   });
 
   /**
-   * The claim `geometry.ts` makes about the write path: validating a placement
-   * reads at most four chunks, wherever on the wall it lands. If REACH ever
-   * grows past half a chunk this stops being true and the write path quietly
-   * becomes a nine-chunk read.
+   * The bound `REACH` claims for itself: one cell short of a chunk, so a reach
+   * box is at most three chunks per axis wherever on the wall it lands. The
+   * write path queries cells rather than chunks, so this is not a read-count
+   * claim any more — it is the ceiling that keeps that query small, and a REACH
+   * grown past `CHUNK - 1` would quietly raise it.
    */
-  test("a reach box never spans more than four chunks", () => {
+  test("a reach box never spans more than nine chunks", () => {
     for (let x = -40; x <= 40; x++) {
       for (let y = -40; y <= 40; y++) {
         const covering = chunksCovering(x - REACH, y - REACH, x + REACH, y + REACH);
-        expect(covering.length).toBeLessThanOrEqual(4);
+        expect(covering.length).toBeLessThanOrEqual(9);
       }
     }
   });
@@ -121,8 +122,8 @@ describe("reach", () => {
     expect(withinReach(REACH + 1, 0, crowd)).toBe(false);
     // The corner of the square halo is REACH * 1.41 away and is out.
     expect(withinReach(REACH, REACH, crowd)).toBe(false);
-    expect(withinReach(11, 11, crowd)).toBe(true); // 15.6 away
-    expect(withinReach(12, 12, crowd)).toBe(false); // 17.0 away
+    expect(withinReach(22, 22, crowd)).toBe(true); // 31.1 away
+    expect(withinReach(23, 23, crowd)).toBe(false); // 32.5 away
   });
 
   test("a taken cell is not placeable however deep in the crowd it sits", () => {
