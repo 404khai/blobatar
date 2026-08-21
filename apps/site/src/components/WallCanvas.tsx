@@ -212,6 +212,47 @@ export function WallCanvas({
   const dragRef = useRef<{ x: number; y: number; moved: number } | null>(null);
 
   /**
+   * Every finger currently on the wall, by pointer id.
+   *
+   * A one-finger drag needs only the last point, which is what `dragRef` held
+   * on its own — and why a two-finger pinch did nothing but pan erratically:
+   * the second `pointerdown` overwrote the first one's anchor, so the wall
+   * followed whichever finger moved last. A pinch is a relationship *between*
+   * two points, so both have to be kept.
+   */
+  const touchesRef = useRef(new Map<number, { x: number; y: number }>());
+
+  /**
+   * The pinch in progress: the distance between the fingers and their midpoint,
+   * as of the last move.
+   *
+   * Both are needed, and the midpoint is the half that is easy to forget. Zoom
+   * alone anchors the gesture to a fixed point and the wall slides out from
+   * under the fingers as they travel; carrying the midpoint's own movement into
+   * a pan is what makes the wall stay where it is being held.
+   */
+  const pinchRef = useRef<{ span: number; x: number; y: number } | null>(null);
+
+  /**
+   * A pinch happened, so the release is not a tap.
+   *
+   * Lifting two fingers fires two `pointerup`s, and the second one arrives with
+   * no drag recorded — which is exactly the shape of a click. Without this,
+   * every pinch ended by opening the placement panel on whatever cell the last
+   * finger happened to be over.
+   */
+  const pinchedRef = useRef(false);
+
+  /** The fingers, as a pair, when there are exactly two. */
+  const spanOf = () => {
+    const [a, b] = [...touchesRef.current.values()];
+    if (!a || !b) return null;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    return { span: Math.hypot(dx, dy), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  };
+
+  /**
    * Props the draw loop reads, mirrored into a ref.
    *
    * `draft` is a fresh object on every parent render, so a `draw` that closed
@@ -640,11 +681,56 @@ export function WallCanvas({
       onPointerDown={event => {
         event.currentTarget.setPointerCapture(event.pointerId);
         flightRef.current = null;
+        touchesRef.current.set(event.pointerId, pointFrom(event));
+
+        // A second finger ends the pan and starts a pinch. The drag is dropped
+        // rather than kept: a pan driven by one of two pinching fingers is the
+        // wall lurching sideways every time the grip shifts.
+        if (touchesRef.current.size === 2) {
+          dragRef.current = null;
+          pinchRef.current = spanOf();
+          pinchedRef.current = true;
+          propsRef.current.onCameraMove?.();
+          return;
+        }
+
+        if (touchesRef.current.size === 1) pinchedRef.current = false;
         dragRef.current = { ...pointFrom(event), moved: 0 };
         cursor(event.currentTarget, "grabbing");
       }}
       onPointerMove={event => {
         const point = pointFrom(event);
+        if (touchesRef.current.has(event.pointerId)) touchesRef.current.set(event.pointerId, point);
+
+        /*
+         * The pinch.
+         *
+         * Zoom is the ratio of the fingers' spans, applied at their midpoint —
+         * `zoomAt` keeps whatever cell is under that point under it, which is
+         * what makes the wall feel held rather than driven. Then the midpoint's
+         * own travel is panned in, so the two fingers can zoom and move at once
+         * the way they do everywhere else.
+         *
+         * `flightRef` is cleared because a camera animation and a gesture
+         * fighting over the same camera is a wall that shakes.
+         */
+        if (touchesRef.current.size >= 2) {
+          const now = spanOf();
+          const was = pinchRef.current;
+          pinchRef.current = now;
+          if (!now || !was || !was.span) return;
+
+          flightRef.current = null;
+          cameraRef.current = zoomAt(cameraRef.current, viewRef.current, now.span / was.span, now.x, now.y);
+          cameraRef.current = panBy(cameraRef.current, now.x - was.x, now.y - was.y);
+          if (hoverRef.current) {
+            hoverRef.current = null;
+            settle(null);
+          }
+          draw();
+          return;
+        }
+
         const drag = dragRef.current;
 
         if (drag) {
@@ -676,10 +762,29 @@ export function WallCanvas({
         draw();
       }}
       onPointerUp={event => {
+        touchesRef.current.delete(event.pointerId);
+
+        /*
+         * Coming out of a pinch.
+         *
+         * With a finger still down the gesture is a pan again, and it has to
+         * re-anchor to where *that* finger is — carrying on from the pinch's
+         * midpoint would jump the wall by the distance between them. The drag
+         * starts past `DRAG_SLOP` so that lifting the last finger is a release
+         * and not a tap on whatever it was resting on.
+         */
+        if (pinchRef.current) {
+          pinchRef.current = touchesRef.current.size >= 2 ? spanOf() : null;
+          const left = [...touchesRef.current.values()][0];
+          dragRef.current = left ? { ...left, moved: DRAG_SLOP + 1 } : null;
+          syncRef.current();
+          return;
+        }
+
         const drag = dragRef.current;
         dragRef.current = null;
         cursor(event.currentTarget, "grab");
-        if (!drag || drag.moved > DRAG_SLOP) {
+        if (!drag || drag.moved > DRAG_SLOP || pinchedRef.current) {
           // The wall moved, so what is under it may not be loaded.
           if (drag) syncRef.current();
           return;
@@ -730,9 +835,19 @@ export function WallCanvas({
         pick?.(target, anchorFor(target, flying));
         draw();
       }}
+      onPointerCancel={event => {
+        // A cancelled pointer is the browser taking the gesture — a system
+        // edge swipe, a call arriving. Forgetting the finger is what stops the
+        // next pinch from measuring against one that is no longer there.
+        touchesRef.current.delete(event.pointerId);
+        if (touchesRef.current.size < 2) pinchRef.current = null;
+        dragRef.current = null;
+      }}
       onPointerLeave={event => {
         // The pointer leaving for the popover must not take the preview with
         // it; `pinned` is what keeps it, and clearing hover is still right.
+        touchesRef.current.delete(event.pointerId);
+        if (touchesRef.current.size < 2) pinchRef.current = null;
         hoverRef.current = null;
         settle(null);
         dragRef.current = null;

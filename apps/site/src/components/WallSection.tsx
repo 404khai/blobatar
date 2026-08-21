@@ -83,6 +83,20 @@ export function WallSection() {
     [name, face],
   );
 
+  /**
+   * The last cell somebody asked about, kept past the moment they stop asking.
+   *
+   * The popover closes over 110ms, and for all of it Radix still has a card on
+   * screen. Reading its position and contents straight out of `focus` meant
+   * both vanished on the *first* frame of that animation: the anchor fell back
+   * to 0,0 and the card emptied, so what played out was a blank box flying to
+   * the top-left corner of the window. Remembering the last one lets the exit
+   * animation finish where it started, on the blob it belongs to.
+   */
+  const asked = useRef<{ at: At; placement: Inspected } | null>(null);
+  if (focus?.kind === "who") asked.current = { at: focus.at, placement: focus.placement };
+  const card = asked.current;
+
   const onReady = useCallback((ready: WallApi) => {
     api.current = ready;
     /*
@@ -346,29 +360,29 @@ export function WallSection() {
         <PopoverAnchor asChild>
           <div
             className="pointer-events-none fixed h-0 w-0"
-            style={{ left: focus?.at.x ?? 0, top: focus?.at.y ?? 0 }}
+            style={{ left: card?.at.x ?? 0, top: card?.at.y ?? 0 }}
           />
         </PopoverAnchor>
 
         <PopoverContent side="top" sideOffset={40} className="w-auto">
-          {focus?.kind === "who" && (
+          {card && (
             <div className="flex items-center gap-3">
               <Blobatar
-                name={focus.placement.seed}
-                expression={faceOf(focus.placement.expression)}
+                name={card.placement.seed}
+                expression={faceOf(card.placement.expression)}
                 style={{ width: 44, height: 44 }}
                 className="shrink-0"
               />
               <div className="min-w-0">
-                <div className="truncate font-mono text-sm">{focus.placement.seed}</div>
+                <div className="truncate font-mono text-sm">{card.placement.seed}</div>
                 <div className="text-ink/50 font-mono text-xs">
-                  {new Date(focus.placement.at * 1000).toLocaleDateString(undefined, {
+                  {new Date(card.placement.at * 1000).toLocaleDateString(undefined, {
                     year: "numeric",
                     month: "short",
                     day: "numeric",
                   })}
                   <span className="px-1.5 opacity-40">·</span>
-                  {focus.placement.x}, {focus.placement.y}
+                  {card.placement.x}, {card.placement.y}
                 </div>
               </div>
             </div>
