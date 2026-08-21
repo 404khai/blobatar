@@ -12,9 +12,9 @@ being built. This file is the map: what exists, what does not, and what will
 bite.
 
 It is live on the landing page: `src/App.tsx` renders `WallSection` where the
-generated field used to be. Against a wall nobody has written to yet, that
-section is the generated field with an empty canvas over it — the cold start ADR
-0011 describes — and `/?wall=fixture` renders it against the five-thousand-blob
+generated field used to be. The field is gone entirely — see the reversal note
+in ADR 0011 — so against a wall nobody has written to yet the section is an
+empty lattice, and `/?wall=fixture` renders it against the five-thousand-blob
 fixture instead, which is the only way to see it busy before anyone has filled
 it.
 
@@ -67,7 +67,6 @@ second.
 | `apps/site/src/wall/copy.ts` | The hand-lettered strings. Input to a font subset, not just copy. |
 | `apps/site/src/wall/limits.ts` | The name cap, shared with the Worker's moderation. |
 | `apps/site/src/components/WallSection.tsx` | **The landing page's second section.** The wall, its heading, the controls. |
-| `apps/site/src/components/Field.tsx` | The generated field, now the cold-start backdrop rather than the section. |
 | `apps/site/pages/wall.tsx` | The preview page. A development surface, not a destination. |
 | `apps/site/worker/wall/db.ts` | Five queries and the D1 types, structural rather than imported. |
 | `apps/site/worker/wall/index.ts` | The five routes and their cache headers. |
@@ -272,12 +271,11 @@ Each of these cost real time. They are documented at their sites too.
   at 22. The charset now accepts letters, marks and digits in any script, which
   is the right call and also means 24 code points of Devanagari is a much wider
   plate than 24 of Latin. Untested against real names.
-- **Placements are not "larger and labelled".** ADR 0011 says the real wall
-  renders above the generated field *larger and labelled*, so that what is real
-  is visibly the foreground during cold start. Half of that is missing: the
-  canvas draws no name under a placement, only the hovered cell does, so on a
-  cold-start wall the generated blobs are the labelled ones. Either the canvas
-  learns to draw plates at close zoom, or the field gets quieter.
+- **Placements are still not labelled.** The canvas draws no name under a
+  placement; only the hovered cell gets a plate. Removing the generated field
+  settled the cold-start half of this — nothing else on the wall is labelled
+  either now — but a dense wall you have to hover cell by cell to read is still
+  the open question. Plates at close zoom is the obvious answer.
 - **The blocklist's false positives.** Matching is substring-based over a folded
   form, so the Scunthorpe problem is present and unsolved. The trade is
   deliberate in this direction — a refused name can be changed, a slur on the
