@@ -25,6 +25,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { PoseTile } from "@/components/ui/pose-tile";
+import { ChevronIcon } from "@/components/ui/chevron";
 import { Snippet } from "@/components/ui/snippet";
 import { SHAPES, type ShapeOption } from "@/shapes";
 import { Install } from "@/components/ui/install";
@@ -646,7 +648,8 @@ export function Hero() {
                       {POSES.slice(0, SHOWN).map((p) => (
                         <PoseTile
                           key={p.name}
-                          pose={p}
+                          name={p.name}
+                          expression={p.value}
                           seed={seed}
                           opts={opts}
                           selected={pose.name === p.name}
@@ -717,7 +720,8 @@ export function Hero() {
                           {POSES.map((p) => (
                             <PoseTile
                               key={p.name}
-                              pose={p}
+                              name={p.name}
+                              expression={p.value}
                               seed={seed}
                               opts={opts}
                               selected={pose.name === p.name}
@@ -974,48 +978,6 @@ function ShapeTile({
  * library's own claim — and ten live SVG trees inside a panel would be ten
  * things competing with the one that is supposed to be moving.
  */
-function PoseTile({
-  pose,
-  seed,
-  opts,
-  selected,
-  onClick,
-}: {
-  pose: Pose;
-  seed: string;
-  opts: BlobatarOptions;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      className={cn(
-        "flex flex-col items-center gap-1 rounded-xl py-2 transition-colors duration-150",
-        selected ? "bg-line/70" : "hover:bg-line/30",
-      )}
-    >
-      <Blobatar
-        name={seed || " "}
-        {...opts}
-        expression={pose.value}
-        alt=""
-        className="size-10"
-      />
-      <span
-        className={cn(
-          "font-mono text-[0.65rem] lowercase transition-colors",
-          selected ? "text-ink" : "text-muted",
-        )}
-      >
-        {pose.name}
-      </span>
-    </button>
-  );
-}
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
@@ -1098,24 +1060,3 @@ function SlidersIcon() {
   );
 }
 
-/**
- * Points the way the panel opens, which is not a fixed direction — beside the
- * row on a wide screen, under it on a narrow one. Same 1.7px stroke as the other
- * icons on the page, at the size the row's 0.65rem type can carry.
- */
-function ChevronIcon({ down }: { down: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={cn("size-3 transition-transform duration-150", down && "rotate-90")}
-    >
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
-}

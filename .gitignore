@@ -46,3 +46,8 @@ apps/site/*.html
 # apps/img — wrangler local state
 .wrangler
 .turbo/
+
+# wrangler secrets: Turnstile keys, the wall's salts, the commercial config
+.dev.vars
+.dev.vars.*
+!.dev.vars.example

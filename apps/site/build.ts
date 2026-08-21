@@ -32,8 +32,15 @@ const OUT = "dist";
  * the editor's controls took it to ~39 KB, which left the gate firing on the
  * next ordinary change rather than on the failure it exists for. Raised with
  * that headroom restored; the failure mode it catches is five times this.
+ *
+ * Raised again, to 60 KB, when the wall replaced the second section: a canvas,
+ * a docked panel, an expression strip and their responsive variants took it to
+ * ~51 KB. Checked rather than assumed before moving it — no `base64` in the
+ * output, no surviving at-rules, 779 rules, and 9.8 KB over the wire gzipped,
+ * which is the number that actually reaches anybody. The scan is doing its job;
+ * the app simply has more interface in it than it did.
  */
-const CSS_CEILING = 50_000;
+const CSS_CEILING = 60_000;
 const UNCOMPILED = ["@theme", "@apply", "@tailwind"];
 
 await rm(OUT, { recursive: true, force: true });
@@ -73,6 +80,17 @@ const result = await Bun.build({
   // React ships its development build unless NODE_ENV is pinned — worth ~300 KB
   // here, and dev-only warnings have no audience on a static landing page.
   define: { "process.env.NODE_ENV": '"production"' },
+  /*
+   * The same prefix `bunfig.toml` gives the dev server, so a value reaches the
+   * bundle by the same rule in both. Only `BUN_PUBLIC_*`: everything else in
+   * the environment of whatever machine runs this build stays out of a file
+   * served to the public, which is the failure this prefix exists to prevent.
+   *
+   * The wall's Turnstile *site* key comes through here. It is public by design
+   * — it is rendered into the widget — but it is per-deployment, and a fork
+   * building this site should get its own rather than inherit ours.
+   */
+  env: "BUN_PUBLIC_*",
 });
 
 // Copied rather than bundled: `styles.css` references these at an absolute

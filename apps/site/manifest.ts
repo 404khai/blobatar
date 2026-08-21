@@ -62,9 +62,9 @@ export const PAGES: Page[] = [
     ogTitle: "blobatar",
     /*
      * The hero, the chat, the closing section and the wall's heading — every
-     * word on the page. Not its sixty SVGs: `Wall` renders its field only after
-     * mount, and prerendering that measured *worse* than doing nothing. See the
-     * note above `finish` in `build.ts`.
+     * word on the page. Not the blobatars: the wall is a canvas, which
+     * prerenders to an empty element by definition. See the note above `finish`
+     * in `build.ts`.
      */
     prerender: async () => {
       const { createElement } = await import("react");
@@ -72,6 +72,24 @@ export const PAGES: Page[] = [
       return createElement(App);
     },
     defer: true,
+  },
+  /*
+   * The wall, alone, against fixture data.
+   *
+   * A development surface, which is why it is neither prerendered nor deferred
+   * and why nothing links to it: the section's real home is the landing page,
+   * and it moves there once it is reading real chunks instead of a fixture.
+   * Listed here rather than run through a one-off script so that it is built,
+   * typechecked and served by exactly the same path as every other page.
+   */
+  {
+    name: "wall",
+    route: "/wall",
+    entry: "./pages/wall.tsx",
+    title: "blobatar wall — preview",
+    description: "Development preview of the blobatar wall, against fixture data.",
+    ogTitle: "blobatar wall",
+    defer: false,
   },
   {
     name: "editor",

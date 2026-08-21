@@ -25,6 +25,8 @@
     "probe": "turbo run probe",
     "smoke": "turbo run smoke",
     "media": "bun scripts/media.ts",
+    "//profile:wall": "Needs `bun run site` already running — it drives the real page in headless Chrome rather than a harness, because the thing being measured is the renderer under the fixture the page actually loads. Not part of `check`: it takes twenty seconds and needs a server, which is exactly the shape of thing that should be run deliberately.",
+    "profile:wall": "bun scripts/wall-profile.ts",
     "check": "turbo run check",
     "//changeset": "Node, not bun: the changesets CLI prompts interactively and its bin does a top-level dynamic import that bun reports as an unsettled await. Node runs it as intended. See `.changeset/README.md` for why `fixed` mode is not optional here.",
     "changeset": "node ./node_modules/.bin/changeset",
