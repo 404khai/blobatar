@@ -1,15 +1,13 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "blobatar",
-  "main": "worker/index.ts",
-  "compatibility_date": "2026-08-17",
-
-  // No `nodejs_compat`: the library is zero-dependency and the endpoint uses
-  // only Request, Response and URL. Leaving the flag off keeps startup minimal
-  // and makes any accidental Node import fail at build time rather than in
-  // production.
-
-  /*
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "blobatar",
+	"main": "worker/index.ts",
+	"compatibility_date": "2026-08-17",
+	// No `nodejs_compat`: the library is zero-dependency and the endpoint uses
+	// only Request, Response and URL. Leaving the flag off keeps startup minimal
+	// and makes any accidental Node import fail at build time rather than in
+	// production.
+	/*
    * The landing page and the tuning editor, served by Cloudflare's asset
    * pipeline rather than by the Worker.
    *
@@ -26,12 +24,11 @@
    * dev server's `"/*": index` catch-all is a convenience that production never
    * had, and adopting it here would turn every typo'd URL into a 200.
    */
-  "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS",
-    "html_handling": "auto-trailing-slash",
-
-    /*
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS",
+		"html_handling": "auto-trailing-slash",
+		/*
      * `/wall/*` joins `/avatar/*` here, and that is a deliberate spend rather
      * than a widening by accident: the wall puts a fetch in the second section
      * of the landing page, so reading the site now costs Worker invocations
@@ -46,10 +43,12 @@
      * `/wall/` itself is still a document — the preview page — and the Worker
      * hands it back to the asset pipeline rather than answering it.
      */
-    "run_worker_first": ["/avatar/*", "/wall/*"]
-  },
-
-  /*
+		"run_worker_first": [
+			"/avatar/*",
+			"/wall/*"
+		]
+	},
+	/*
    * The wall's storage.
    *
    * Here rather than in `apps/api`, which ADR 0005 keeps free of anything
@@ -69,16 +68,15 @@
    * create tables for rather than in a top-level `migrations/`, because the
    * whole of the wall's server side is one directory.
    */
-  "d1_databases": [
-    {
-      "binding": "WALL",
-      "database_name": "blobatar",
-      "database_id": "TODO: wrangler d1 create blobatar",
-      "migrations_dir": "worker/wall/migrations"
-    }
-  ],
-
-  /*
+	"d1_databases": [
+		{
+			"binding": "WALL",
+			"database_name": "blobatar",
+			"database_id": "34c378de-80ec-4f5b-a3f7-2c8232fb3dc7",
+			"migrations_dir": "worker/wall/migrations"
+		}
+	],
+	/*
    * Both hostnames, as custom domains.
    *
    * `custom_domain: true` makes Wrangler own the DNS record and the route
@@ -91,10 +89,17 @@
    * is two hostnames serving identical content, which is a duplicate-content
    * problem and splits every cache in the path.
    */
-  "routes": [
-    { "pattern": "blobatar.dev", "custom_domain": true },
-    { "pattern": "www.blobatar.dev", "custom_domain": true }
-  ],
-
-  "observability": { "enabled": true }
+	"routes": [
+		{
+			"pattern": "blobatar.dev",
+			"custom_domain": true
+		},
+		{
+			"pattern": "www.blobatar.dev",
+			"custom_domain": true
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
 }
