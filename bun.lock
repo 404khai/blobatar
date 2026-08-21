@@ -78,7 +78,7 @@
     },
     "packages/blobatar": {
       "name": "blobatar",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "devDependencies": {
         "@types/bun": "latest",
         "@types/react": "^19",
@@ -98,7 +98,7 @@
     },
     "packages/cli": {
       "name": "@blobatar/cli",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "bin": {
         "blobatar": "./dist/blobatar.mjs",
       },
@@ -142,7 +142,7 @@
     },
     "packages/preact": {
       "name": "@blobatar/preact",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "devDependencies": {
         "blobatar": "workspace:*",
         "preact": "^10.0.0",
@@ -154,7 +154,7 @@
     },
     "packages/react": {
       "name": "@blobatar/react",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "devDependencies": {
         "@types/react": "^19",
         "blobatar": "workspace:*",
@@ -167,7 +167,7 @@
     },
     "packages/solid": {
       "name": "@blobatar/solid",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "devDependencies": {
         "@babel/core": "^7",
         "@babel/preset-typescript": "^7",
@@ -183,7 +183,7 @@
     },
     "packages/svelte": {
       "name": "@blobatar/svelte",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "devDependencies": {
         "blobatar": "workspace:*",
         "svelte": "^5.0.0",
@@ -197,7 +197,7 @@
     },
     "packages/vue": {
       "name": "@blobatar/vue",
-      "version": "2.3.1",
+      "version": "2.4.0",
       "devDependencies": {
         "blobatar": "workspace:*",
         "vue": "^3.5.0",

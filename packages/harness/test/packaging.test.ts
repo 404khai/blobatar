@@ -169,17 +169,26 @@ describe("the adapters pin core to one major", () => {
    * rule the glossary states and nothing enforces is the drift this file
    * exists to refuse, so it is asserted here rather than assumed.
    *
-   * A real dependency rather than a peer range: the audience runs
-   * `npx @blobatar/cli` with nothing else installed, so an unmet peer is a
-   * broken command. The major is still pinned, since the major is the
-   * generation (ADR-0008).
+   * A real dependency rather than a peer range, and exact rather than a major
+   * range — the two follow from each other. The audience runs
+   * `npx @blobatar/cli` with nothing else installed, so an unmet peer would be
+   * a broken command, and the install resolves this range fresh every time
+   * rather than reusing a library the project already has. Under lockstep the
+   * exact version is the honest one: `@blobatar/cli@2.4.0` is the bin that was
+   * built and smoke-tested against `blobatar@2.4.0`, so that is the pairing it
+   * should hand a caller, rather than whatever `2.x` resolves to that day.
+   *
+   * `changeset version` writes it, which is why it is asserted rather than
+   * assumed: a regular dependency is rewritten to the exact new version on
+   * every release, where the adapters' peer ranges are held at `${major}.x` by
+   * `onlyUpdatePeerDependentsWhenOutOfRange`. Two shapes, deliberately.
    */
-  test(`@blobatar/cli depends on blobatar@${major}.x and publishes core's version`, () => {
+  test("@blobatar/cli depends on core's exact version and publishes it", () => {
     const manifest = require_("@blobatar/cli/package.json") as {
       version: string;
       dependencies?: Record<string, string>;
     };
-    expect(manifest.dependencies?.blobatar).toBe(`${major}.x`);
+    expect(manifest.dependencies?.blobatar).toBe(core.version);
     expect(manifest.version).toBe(core.version);
   });
 });
