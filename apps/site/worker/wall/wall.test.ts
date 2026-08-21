@@ -4,7 +4,7 @@ import { CAPACITY, FIRST, REACH, cellIndex, chunkKey, chunkOf } from "../../src/
 import { wall, type WallEnv } from "./index";
 import { COOKIE } from "./identity";
 import { TEST_SECRET } from "./turnstile";
-import { testDb } from "./testing";
+import { sqliteD1 } from "./sqlite";
 
 /**
  * The wall's HTTP surface, against a real database.
@@ -22,12 +22,12 @@ import { testDb } from "./testing";
 const ORIGIN = "https://blobatar.dev";
 const IP = "203.0.113.7";
 
-let env: WallEnv & { raw: ReturnType<typeof testDb>["raw"] };
+let env: WallEnv & { raw: ReturnType<typeof sqliteD1>["raw"] };
 let fetches: Request[] = [];
 const realFetch = globalThis.fetch;
 
 beforeEach(() => {
-  const db = testDb();
+  const db = sqliteD1();
   env = {
     WALL: db,
     raw: db.raw,
@@ -270,7 +270,7 @@ describe("the guards", () => {
 
   test("names people actually have are not refused", async () => {
     for (const seed of ["José", "Anne-Marie", "O'Neill", "Bùi", "R2D2", "李雷"]) {
-      const db = testDb();
+      const db = sqliteD1();
       env.WALL = db;
       env.raw = db.raw;
       expect((await post(placement(FIRST.x, FIRST.y, { seed })))!.status).toBe(201);

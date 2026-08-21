@@ -32,6 +32,17 @@ import { fixtureSource } from "@/wall/fixture";
 const REMEMBERED = "wall:mine";
 
 /**
+ * How many real blobatars it takes before the generated field goes.
+ *
+ * Not one. ADR 0011 keeps the field as the *backdrop* during cold start —
+ * placements render above it, so what is real is visibly the foreground — and
+ * dropping it the instant somebody places would leave a section containing one
+ * blob and a lot of black. Sixty is what the field itself holds, so the
+ * handover happens when the wall can carry the section on its own.
+ */
+const COLD_START = 60;
+
+/**
  * Everything a popover needs, including where to put it.
  *
  * One piece of state for both, because they are mutually exclusive by
@@ -213,10 +224,9 @@ export function WallSection() {
     >
       <div ref={frameRef} className="absolute inset-0">
         {/*
-          The cold start, underneath. It fades the moment the wall has anybody
-          on it — what is real is the foreground.
+          The cold start, underneath, until the wall is bigger than it is.
         */}
-        <Field faded={size > 0} />
+        <Field faded={size >= COLD_START} />
 
         <WallCanvas
           source={source}
@@ -275,9 +285,14 @@ export function WallSection() {
           their own
         </h2>
         <p className="text-muted mt-3 max-w-[34ch] text-sm">
-          {size > 0
+          {/*
+            Two lines, and the switch is the same threshold the field uses,
+            because the sentence has to be *true*: "every blobatar here is
+            somebody's name" is a lie while sixty of them are generated.
+          */}
+          {size >= COLD_START
             ? "Every blobatar here is somebody's name, and nobody chose their colour. Click an empty cell to leave yours."
-            : "Type a name and the same blobatar comes out every time. Click an empty cell to leave the first one."}
+            : "Type a name and the same blobatar comes out every time. Click an empty cell to leave yours."}
         </p>
       </div>
 

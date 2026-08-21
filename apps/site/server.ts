@@ -1,9 +1,13 @@
 import { serve, type HTMLBundle } from "bun";
+import { mkdirSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { documentPath, writePages } from "./document";
 import { writeFavicon } from "./favicon";
 import { writeLlmsTxt } from "./llms";
 import { PAGES } from "./manifest";
+import { PREFIX as WALL, wall, type WallEnv } from "./worker/wall/index";
+import { sqliteD1 } from "./worker/wall/sqlite";
+import { TEST_SECRET } from "./worker/wall/turnstile";
 
 // All three before anything reads for them: importing a document is what
 // resolves its `<link rel="icon">` href, the documents themselves do not exist
@@ -77,8 +81,77 @@ const assets = Object.fromEntries(
     .map(path => [`/${path}`, new Response(Bun.file(`./public/${path}`))]),
 );
 
+/**
+ * The wall's endpoints, served here rather than only by `wrangler dev`.
+ *
+ * This server is a `Bun.serve`, not a Worker, so without this the wall's routes
+ * do not exist in development at all — the landing page's fetch fails, the wall
+ * reads as empty, and the section spends every dev session showing its
+ * cold-start state. That is a bad way to build the one part of the site that is
+ * about other people being there.
+ *
+ * It runs the *same router* the Worker runs, over the same SQL and the same
+ * migrations, against `bun:sqlite` (see `worker/wall/sqlite.ts`). What it does
+ * not run is Cloudflare: no edge cache, no real D1, no Turnstile-shaped
+ * latency. `bunx wrangler dev` remains the thing to reach for when the question
+ * is about the platform rather than about the wall.
+ */
+const WALL_DB = ".wrangler/state/wall-dev.sqlite";
+mkdirSync(".wrangler/state", { recursive: true });
+
+/**
+ * `.dev.vars` if it is there, Cloudflare's documented test values if it is not.
+ *
+ * Wrangler reads that file; `Bun.serve` does not, and it deliberately is not an
+ * `.env` — these are Worker secrets, and the two should not be one file. A
+ * clone with no `.dev.vars` still gets a working wall, because every default
+ * below is a value published *for* this purpose. There is still no bypass: the
+ * challenge is verified for real, against Cloudflare, with a secret that
+ * accepts any token. Which does mean placement needs a network — offline, the
+ * write path refuses, exactly as it would in production with a blip.
+ */
+const devVars = async (): Promise<WallEnv> => {
+  const file = Bun.file(".dev.vars");
+  const text = (await file.exists()) ? await file.text() : "";
+  const read = (name: string) =>
+    text.match(new RegExp(`^${name}\\s*=\\s*"?([^"\n]*)"?`, "m"))?.[1] || undefined;
+
+  return {
+    WALL: sqliteD1(WALL_DB),
+    WALL_SECRET: read("WALL_SECRET") ?? "a-development-pepper",
+    TURNSTILE_SECRET: read("TURNSTILE_SECRET") ?? TEST_SECRET,
+    WALL_ADMIN_TOKEN: read("WALL_ADMIN_TOKEN") ?? "development",
+    WALL_BLOCKLIST: read("WALL_BLOCKLIST"),
+  };
+};
+
+const wallEnv = await devVars();
+
+/**
+ * Named routes rather than one `/wall/*`, because `/wall` is also a *page*.
+ *
+ * A wildcard over the whole prefix would sit in front of the preview document
+ * and have to decide, per request, which of the two a path is — the same
+ * ambiguity the asset routes below are enumerated to avoid. These are the five
+ * the Worker answers, and nothing else under the prefix reaches it.
+ */
+const wallRoutes = Object.fromEntries(
+  ["r/:region", "c/:key/:version", "mine", "place", "p/:cell"].map(path => [
+    `${WALL}${path}`,
+    async (request: Request) => {
+      // The address the Worker reads. Cloudflare sets it at the edge; here
+      // there is no edge, and a cooldown needs *something* to key on.
+      const headers = new Headers(request.headers);
+      if (!headers.has("CF-Connecting-IP")) headers.set("CF-Connecting-IP", "127.0.0.1");
+      const answered = await wall(new Request(request, { headers }), wallEnv);
+      return answered ?? new Response("not the wall", { status: 404 });
+    },
+  ]),
+);
+
 const server = serve({
   routes: {
+    ...wallRoutes,
     // Served straight off disk, matching the absolute `/fonts/...` URL in
     // `styles.css`. Keeping them out of the bundler is what stops Bun inlining
     // them into the stylesheet as base64.

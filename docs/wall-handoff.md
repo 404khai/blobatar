@@ -18,16 +18,27 @@ section is the generated field with an empty canvas over it — the cold start A
 fixture instead, which is the only way to see it busy before anyone has filled
 it.
 
-Branch: `feat/blob-wall`. Two ways to run it:
+Branch: `feat/blob-wall`. Running it:
 
-- `bun run site` (port 3000, or `PORT`), `/wall` — the whole client against fixture data,
-  no database, no challenge. This is the surface to design against.
-- `bunx wrangler dev` from `apps/site`, `/wall?live` — the same page against the
-  real Worker, real D1, real Turnstile. Needs `.dev.vars` (copy
-  `.dev.vars.example`) and one migration run:
+- **`bun run site`** (port 3000, or `PORT`) serves the wall's five endpoints
+  itself — the same router the Worker runs, over the same SQL and migrations,
+  against `bun:sqlite` in `.wrangler/state/wall-dev.sqlite`. So the landing page
+  is the real thing in development: real chunks, real cooldown, real refusals.
+  `.dev.vars` is read if present and Cloudflare's published test values are used
+  if it is not, so a fresh clone works with no setup.
+  - The cooldown is real too, and every request from your machine is one
+    address: the second placement of the day is refused. `rm
+    apps/site/.wrangler/state/wall-dev.sqlite` is the reset — it is a scratch
+    database and nothing but the wall is in it.
+  - Placement needs a network, because the challenge is verified for real
+    against Cloudflare with a secret that accepts any token. There is no bypass
+    and there should not be one.
+- **`bunx wrangler dev`** from `apps/site` when the question is about Cloudflare
+  rather than about the wall — the actual runtime, the actual D1 binding, the
+  actual asset pipeline. Needs a build first and one migration run:
   `bunx wrangler d1 migrations apply blobatar --local`.
-
-Neither is linked from anywhere.
+- `/wall` is the full-screen preview page, against the fixture, and `/?wall=fixture`
+  puts that fixture behind the landing page's own section.
 
 ## What is built
 
@@ -58,7 +69,7 @@ second.
 | `apps/site/worker/wall/identity.ts` | Address hashing, the cookie token, constant-time compare. |
 | `apps/site/worker/wall/turnstile.ts` | Verification, failing closed. |
 | `apps/site/worker/wall/migrations/0001_wall.sql` | Four tables, three of them there to be raced against. |
-| `apps/site/worker/wall/testing.ts` | D1 as `bun:sqlite`, so the tests run the shipped SQL. |
+| `apps/site/worker/wall/sqlite.ts` | D1 as `bun:sqlite` — the tests and the dev server both run the shipped SQL through it. |
 | `scripts/wall-profile.ts` | `bun run profile:wall`, against a running dev server. |
 
 `bun test` from `apps/site` — 199 tests, of which the wall's own are
@@ -255,6 +266,12 @@ Each of these cost real time. They are documented at their sites too.
   at 22. The charset now accepts letters, marks and digits in any script, which
   is the right call and also means 24 code points of Devanagari is a much wider
   plate than 24 of Latin. Untested against real names.
+- **Placements are not "larger and labelled".** ADR 0011 says the real wall
+  renders above the generated field *larger and labelled*, so that what is real
+  is visibly the foreground during cold start. Half of that is missing: the
+  canvas draws no name under a placement, only the hovered cell does, so on a
+  cold-start wall the generated blobs are the labelled ones. Either the canvas
+  learns to draw plates at close zoom, or the field gets quieter.
 - **The blocklist's false positives.** Matching is substring-based over a folded
   form, so the Scunthorpe problem is present and unsolved. The trade is
   deliberate in this direction — a refused name can be changed, a slur on the

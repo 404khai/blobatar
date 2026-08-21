@@ -5,26 +5,43 @@ import type { D1Database, D1PreparedStatement } from "./db";
 /**
  * D1, as `bun:sqlite`.
  *
- * Test support, and the reason it is worth its own file: the alternative is a
- * mocked database, and a mock cannot fail the way this feature depends on
- * failing. Every rule the wall has — one cell to one person, one blob per
- * address per day — is a uniqueness constraint rather than a check in
- * application code, so a test that stubs the database out asserts the happy
- * path and nothing else. This runs the real SQL, over the real migrations,
- * against the same engine D1 is.
+ * Two callers, and they want it for the same reason. The tests want it because
+ * a mock cannot fail the way this feature depends on failing: every rule the
+ * wall has — one cell to one person, one blob per address per day — is a
+ * uniqueness constraint rather than a check in application code, so a suite
+ * that stubs the database out asserts the happy path and nothing else. The dev
+ * server wants it because `bun run site` is a `Bun.serve`, not a Worker, and
+ * without this the wall's endpoints simply are not there — the landing page
+ * spends development looking like a wall nobody has ever written to.
  *
- * What it does not reproduce is the network: no latency, no subrequest limits,
- * and `batch` is a local transaction rather than a remote one. Those are not
- * what these tests are about.
+ * Both get the real SQL over the real migrations against the engine D1 is. What
+ * neither gets is the network: no latency, no subrequest limits, and `batch` is
+ * a local transaction rather than a remote one. `wrangler dev` is still the
+ * thing to reach for when the question is about Cloudflare rather than about
+ * the wall.
  */
 
 const MIGRATIONS = new URL("./migrations/", import.meta.url).pathname;
 
-/** The migrations, in the order wrangler would apply them — filename order,
- * which is what `0001_` is for. */
+/**
+ * The migrations, in the order wrangler would apply them — filename order,
+ * which is what `0001_` is for.
+ *
+ * Which ones have run is recorded, because unlike the tests the dev server
+ * keeps its database between boots and `CREATE TABLE` twice is an error. The
+ * table is deliberately not the one wrangler uses: this is a local scratch
+ * database, and pretending its bookkeeping is wrangler's would invite somebody
+ * to trust it.
+ */
 export function migrate(db: Database) {
+  db.exec("CREATE TABLE IF NOT EXISTS dev_migrations (name TEXT PRIMARY KEY)");
+  const done = new Set(
+    (db.query("SELECT name FROM dev_migrations").all() as { name: string }[]).map(row => row.name),
+  );
   for (const file of readdirSync(MIGRATIONS).filter(name => name.endsWith(".sql")).sort()) {
+    if (done.has(file)) continue;
     db.exec(readFileSync(MIGRATIONS + file, "utf8"));
+    db.query("INSERT INTO dev_migrations (name) VALUES (?1)").run(file);
   }
 }
 
@@ -34,14 +51,15 @@ export function migrate(db: Database) {
 type Bound = D1PreparedStatement & { sql: string; values: unknown[] };
 
 /**
- * A database that answers D1's shape.
+ * A database that answers D1's shape. In memory by default; the dev server
+ * passes a path so a wall survives a restart.
  *
  * `bun:sqlite` binds `?1`-style parameters from a positional array, which is
  * the same thing D1's `.bind()` does, so the statements in `db.ts` are the
  * strings that ship rather than a translation of them.
  */
-export function testDb(): D1Database & { raw: Database } {
-  const db = new Database(":memory:");
+export function sqliteD1(path = ":memory:"): D1Database & { raw: Database } {
+  const db = new Database(path, { create: true });
   migrate(db);
 
   const run = (sql: string, values: unknown[]) => db.query(sql).run(...(values as never[]));
