@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { decodeChunk } from "../../src/wall/chunk";
 import { CAPACITY, FIRST, REACH, cellIndex, chunkKey, chunkOf } from "../../src/wall/geometry";
-import { wall, type WallEnv } from "./index";
+import { wall, type BlobatarEnv } from "./index";
 import { COOKIE } from "./identity";
 import { TEST_SECRET } from "./turnstile";
 import { sqliteD1 } from "./sqlite";
@@ -22,14 +22,14 @@ import { sqliteD1 } from "./sqlite";
 const ORIGIN = "https://blobatar.dev";
 const IP = "203.0.113.7";
 
-let env: WallEnv & { raw: ReturnType<typeof sqliteD1>["raw"] };
+let env: BlobatarEnv & { raw: ReturnType<typeof sqliteD1>["raw"] };
 let fetches: Request[] = [];
 const realFetch = globalThis.fetch;
 
 beforeEach(() => {
   const db = sqliteD1();
   env = {
-    WALL: db,
+    BLOBATAR: db,
     raw: db.raw,
     WALL_SECRET: "pepper",
     TURNSTILE_SECRET: TEST_SECRET,
@@ -271,7 +271,7 @@ describe("the guards", () => {
   test("names people actually have are not refused", async () => {
     for (const seed of ["José", "Anne-Marie", "O'Neill", "Bùi", "R2D2", "李雷"]) {
       const db = sqliteD1();
-      env.WALL = db;
+      env.BLOBATAR = db;
       env.raw = db.raw;
       expect((await post(placement(FIRST.x, FIRST.y, { seed })))!.status).toBe(201);
     }

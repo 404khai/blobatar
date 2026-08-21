@@ -1,5 +1,5 @@
 import { PREFIX, avatar } from "../../api/src/avatar";
-import { PREFIX as WALL, wall, type WallEnv } from "./wall/index";
+import { PREFIX as WALL, wall, type BlobatarEnv } from "./wall/index";
 
 /**
  * blobatar.dev, whole.
@@ -27,7 +27,7 @@ import { PREFIX as WALL, wall, type WallEnv } from "./wall/index";
  * of the two parsers.
  */
 export default {
-  async fetch(request: Request, env: WallEnv & { ASSETS: { fetch(request: Request): Promise<Response> } }) {
+  async fetch(request: Request, env: BlobatarEnv & { ASSETS: { fetch(request: Request): Promise<Response> } }) {
     const { pathname } = new URL(request.url);
     if (pathname.startsWith(PREFIX)) return avatar(request);
     // `null` is the wall declining a path under its own prefix — `/wall/` is

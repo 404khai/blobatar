@@ -49,18 +49,19 @@
 		]
 	},
 	/*
-   * The wall's storage.
+   * Storage: one D1 database, called `blobatar`, for everything the site keeps.
    *
    * Here rather than in `apps/api`, which ADR 0005 keeps free of anything
    * account-specific so that a fork can deploy it unchanged — a D1 binding
    * there would break every fork's deploy on a database id that is not theirs.
    *
-   * One database for the whole project rather than one per feature, which is
-   * why it is called `blobatar` and the binding is not: D1 bills reads and
-   * storage, not databases, and a second one would be a second migration
-   * history and a second thing to remember to apply. The `WALL` binding names
-   * what this Worker uses it *for*, and the next feature's tables land beside
-   * the wall's under a binding of their own.
+   * One database for the whole project rather than one per feature: D1 bills
+   * reads and storage, not databases, and a second one would be a second
+   * migration history and a second thing to remember to apply. The binding is
+   * named for the database rather than for the feature — it was `WALL`, which
+   * read as "the wall's database" and promised a second binding for the next
+   * feature that is never coming. The next feature's tables land in here,
+   * under this binding, beside the wall's.
    *
    * `database_id` is this account's and is not a secret; `wrangler d1 create
    * blobatar` is what produces it, and it is the one step in this feature that
@@ -70,7 +71,7 @@
    */
 	"d1_databases": [
 		{
-			"binding": "WALL",
+			"binding": "BLOBATAR",
 			"database_name": "blobatar",
 			"database_id": "34c378de-80ec-4f5b-a3f7-2c8232fb3dc7",
 			"migrations_dir": "worker/wall/migrations"

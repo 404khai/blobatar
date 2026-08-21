@@ -57,8 +57,8 @@ import { verifyTurnstile } from "./turnstile";
 
 export const PREFIX = "/wall/";
 
-export type WallEnv = {
-  WALL: D1Database;
+export type BlobatarEnv = {
+  BLOBATAR: D1Database;
   /** Salts the address hashes and nothing else. Rotating it resets every
    * cooldown in flight, which is a thing to know before rotating it. */
   WALL_SECRET?: string;
@@ -106,7 +106,7 @@ const inBounds = (value: unknown): value is number =>
  * honest: anything this function does not claim is still the site, served by the
  * asset pipeline, even though `run_worker_first` now has to send `/wall/*` here.
  */
-export async function wall(request: Request, env: WallEnv): Promise<Response | null> {
+export async function wall(request: Request, env: BlobatarEnv): Promise<Response | null> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith(PREFIX)) return null;
   const [head, ...rest] = url.pathname.slice(PREFIX.length).split("/");
@@ -150,14 +150,14 @@ export async function wall(request: Request, env: WallEnv): Promise<Response | n
  * an absent entry meaning "full and frozen" from an absent entry meaning
  * "empty". The count is what says which, and it is one number.
  */
-async function region(env: WallEnv, key: string): Promise<Response> {
+async function region(env: BlobatarEnv, key: string): Promise<Response> {
   // Region keys and chunk keys have the same grammar — two signed integers with
   // an underscore between them — so they get the same parser rather than a
   // second one that could disagree with it about `"3abc"` or `" 3"`.
   const parsed = parseChunkKey(key);
   if (!parsed) return json({ error: "bad region" }, 400);
 
-  const index = await regionIndex(env.WALL, { rx: parsed.cx, ry: parsed.cy });
+  const index = await regionIndex(env.BLOBATAR, { rx: parsed.cx, ry: parsed.cy });
   return json(
     {
       r: key,
@@ -185,17 +185,17 @@ async function region(env: WallEnv, key: string): Promise<Response> {
  * costs one round trip less and the body carries its own version, which is what
  * the client reconciles against anyway.
  */
-async function chunk(env: WallEnv, key: string, at: string): Promise<Response> {
+async function chunk(env: BlobatarEnv, key: string, at: string): Promise<Response> {
   const parsed = parseChunkKey(key);
   if (!parsed || !/^\d{1,9}$/.test(at)) return json({ error: "bad chunk" }, 400);
 
-  const state = await chunkState(env.WALL, parsed);
+  const state = await chunkState(env.BLOBATAR, parsed);
   // A chunk nobody has ever written to is empty rather than missing. Version 0
   // is the version it will keep until somebody places in it, so an empty body
   // is cacheable exactly as long as any other — which is what stops a client
   // panning across open wall from asking again every time.
   const version = state?.version ?? 0;
-  const cells = state ? await chunkCells(env.WALL, parsed) : [];
+  const cells = state ? await chunkCells(env.BLOBATAR, parsed) : [];
   const current = Number(at) === version;
 
   return new Response(encodeChunk({ key, version, cells }), {
@@ -214,10 +214,10 @@ async function chunk(env: WallEnv, key: string, at: string): Promise<Response> {
  * device or after a clear. It reads; there is deliberately no sibling of this
  * function that writes, because the token grants finding and not editing.
  */
-async function mine(request: Request, env: WallEnv): Promise<Response> {
+async function mine(request: Request, env: BlobatarEnv): Promise<Response> {
   const token = tokenFrom(request);
   if (!token) return json({ cells: [] }, 200, { vary: "Cookie" });
-  const rows = await placementsFor(env.WALL, await hashToken(token));
+  const rows = await placementsFor(env.BLOBATAR, await hashToken(token));
   return json(
     { cells: rows.map(row => ({ x: row.x, y: row.y, seed: row.seed, at: row.at })) },
     200,
@@ -233,7 +233,7 @@ async function mine(request: Request, env: WallEnv): Promise<Response> {
  * touches D1, and the reach read is last because it is the only one that scales
  * with how busy the wall is. A bot with a bad name never reaches the database.
  */
-async function place(request: Request, env: WallEnv): Promise<Response> {
+async function place(request: Request, env: BlobatarEnv): Promise<Response> {
   if (!env.WALL_SECRET) return json({ error: "the wall is not configured" }, 503);
 
   const ip = addressOf(request);
@@ -268,11 +268,11 @@ async function place(request: Request, env: WallEnv): Promise<Response> {
   // The friendly half of the cooldown. The half that actually enforces it is
   // the primary key on `quota`, in the batch below, because a read and a write
   // in two statements is a race two Workers win together.
-  if (await spentToday(env.WALL, ipHash, day)) return json(cooldown(now), 429);
+  if (await spentToday(env.BLOBATAR, ipHash, day)) return json(cooldown(now), 429);
 
   const [neighbours, size] = await Promise.all([
-    cellsIn(env.WALL, at.x - REACH, at.y - REACH, at.x + REACH, at.y + REACH),
-    wallSize(env.WALL),
+    cellsIn(env.BLOBATAR, at.x - REACH, at.y - REACH, at.x + REACH, at.y + REACH),
+    wallSize(env.BLOBATAR),
   ]);
   const taken = new Set(neighbours.map(near => cellKey(near.x, near.y)));
   const occupied = (x: number, y: number) => taken.has(cellKey(x, y));
@@ -292,7 +292,7 @@ async function place(request: Request, env: WallEnv): Promise<Response> {
     // to turn each 409 into a walk of every row on the wall. Past this radius
     // "nearest" has stopped being a useful answer anyway, and the client falls
     // back to the frontier the region index suggests.
-    const wide = await cellsIn(env.WALL, at.x - SUGGEST, at.y - SUGGEST, at.x + SUGGEST, at.y + SUGGEST);
+    const wide = await cellsIn(env.BLOBATAR, at.x - SUGGEST, at.y - SUGGEST, at.x + SUGGEST, at.y + SUGGEST);
     const around = new Set(wide.map(near => cellKey(near.x, near.y)));
     const nearest = nearestPlaceable(at, (x, y) => around.has(cellKey(x, y)), populated, SUGGEST);
     return json({ error: "unplaceable", nearest }, 409);
@@ -302,8 +302,8 @@ async function place(request: Request, env: WallEnv): Promise<Response> {
   const tokenHash = await hashToken(token);
 
   try {
-    await env.WALL.batch(
-      placeStatements(env.WALL, {
+    await env.BLOBATAR.batch(
+      placeStatements(env.BLOBATAR, {
         cell: at,
         seed: named.name,
         expression,
@@ -326,7 +326,7 @@ async function place(request: Request, env: WallEnv): Promise<Response> {
     return json({ error: "taken" }, 409);
   }
 
-  const state = await chunkState(env.WALL, chunkOf(at.x, at.y));
+  const state = await chunkState(env.BLOBATAR, chunkOf(at.x, at.y));
   return json(
     {
       x: at.x,
@@ -362,7 +362,7 @@ function cooldown(now: number) {
  * Permanence is a rule of the game for the people placing, not a property of
  * the storage. Nobody can take back their own cell; we can take back a slur.
  */
-async function remove(request: Request, env: WallEnv, key: string): Promise<Response> {
+async function remove(request: Request, env: BlobatarEnv, key: string): Promise<Response> {
   const secret = env.WALL_ADMIN_TOKEN;
   const offered = request.headers.get("Authorization")?.replace(/^Bearer /, "");
   if (!secret || !offered || !sameSecret(offered, secret)) return json({ error: "no such thing" }, 404);
@@ -374,9 +374,9 @@ async function remove(request: Request, env: WallEnv, key: string): Promise<Resp
   if (!parsed) return json({ error: "bad cell" }, 400);
   const at = cell(parsed.cx, parsed.cy);
 
-  const found = await placementAtCell(env.WALL, at);
+  const found = await placementAtCell(env.BLOBATAR, at);
   if (!found) return json({ error: "nobody there" }, 404);
 
-  await env.WALL.batch(removeStatements(env.WALL, at));
+  await env.BLOBATAR.batch(removeStatements(env.BLOBATAR, at));
   return json({ removed: { x: at.x, y: at.y, seed: found.seed } });
 }

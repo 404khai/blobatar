@@ -11,7 +11,7 @@ const ASSETS = { fetch: async (r: Request) => new Response(`asset:${new URL(r.ur
 // tested against a real one in `worker/wall/wall.test.ts`. The binding is
 // declared and left unusable on purpose — a stub that answered queries would
 // let a routing mistake pass as a passing test.
-const env = { ASSETS, WALL: null as never };
+const env = { ASSETS, BLOBATAR: null as never };
 const fetchIt = (path: string) => worker.fetch(new Request(ORIGIN + path), env);
 
 test("the site is served by the asset pipeline, not the Worker", async () => {

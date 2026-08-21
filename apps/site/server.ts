@@ -5,7 +5,7 @@ import { documentPath, writePages } from "./document";
 import { writeFavicon } from "./favicon";
 import { writeLlmsTxt } from "./llms";
 import { PAGES } from "./manifest";
-import { PREFIX as WALL, wall, type WallEnv } from "./worker/wall/index";
+import { PREFIX as WALL, wall, type BlobatarEnv } from "./worker/wall/index";
 import { sqliteD1 } from "./worker/wall/sqlite";
 import { TEST_SECRET } from "./worker/wall/turnstile";
 
@@ -96,7 +96,7 @@ const assets = Object.fromEntries(
  * latency. `bunx wrangler dev` remains the thing to reach for when the question
  * is about the platform rather than about the wall.
  */
-const WALL_DB = ".wrangler/state/wall-dev.sqlite";
+const BLOBATAR_DB = ".wrangler/state/blobatar-dev.sqlite";
 mkdirSync(".wrangler/state", { recursive: true });
 
 /**
@@ -110,14 +110,14 @@ mkdirSync(".wrangler/state", { recursive: true });
  * accepts any token. Which does mean placement needs a network — offline, the
  * write path refuses, exactly as it would in production with a blip.
  */
-const devVars = async (): Promise<WallEnv> => {
+const devVars = async (): Promise<BlobatarEnv> => {
   const file = Bun.file(".dev.vars");
   const text = (await file.exists()) ? await file.text() : "";
   const read = (name: string) =>
     text.match(new RegExp(`^${name}\\s*=\\s*"?([^"\n]*)"?`, "m"))?.[1] || undefined;
 
   return {
-    WALL: sqliteD1(WALL_DB),
+    BLOBATAR: sqliteD1(BLOBATAR_DB),
     WALL_SECRET: read("WALL_SECRET") ?? "a-development-pepper",
     TURNSTILE_SECRET: read("TURNSTILE_SECRET") ?? TEST_SECRET,
     WALL_ADMIN_TOKEN: read("WALL_ADMIN_TOKEN") ?? "development",
