@@ -165,6 +165,24 @@ export function WallSection() {
   };
 
   /**
+   * It landed.
+   *
+   * Draw it, remember it, close the panel, and centre on it. The centring is
+   * the part that is easy to leave out and the part that makes the placement
+   * legible: picking a cell framed it off to one side, against the panel (see
+   * `anchor`), so a panel that simply closes leaves the new blobatar sitting in
+   * the margin where the arrow used to point. Flying it to the middle of the
+   * now-empty section is what turns "the form submitted" into "there it is",
+   * and the ring around `mine` is what says which one it is.
+   */
+  const landed = (cell: Cell, seed: string) => {
+    api.current?.place(cell, seed, draft.expression);
+    remember(cell);
+    dismiss();
+    api.current?.flyTo(cell);
+  };
+
+  /**
    * Leave it here.
    *
    * The optimistic draw happens after the server answers rather than before,
@@ -179,9 +197,7 @@ export function WallSection() {
     setRefused(null);
 
     if (fixture) {
-      api.current?.place(focus.cell, draft.seed, draft.expression);
-      remember(focus.cell);
-      dismiss();
+      landed(focus.cell, draft.seed);
       return;
     }
 
@@ -203,9 +219,7 @@ export function WallSection() {
       return;
     }
 
-    api.current?.place(result.cell, result.seed, draft.expression);
-    remember(result.cell);
-    dismiss();
+    landed(result.cell, result.seed);
   };
 
   return (

@@ -753,7 +753,7 @@ export function WallCanvas({
         aria-hidden="true"
         className={cn(
           "bg-ground pointer-events-none absolute inset-0 transition-opacity duration-300",
-          dim ? "opacity-75" : "opacity-0",
+          dim ? "opacity-90" : "opacity-0",
         )}
       />
 
@@ -778,7 +778,7 @@ export function WallCanvas({
                0.45 reads as "not yet real" against a lit wall and as "barely
                there" against a scrim, and this is the moment the blobatar is
                supposed to be the only thing on screen. */
-            style={spot.kind === "ghost" ? { opacity: dim ? 0.75 : 0.45 } : undefined}
+            style={spot.kind === "ghost" ? { opacity: dim ? 0.9 : 0.45 } : undefined}
           />
           {(spot.kind === "who" ? spot.seed : draft.label) && (
             <span className="wall-plate text-ink/50 absolute top-full left-1/2 pt-1 font-mono text-[0.65rem] whitespace-nowrap">

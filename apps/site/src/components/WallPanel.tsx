@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { Blobatar } from "@blobatar/react";
 import { PoseTile } from "@/components/ui/pose-tile";
 import { Turnstile } from "@/components/Turnstile";
 import { cn } from "@/lib/utils";
@@ -301,7 +302,7 @@ export function WallPanel({
             `src/wall/copy.ts` — this string is the input to the font's subset,
             not just copy.
           */}
-          <h2 className="text-ink font-hand text-5xl leading-[1.05] text-balance md:text-6xl">
+          <h2 className="text-ink font-hand text-6xl leading-[1.05] text-balance md:text-7xl">
             {HAND.spot}
           </h2>
 
@@ -429,16 +430,57 @@ export function WallPanel({
           </p>
         )}
 
+        {/*
+          The submit, and the wait.
+
+          A round trip that can take a Turnstile verification with it is long
+          enough that "leaving it" as static text reads as a button that did
+          nothing — which is exactly how somebody ends up clicking twice. So the
+          waiting state is the blobatar being placed, small, wearing `thinking`
+          and animating on its own: the thing you are sending, visibly thinking
+          about it. It is also the only spinner on the site that is made of the
+          library.
+
+          Both states are stacked in one grid cell rather than swapped, so the
+          button does not change width mid-request and walk out from under the
+          pointer. `disabled` while sending, but the dimming is reserved for the
+          nothing-typed case — a 40%-opacity blobatar mid-think reads as broken.
+        */}
         <button
           type="button"
           onClick={onPlace}
           disabled={!name.trim() || sending}
           className={cn(
             "bg-ink text-ground self-start rounded-full px-5 py-2.5 text-base tracking-wide lowercase",
-            "transition-opacity duration-150 disabled:opacity-40",
+            "grid transition-opacity duration-150",
+            !name.trim() && "opacity-40",
           )}
         >
-          {sending ? SAID.leaving : SAID.leave}
+          <span
+            className={cn(
+              "col-start-1 row-start-1 transition-opacity duration-150",
+              sending ? "opacity-0" : "opacity-100",
+            )}
+          >
+            {SAID.leave}
+          </span>
+          <span
+            aria-hidden={!sending}
+            className={cn(
+              "col-start-1 row-start-1 flex items-center justify-center gap-2",
+              "transition-opacity duration-150",
+              sending ? "opacity-100" : "opacity-0",
+            )}
+          >
+            <Blobatar
+              name={seed}
+              expression={FACES.thinking}
+              animate="always"
+              style={{ width: 22, height: 22 }}
+              className="shrink-0"
+            />
+            {SAID.leaving}
+          </span>
         </button>
       </div>
     </>
