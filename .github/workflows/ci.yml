@@ -78,6 +78,11 @@ jobs:
       - name: Smoke the built package
         run: bunx turbo run smoke --filter=blobatar
 
+      # The other publishable: tests, bin build, and a smoke that spawns the
+      # built bin under Node against the real library and both generations.
+      - name: CLI checks
+        run: bun --filter @blobatar/cli check
+
       # Every publishable package, not just core — a broken `files` or
       # `exports` in an adapter should fail here rather than at publish. A new
       # adapter with no line here is a package whose tarball nothing has ever
@@ -93,6 +98,7 @@ jobs:
           npm pack --workspace @blobatar/solid --pack-destination /tmp
           npm pack --workspace @blobatar/preact --pack-destination /tmp
           npm pack --workspace blobatar-codemod --pack-destination /tmp
+          npm pack --workspace @blobatar/cli --pack-destination /tmp
 
       - uses: actions/upload-artifact@v4
         with:

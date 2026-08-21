@@ -276,6 +276,7 @@ why every cache between you and it does the actual work.
 | Path                | What it is                                                        |
 | ------------------- | ----------------------------------------------------------------- |
 | `packages/blobatar` | The library. [Docs here](./packages/blobatar/README.md).          |
+| `packages/cli`      | The terminal surface, published as `@blobatar/cli`.               |
 | `apps/api`          | The HTTP endpoint, deployable on its own. Serves `/avatar/<name>`. |
 | `apps/site`         | The landing page, plus `apps/api` behind blobatar.dev.            |
 | `apps/demo`         | The tuning grid — the internal design tool, not a demo.           |

@@ -123,9 +123,11 @@ function number(raw: string, key: string, min: number, max: number): number {
 }
 
 function oneOf<T>(raw: string, key: string, table: Record<string, T>): T {
-  // `in` rather than a truthy lookup: `background=none` maps to `false`, and a
-  // truthiness check would reject the one value that has to be falsy.
-  if (!(raw in table)) {
+  // An own-property check rather than a truthy lookup or `in`: `background=none`
+  // maps to `false`, which truthiness would reject, and a plain object answers
+  // `in` truthily for `__proto__` and `constructor` — neither of which is an
+  // entry, and both of which would flow downstream as one.
+  if (!Object.hasOwn(table, raw)) {
     throw new BadRequest(`unknown ${key} "${raw}" — expected one of ${Object.keys(table).join(", ")}`);
   }
   return table[raw]!;
@@ -183,6 +185,10 @@ export function parseOptions(params: URLSearchParams): RenderRequest {
   // circle, callers compute into it, and rejecting the value that a full turn
   // lands on would be a trap. The library takes it modulo.
   if (hue !== null) opts.hue = number(hue, "hue", 0, 360);
+  // Inclusive at 1, matching the library: the tone swatches are banded with
+  // half-open edges, so an exact 1 sits on the top edge and renders as tone=0.
+  // The endpoint does not paper over that — one value means one thing in a URL,
+  // in argv and in a library call. See CONTEXT.md's Tone entry.
   if (tone !== null) opts.tone = number(tone, "tone", 0, 1);
   if (expression !== null) opts.expression = oneOf(expression, "expression", EXPRESSIONS);
   if (title !== null) {

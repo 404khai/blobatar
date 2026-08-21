@@ -102,7 +102,13 @@ export const Blobatar = defineComponent({
     palette: { type: Object as PropType<Palette> },
     /** Locks the hue in degrees, so the name drives shape only. */
     hue: { type: Number },
-    /** Locks the tone as a 0–1 position in the swatch set. */
+    /**
+     * Locks the tone as a 0–1 position in the swatch set, pale to ink.
+     *
+     * The swatches are banded with half-open edges, so an exact `1` sits on the
+     * top edge rather than under it and falls back to the first swatch: `1`
+     * renders what `0` renders. Reach for ink with `0.999`.
+     */
     tone: { type: Number },
     /** Pins individual traits, so the name drives only what you leave out. */
     traits: { type: Object as PropType<TraitOverrides> },

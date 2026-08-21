@@ -27,7 +27,8 @@ browser — see below.
 
 ## The layout
 
-- `packages/blobatar` — the library. The only publishable thing here.
+- `packages/blobatar` — the library.
+- `packages/cli` — the terminal surface, published as `@blobatar/cli`.
 - `apps/site` — the landing page, and the deployable that puts the endpoint on
   blobatar.dev.
 - `apps/api` — the endpoint, `GET /avatar/<name>`, also deployable on its own.

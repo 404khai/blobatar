@@ -97,7 +97,8 @@ Parameters (all optional, named as the library names them):
   size, s     8-1024, clamped rather than rejected
   background  none | square | circle | squircle
   hue         0-360 degrees, locks colour so the name drives shape only
-  tone        0-1 position in the swatch set
+  tone        0-1 position in the swatch set, pale to ink; 1 is the top
+              edge and renders as 0, so ink is 0.999
   expression  idle | happy | sad | mad | surprised | wink | sleepy
               | smug | unsure | scared | love | shy | sick | thinking
   title       accessible name, 128 characters or fewer

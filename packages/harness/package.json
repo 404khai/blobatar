@@ -18,6 +18,7 @@
     "@blobatar/svelte": "workspace:*",
     "@blobatar/solid": "workspace:*",
     "@blobatar/preact": "workspace:*",
+    "@blobatar/cli": "workspace:*",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "blobatar": "workspace:*",

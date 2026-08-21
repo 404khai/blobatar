@@ -87,6 +87,17 @@ test("the other numeric bounds are inclusive and enforced", () => {
   bad(() => opts("hue=abc"));
 });
 
+test("inherited object keys are not expressions, backgrounds or generations", () => {
+  // A plain object answers `in` truthily for its prototype's keys, and
+  // `EXPRESSIONS["constructor"]` is a function, not a pose — without an
+  // own-property check a crafted URL turns a 400 into a downstream crash.
+  for (const key of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+    bad(() => opts(`expression=${key}`));
+    bad(() => opts(`background=${key}`));
+    bad(() => opts(`gen=${key}`));
+  }
+});
+
 test("title is capped", () => {
   expect(opts(`title=${"a".repeat(128)}`).title).toHaveLength(128);
   bad(() => opts(`title=${"a".repeat(129)}`));
