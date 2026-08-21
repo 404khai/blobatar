@@ -1,7 +1,16 @@
 import { _layout } from "blobatar";
 import { blobatar } from "blobatar/blob";
 import type { ChunkBody } from "./chunk";
-import { CELL, cellToScreen, edgeMarker, visibleBox, type Camera, type Viewport } from "./camera";
+import {
+  CELL,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  cellToScreen,
+  edgeMarker,
+  visibleBox,
+  type Camera,
+  type Viewport,
+} from "./camera";
 import { faceOf } from "./expressions";
 import { cellAt, chunkKey, chunksCovering, type Cell } from "./geometry";
 
@@ -227,11 +236,70 @@ export type Scene = {
   chunks: Map<string, ChunkBody>;
   /** The cell the DOM overlay is covering, if any. Left undrawn — see above. */
   skip?: Cell | null;
-  /** The visitor's own blob, ringed so it can be picked out of the crowd. */
+  /** The visitor's own blob. Drawn like every other one; it earns an edge
+   * arrow only while it is off screen. */
   mine?: Cell | null;
   /** Redraw, because a sprite finished decoding since the last frame. */
   onSpriteReady: () => void;
 };
+
+/**
+ * The lattice, under everything.
+ *
+ * The wall's own argument is that it is a *surface with slots*, and until this
+ * was drawn the empty parts of it were not a surface at all — they were black.
+ * That reads as "nothing here" where the section is asking you to click, and it
+ * makes panning across a quiet region look like a frozen canvas, because
+ * nothing on screen moves. Ruled ground fixes both: an empty cell becomes a
+ * place a blobatar goes, and the wall visibly slides under the drag.
+ *
+ * Three things keep it from turning the wall into a spreadsheet, which is the
+ * failure mode ADR 0011 names:
+ *
+ * - **Dashed.** A continuous rule is a table border. A dash is a fold line —
+ *   the eye reads it as guide rather than as structure.
+ * - **Barely there, and less so far out.** Alpha ramps with zoom, from about
+ *   3% at the floor to 8% at the ceiling. Zoomed out the cells are 36px and a
+ *   constant-alpha grid becomes a texture — moiré, near enough — competing
+ *   with the occupancy pattern that is the actual drawing.
+ * - **Underneath.** Drawn before the placements, so a line never crosses a
+ *   face. The blobs sit *in* the grid rather than on top of a graph.
+ *
+ * Cost is a couple of dozen strokes a frame at the widest zoom — the loop is
+ * bounded by the viewport, not by the wall, and the wall is unbounded.
+ */
+function lattice(
+  ctx: CanvasRenderingContext2D,
+  camera: Camera,
+  view: Viewport,
+  box: { x0: number; y0: number; x1: number; y1: number },
+) {
+  const t = (camera.zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
+  ctx.save();
+  ctx.strokeStyle = `rgba(255,255,255,${(0.03 + 0.05 * t).toFixed(3)})`;
+  ctx.lineWidth = 1;
+  // Dashes scale with the cell, so the rhythm stays the same fraction of a cell
+  // at every zoom rather than getting denser as you pull back — which is the
+  // version that turns into a dotted haze.
+  const step = CELL * camera.zoom;
+  ctx.setLineDash([Math.max(2, step * 0.06), Math.max(4, step * 0.09)]);
+
+  ctx.beginPath();
+  // Lines fall on cell *boundaries*, which sit half a cell off the centres
+  // `cellToScreen` returns.
+  for (let x = Math.floor(box.x0); x <= Math.ceil(box.x1) + 1; x++) {
+    const at = cellToScreen(camera, view, x - 0.5, 0).x;
+    ctx.moveTo(at, 0);
+    ctx.lineTo(at, view.height);
+  }
+  for (let y = Math.floor(box.y0); y <= Math.ceil(box.y1) + 1; y++) {
+    const at = cellToScreen(camera, view, 0, y - 0.5).y;
+    ctx.moveTo(0, at);
+    ctx.lineTo(view.width, at);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
 
 /**
  * One frame.
@@ -251,6 +319,8 @@ export function paint(ctx: CanvasRenderingContext2D, scene: Scene) {
   // One cell of margin, so a blob whose centre is just off screen still draws
   // the half of itself that is on it.
   const box = visibleBox(camera, view, 1);
+
+  lattice(ctx, camera, view, box);
 
   for (const chunk of chunksCovering(box.x0, box.y0, box.x1, box.y1)) {
     const body = chunks.get(chunkKey(chunk));
@@ -273,16 +343,26 @@ export function paint(ctx: CanvasRenderingContext2D, scene: Scene) {
   }
 
   if (scene.mine) {
-    // On screen it is ringed; off screen it becomes an arrow pinned to the edge
-    // pointing at where it went. The arrow is drawn here rather than as a DOM
-    // element so that it moves with the wall on the same frame the wall does —
-    // a chevron lagging the drag by a React render is the one thing that would
-    // make it read as chrome rather than as part of the surface.
+    /*
+     * Off screen, your own blobatar becomes an arrow pinned to the edge
+     * pointing at where it went. On screen it is drawn exactly like everybody
+     * else's — no ring.
+     *
+     * The ring was here and it was wrong twice over: a white circle around a
+     * blob is chrome laid over the surface, and it marked the one cell that
+     * needs no marking, since the person looking at it is the person who put it
+     * there. What the ring was actually for is the case it now handles alone —
+     * finding your blobatar when it is not on screen.
+     *
+     * The arrow is drawn here rather than as a DOM element so that it moves
+     * with the wall on the same frame the wall does — a chevron lagging the
+     * drag by a React render is the one thing that would make it read as chrome
+     * rather than as part of the surface.
+     */
     const marker = edgeMarker(camera, view, scene.mine);
-    ctx.strokeStyle = "rgba(255,255,255,0.85)";
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
 
     if (marker) {
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
       ctx.save();
       ctx.translate(marker.x, marker.y);
       ctx.rotate(marker.angle);
@@ -293,12 +373,6 @@ export function paint(ctx: CanvasRenderingContext2D, scene: Scene) {
       ctx.closePath();
       ctx.fill();
       ctx.restore();
-    } else {
-      const screen = cellToScreen(camera, view, scene.mine.x, scene.mine.y);
-      ctx.lineWidth = Math.max(1.5, size * 0.05);
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y, size * 0.66, 0, Math.PI * 2);
-      ctx.stroke();
     }
   }
 

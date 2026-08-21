@@ -86,8 +86,9 @@ type Props = {
    * blob nobody has placed yet.
    */
   draft: { seed: string; expression: string; label?: string };
-  /** Their existing blob, if they have one — ringed, and the target of the
-   * locate control. */
+  /** Their existing blob, if they have one: the target of the locate control,
+   * and an edge arrow while it is off screen. Drawn like any other on screen —
+   * the person looking at it is the person who put it there. */
   mine?: Cell | null;
   /**
    * A cell the ghost is held on regardless of where the pointer goes.
@@ -129,8 +130,8 @@ type Props = {
    * The wall changed underneath — how many blobatars it now holds, across the
    * whole wall rather than the part on screen.
    *
-   * Zero is a real state with its own design (the generated field behind it),
-   * so the section that renders this has to hear about it.
+   * Zero is a real state with its own copy in the section above — an empty
+   * lattice reading as "be the first" — so the section has to hear about it.
    */
   onLoaded?: (size: number) => void;
   /**
@@ -334,7 +335,7 @@ export function WallCanvas({
         } else draw();
       }
 
-      const { mine: ringed } = propsRef.current;
+      const { mine: located } = propsRef.current;
       // The overlay rides the camera, so it is repositioned per frame as well
       // as at commit.
       placeSpot();
@@ -344,7 +345,7 @@ export function WallCanvas({
         view: viewRef.current,
         chunks: chunksOf(),
         skip: skipRef.current,
-        mine: ringed,
+        mine: located,
         onSpriteReady: draw,
       });
     });
