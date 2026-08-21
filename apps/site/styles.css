@@ -124,6 +124,68 @@
   }
 }
 
+@layer components {
+  /*
+   * The name under the cell the pointer is on.
+   *
+   * It exists for a fraction of a second at a time and it is the only thing
+   * that identifies who a blob belongs to without a click, so it has to arrive
+   * fast enough not to be waited for. 140ms is inside the tooltip band; the
+   * curve is a strong ease-out, because the moment the eye is watching most
+   * closely is the first frame and an ease-in would spend it standing still.
+   *
+   * `@starting-style` rather than a mounted flag: the element is keyed by its
+   * cell, so moving to the next blob genuinely remounts it and the entry fires
+   * again — which is the behaviour wanted, one name announcing itself per cell.
+   *
+   * There is no exit. The node is gone the moment the pointer moves on, and a
+   * label fading out of a cell the pointer has already left is a ghost of an
+   * answer to a question nobody is asking any more.
+   */
+  .wall-plate {
+    /*
+     * Both the centring and the entry ride one property, and that is not a
+     * style choice — it is what survives the build.
+     *
+     * The obvious split (centre on `translate`, animate `transform`) reads
+     * correctly and compiles away: Lightning CSS lowers standalone `translate`
+     * into `transform` for the browser targets, so a `transform` declared
+     * afterwards in the same rule silently eliminates it. The compiled
+     * stylesheet had no -50% in it at all.
+     *
+     * The Tailwind utility is gone from the element for the mirror-image
+     * reason: with it there, two sources both claimed the horizontal half-width
+     * and the label moved a whole one.
+     */
+    opacity: 1;
+    transform: translate(-50%, 0);
+    transition:
+      opacity 140ms cubic-bezier(0.23, 1, 0.32, 1),
+      transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    @starting-style {
+      .wall-plate {
+        opacity: 0;
+        /* Half of the gap it sits in. Any further and it reads as sliding in
+           from somewhere else rather than as settling under its own blob. The
+           -50% is carried along because this replaces the whole transform. */
+        transform: translate(-50%, -3px);
+      }
+    }
+  }
+
+  /* Motion off: the name still has to appear, it simply must not travel. */
+  @media (prefers-reduced-motion: reduce) {
+    @starting-style {
+      .wall-plate {
+        opacity: 0;
+      }
+    }
+  }
+}
+
 /*
  * Below-the-fold sections.
  *

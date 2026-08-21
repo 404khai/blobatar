@@ -73,6 +73,24 @@ export const PAGES: Page[] = [
     },
     defer: true,
   },
+  /*
+   * The wall, alone, against fixture data.
+   *
+   * A development surface, which is why it is neither prerendered nor deferred
+   * and why nothing links to it: the section's real home is the landing page,
+   * and it moves there once it is reading real chunks instead of a fixture.
+   * Listed here rather than run through a one-off script so that it is built,
+   * typechecked and served by exactly the same path as every other page.
+   */
+  {
+    name: "wall",
+    route: "/wall",
+    entry: "./pages/wall.tsx",
+    title: "blobatar wall — preview",
+    description: "Development preview of the blobatar wall, against fixture data.",
+    ogTitle: "blobatar wall",
+    defer: false,
+  },
   {
     name: "editor",
     route: "/editor",
