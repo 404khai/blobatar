@@ -24,17 +24,18 @@ blobatar <name> --background circle --hue 210 --tone 0.4 --expression happy
 blobatar --stdin -d ./blobatars/         batch: one name per line on stdin
 ```
 
-The flags are the endpoint's URL params — not merely compatible: both surfaces
-parse through one shared table, so `--tone 0.4` and `?tone=0.4` are the same
-sentence, with the same values, the same ranges and the same error messages.
-Knowledge transfers between a URL and a terminal in both directions:
+The flags are spelled the way the endpoint spells its URL params, so
+`--tone 0.4` and `?tone=0.4` are the same sentence and knowledge transfers
+between a URL and a terminal in both directions. The two hold that vocabulary
+by convention rather than by sharing a module — see the notes below for the
+two places they deliberately differ.
 
 | Flag | Values | Default | Notes |
 |---|---|---|---|
-| `--size` | number `8`–`1024`, clamped | PNG: `256` · SVG: none | On SVG it only emits `width`/`height` attributes. On PNG it is the raster width in pixels. Out-of-range values clamp rather than error — the wrong scale is fixable, a broken render is not — and a non-numeric value is ignored, exactly as the endpoint ignores it. |
+| `--size` | number `8`–`1024`, clamped | PNG: `256` · SVG: none | On SVG it only emits `width`/`height` attributes. On PNG it is the raster width in pixels. Out-of-range values clamp rather than error — the wrong scale is fixable, a broken render is not. A non-numeric value *is* an error here, where the endpoint ignores it: that leniency is Gravatar compatibility for URLs in the wild, and nothing types `--size abc` on purpose. |
 | `--background` | `squircle` · `circle` · `square` · `none` | `none` | `none` is transparent — the library's own default. |
 | `--hue` | number `0`–`360` | — | Locks the hue in degrees; the name keeps driving everything else. A full turn lands on `360`, which is admitted. |
-| `--tone` | number `0`–`1` | — | Locks the tone as a position across the swatch set. |
+| `--tone` | number `0`–`1` | — | Locks the tone as a position across the swatch set, pale to ink. The swatches are banded with half-open edges, so an exact `1` sits on the top edge and renders as `--tone 0` — reach for ink with `0.999`. |
 | `--expression` | `idle` · `happy` · `sad` · `mad` · `surprised` · `wink` · `sleepy` · `smug` · `unsure` · `scared` · `love` · `shy` · `sick` · `thinking` | `idle` | A static pose. |
 | `--gen` | `1` · `2` | `2` | Pins a generation — one frozen seed→look mapping. Pinned output never changes; see below. |
 | `--title` | text, ≤ 128 chars | — | The accessible name carried in the markup. |
@@ -90,4 +91,4 @@ dependencies: `blobatar` (the renderer), `blobatar-v1` (the frozen v1 major
 under an alias, so `--gen 1` renders the real thing), and `@resvg/resvg-js`
 (PNG via native prebuilds — per-platform `optionalDependencies`, no postinstall
 scripts). The CLI never talks to the network, and the endpoint never runs this
-code: they are parallel consumers of one library and one shared param table.
+code: they are parallel consumers of one library, each owning its own table.

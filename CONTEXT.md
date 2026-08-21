@@ -133,11 +133,15 @@ A position in the frozen swatch set for `blob`, expressible as 0–1, running
 pale to ink. The swatch set is a **band** table like the silhouettes' and has
 the same half-open edges, so a position picks the first swatch whose upper edge
 it falls under. A hashed trait is always below 1 and every position it can
-produce lands in a swatch; an explicit `tone: 1` is the one value that does not,
-since it sits *on* the top edge rather than under it, and falls back to the
-first swatch — `tone: 1` renders what `tone: 0` renders. That is the edge
-showing through, not a second spelling of pastel, and it is why the top of the
-range is the one place to state a position as 0.999 rather than 1.
+produce lands in a swatch. An explicit 1 is the one value that does not, and
+**the two ways to state it disagree** — the one sharp edge in this entry:
+`traits: { tone: 1 }` is clamped to just under the top edge, like every other
+override, and renders ink; the `tone` option is read before that clamp and
+renders the *first* swatch, so `tone: 1` renders what `tone: 0` renders.
+The trait spelling is the one that means what it says. The option's answer is
+the top edge showing through rather than a second spelling of pastel, and until
+the two agree, the top of the range is the one place to write 0.999 rather
+than 1.
 Distinct from `hue`, which is an absolute angle in degrees, is inclusive at both
 ends, and wraps on purpose: 360 is 0 because a circle says so, where tone's top
 edge means nothing of the kind.

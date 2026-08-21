@@ -24,7 +24,7 @@ type Renderer = (name: string, options?: RenderOptions) => string;
 const RENDERERS: Record<1 | 2, Renderer> = {
   // The cast bridges the majors' nominal types: v1's Pose lacks fields v2
   // added, so the two `Expression` types never structurally unify. Safe here
-  // because every value that reaches a renderer came out of the shared table,
+  // because every value that reaches a renderer came out of the option table,
   // which only speaks what both majors accept; the smoke test spawns the
   // built bin against both entries for real.
   1: blobatar1 as unknown as Renderer,
