@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Blobatar } from "@blobatar/react";
 import { PoseTile } from "@/components/ui/pose-tile";
 import { Turnstile } from "@/components/Turnstile";
@@ -111,6 +111,45 @@ export function WallPanel({
   const lastRef = useRef<At | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<HTMLButtonElement>(null);
+
+  /**
+   * Wide or narrow, decided once when the panel opens.
+   *
+   * Not state and not a media-query listener: this panel lives for as long as
+   * one placement takes, and the two things it changes — whether the field
+   * takes focus on its own, and how much room the sheet has — must not flip
+   * mid-placement. On a phone that is exactly what would happen, because the
+   * on-screen keyboard resizes the viewport.
+   */
+  const wide = useRef(typeof window === "undefined" || window.innerWidth >= WIDE).current;
+
+  /**
+   * How much of the screen the on-screen keyboard is covering.
+   *
+   * `position: fixed; bottom: 0` is a promise about the *layout* viewport, and
+   * the keyboard does not shrink that one — so the bottom of this sheet, and
+   * the button that leaves the blobatar, sit underneath the keyboard on iOS.
+   * The visual viewport is the only thing that knows where the visible bottom
+   * actually is, so the sheet is lifted by the difference.
+   *
+   * Zero everywhere the keyboard is closed, and on every browser without a
+   * `visualViewport` — in which case this is the layout it always had.
+   */
+  const [keyboard, setKeyboard] = useState(0);
+
+  useEffect(() => {
+    const port = window.visualViewport;
+    if (!port || wide) return;
+    const measure = () =>
+      setKeyboard(Math.max(0, window.innerHeight - (port.height + port.offsetTop)));
+    measure();
+    port.addEventListener("resize", measure);
+    port.addEventListener("scroll", measure);
+    return () => {
+      port.removeEventListener("resize", measure);
+      port.removeEventListener("scroll", measure);
+    };
+  }, [wide]);
 
   /*
    * Keep the chosen face in the strip.
@@ -288,10 +327,16 @@ export function WallPanel({
           // Docked right and vertically centred on a wide screen; a sheet on a
           // narrow one. Not a modal in either case — the wall behind stays
           // pannable, and dismissing is a click on it.
-          "inset-x-0 bottom-0 rounded-t-3xl p-6",
-          "md:inset-x-auto md:top-1/2 md:right-12 md:bottom-auto md:w-[26rem] md:-translate-y-1/2 md:rounded-none md:p-0 lg:w-[30rem]",
+          "inset-x-0 bottom-0 rounded-t-3xl p-5 sm:p-6",
+          // The sheet takes what it needs and no more. With the keyboard up, a
+          // phone has a few hundred pixels of viewport left, and a panel that
+          // is taller than that scrolls *the page* instead — which drags the
+          // wall out from under the arrow pointing at it.
+          "max-h-[min(30rem,80svh)] overflow-y-auto overscroll-contain",
+          "md:inset-x-auto md:top-1/2 md:right-12 md:bottom-auto md:max-h-none md:w-[26rem] md:-translate-y-1/2 md:overflow-visible md:rounded-none md:p-0 lg:w-[30rem]",
           "bg-ground/80 backdrop-blur md:bg-transparent md:backdrop-blur-none",
         )}
+        style={keyboard ? { bottom: keyboard } : undefined}
       >
         <div>
           {/*
@@ -302,7 +347,7 @@ export function WallPanel({
             `src/wall/copy.ts` — this string is the input to the font's subset,
             not just copy.
           */}
-          <h2 className="text-ink font-hand text-6xl leading-[1.05] text-balance md:text-7xl">
+          <h2 className="text-ink font-hand text-4xl leading-[1.05] text-balance sm:text-5xl md:text-7xl">
             {HAND.spot}
           </h2>
 
@@ -336,7 +381,17 @@ export function WallPanel({
               </span>
               <input
                 id="wall-name"
-                autoFocus
+                /*
+                  Focused on a desktop, left alone on a phone.
+                  
+                  `autoFocus` is a convenience where the keyboard is already
+                  there and a cost where it is not: on a phone it throws up the
+                  on-screen keyboard the instant you pick a cell, before you
+                  have even looked at the spot you chose, and takes half the
+                  screen to do it. Tapping the name is one tap, and it is the
+                  tap somebody makes when they are ready to type.
+                */
+                autoFocus={wide}
                 value={name}
                 onChange={event => onName(event.target.value)}
                 placeholder="someone"
