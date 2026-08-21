@@ -103,6 +103,28 @@ export function chunksInView(camera: Camera, view: Viewport, margin = 4): Chunk[
   return chunksCovering(box.x0, box.y0, box.x1, box.y1);
 }
 
+/**
+ * The camera that puts `target` at a given point on screen.
+ *
+ * `flyTo` centres, which is right for "take me to my blobatar" and wrong for
+ * the placement panel: the panel occupies one side of the viewport, so a cell
+ * flown to the centre lands under it or beside it by luck. This composes the
+ * flight's destination instead — the cell ends up where the interface has room
+ * for it, and the arrow drawn from the panel to the cell has a predictable
+ * length and direction rather than whatever the click happened to produce.
+ *
+ * `at` is in CSS pixels from the top-left of the surface, which is what a
+ * layout measurement gives you.
+ */
+export function framing(view: Viewport, target: Cell, at: { x: number; y: number }, zoom: number): Camera {
+  const scale = CELL * zoom;
+  return {
+    x: target.x - (at.x - view.width / 2) / scale,
+    y: target.y - (at.y - view.height / 2) / scale,
+    zoom,
+  };
+}
+
 /** Dragging: pixels moved, translated into cells at the current zoom. */
 export function panBy(camera: Camera, dx: number, dy: number): Camera {
   const scale = CELL * camera.zoom;

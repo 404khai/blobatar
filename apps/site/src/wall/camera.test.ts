@@ -9,6 +9,7 @@ import {
   chunksInView,
   edgeMarker,
   flightAt,
+  framing,
   panBy,
   screenToCell,
   visibleBox,
@@ -228,5 +229,31 @@ describe("the arrow to an off-screen blob", () => {
 
   test("a chunk away is off screen at reading zoom", () => {
     expect(edgeMarker(HOME, VIEW, { x: CHUNK, y: 0 })).not.toBeNull();
+  });
+});
+
+
+describe("framing", () => {
+  const view = { width: 1000, height: 600 };
+
+  test("puts the cell exactly where the interface has room for it", () => {
+    const camera = framing(view, { x: 12, y: -4 }, { x: 300, y: 420 }, 1);
+    const at = cellToScreen(camera, view, 12, -4);
+    expect(at.x).toBeCloseTo(300);
+    expect(at.y).toBeCloseTo(420);
+  });
+
+  test("the centre is the case `flyTo` already had", () => {
+    const camera = framing(view, { x: 3, y: 3 }, { x: 500, y: 300 }, 1.5);
+    expect(camera).toEqual({ x: 3, y: 3, zoom: 1.5 });
+  });
+
+  test("and it holds at any zoom", () => {
+    for (const zoom of [0.45, 1, 2]) {
+      const camera = framing(view, { x: -7, y: 21 }, { x: 120, y: 90 }, zoom);
+      const at = cellToScreen(camera, view, -7, 21);
+      expect(at.x).toBeCloseTo(120);
+      expect(at.y).toBeCloseTo(90);
+    }
   });
 });

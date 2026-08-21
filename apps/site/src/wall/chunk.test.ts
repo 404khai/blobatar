@@ -10,7 +10,7 @@ import {
   placements,
   type ChunkBody,
 } from "./chunk";
-import { fixtureChunks, history } from "./fixture";
+import { RADIUS, fixtureChunks, history } from "./fixture";
 import { FACE_NAMES } from "./expressions";
 
 const body = (cells: ChunkBody["cells"], key = "0_0", version = 1): ChunkBody => ({ key, version, cells });
@@ -123,7 +123,10 @@ describe("who is in a cell", () => {
 
   test("an empty cell is nobody rather than an error", () => {
     expect(placementAt(chunks, { cx: 400, cy: 400 }, 0)).toBeNull();
-    expect(placementAt(chunks, chunkOf(0, 0), 999)).toBeNull();
+    // The last slot of the origin's chunk is the cell at 31,31 — a corner 44
+    // cells from the middle, which is outside the crowd's radius. A slot in the
+    // thick of it would only be testing how big the fixture happens to be.
+    expect(placementAt(chunks, chunkOf(0, 0), CAPACITY - 1)).toBeNull();
   });
 
   test("the wall was filled in the order it was placed", () => {
@@ -145,6 +148,36 @@ describe("the fixture is a wall that could have happened", () => {
     expect(history().map((p) => `${p.x},${p.y},${p.seed}`)).toEqual(
       made.map((p) => `${p.x},${p.y},${p.seed}`),
     );
+  });
+
+  /**
+   * Thousands, and spread thin.
+   *
+   * Both halves matter and both are easy to lose by accident. The size is what
+   * makes this the load the renderer is profiled against — a few hundred blobs
+   * is not a number anything gets slow at. The density is what makes it a wall
+   * rather than a stamp: occupancy is the medium, so a fixture with no holes in
+   * it cannot show what a drawing on this wall would look like.
+   *
+   * Wide bounds, because the generator is stochastic and this is a guard
+   * against a change that moves it by an order of magnitude, not a golden file.
+   */
+  test("it is thousands of blobatars, with room between them", () => {
+    expect(made.length).toBeGreaterThan(4000);
+
+    const taken = new Set(made.map((p) => `${p.x},${p.y}`));
+    let filled = 0;
+    let cells = 0;
+    for (let y = -RADIUS; y <= RADIUS; y++) {
+      for (let x = -RADIUS; x <= RADIUS; x++) {
+        if (Math.hypot(x, y) > RADIUS) continue;
+        cells++;
+        if (taken.has(`${x},${y}`)) filled++;
+      }
+    }
+    const density = filled / cells;
+    expect(density).toBeGreaterThan(0.25);
+    expect(density).toBeLessThan(0.75);
   });
 
   test("every face on it is one the picker offers", () => {
@@ -177,7 +210,12 @@ describe("the fixture is a wall that could have happened", () => {
     const occupied = (x: number, y: number) => taken.has(`${x},${y}`);
     // The far end of the wall is reachable only because somebody walked there:
     // remove the stones and the word's own cells are out of anyone's reach.
-    const core = new Set(made.filter((p) => Math.hypot(p.x, p.y) <= 15).map((p) => `${p.x},${p.y}`));
+    // The crowd itself, at its real extent — not a disc small enough to make
+    // the point by construction. The word is out past the edge of it by more
+    // than a reach, which is what makes the stones load-bearing.
+    const core = new Set(
+      made.filter((p) => Math.hypot(p.x, p.y) <= RADIUS).map((p) => `${p.x},${p.y}`),
+    );
     const coreOnly = (x: number, y: number) => core.has(`${x},${y}`);
     const word = made.at(-3)!;
     expect(occupied(word.x, word.y)).toBe(true);

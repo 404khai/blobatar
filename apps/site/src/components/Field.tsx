@@ -2,8 +2,20 @@ import { useMemo } from "react";
 import { Blobatar } from "@blobatar/react";
 import { NAMES, shuffled } from "@/names";
 import { useNearViewport } from "@/lib/near-viewport";
+import { cn } from "@/lib/utils";
 
 /**
+ * The generated field: ~60 blobatars on a jittered grid, drifting on scroll.
+ *
+ * It used to *be* the second section, asserting "millions of options" with data
+ * it made up. It is now the wall's backdrop, and only while the wall is empty —
+ * see ADR 0011. An empty wall on launch day is strictly worse than sixty blobs,
+ * and the cold-start window is real; once anybody has placed anything, what is
+ * real is the foreground and this fades out from under it.
+ *
+ * Which is also why the heading left: it lives in the section now, out of the
+ * middle, because the middle is where somebody has to be able to click.
+ *
  * The field is generated on a jittered grid rather than from raw random
  * coordinates. Pure randomness clumps — you get three blobatars overlapping in
  * one corner and an empty quadrant next to it — whereas one blobatar per cell,
@@ -42,7 +54,7 @@ type Blob = {
   delay: number;
 };
 
-export function Wall() {
+export function Field({ faded = false }: { faded?: boolean }) {
   /*
    * The field is client-only, and waits for the scroll that reveals it.
    *
@@ -55,7 +67,7 @@ export function Wall() {
    * Total Blocking Time measures — see `useNearViewport`. The heading below
    * renders either way, so the section is never empty of meaning.
    */
-  const [ref, near] = useNearViewport<HTMLElement>();
+  const [ref, near] = useNearViewport<HTMLDivElement>();
 
   // Once per mount, not per render: a reshuffle on every state change would
   // make the wall flicker. Random per visit is the point — the claim is
@@ -102,20 +114,25 @@ export function Wall() {
 
   return (
     /*
-      `overflow-clip`, not `overflow-hidden`. `hidden` makes this element a
-      scroll container, and a scroll container is what `animation-timeline:
-      view()` resolves against — so the layers measured their progress against
-      a box that never scrolls and sat frozen at the identity transform. `clip`
-      clips the same way without becoming a scroller.
+      A layer, not a section. It is positioned by whatever renders it — today
+      the wall's own section, behind the canvas — and it keeps `overflow-clip`
+      because the parallax layers below still resolve `animation-timeline:
+      view()` against the nearest scroll container, and `hidden` would make
+      this one.
+
+      `faded` is the handover: the moment the wall has anything real on it,
+      this goes. Transitioned rather than unmounted, so the field does not
+      vanish mid-scroll the instant a chunk arrives — and kept mounted so the
+      transition has something to run on.
     */
-    <section ref={ref} className="relative min-h-[150vh] overflow-clip">
-      {/*
-        One positioned layer per depth, each with its own scroll shift, and the
-        blobatars parented into whichever one they belong to. Doing the parallax
-        on three wrappers rather than on sixty blobatars keeps the scroll-driven
-        animation count at three, and leaves each blobatar's own transform free
-        for its float.
-      */}
+    <div
+      ref={ref}
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none absolute inset-0 overflow-clip transition-opacity duration-700",
+        faded ? "opacity-0" : "opacity-100",
+      )}
+    >
       {DEPTHS.map((depth, d) => (
         <div
           key={d}
@@ -157,7 +174,7 @@ export function Wall() {
                   <Blobatar
                     name={b.seed}
                     animate="hover"
-                    className="shrink-0"
+										className="shrink-0"
                     style={{ width: depth.size, height: depth.size }}
                   />
                   {/*
@@ -185,39 +202,6 @@ export function Wall() {
       <div className="from-ground pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b to-transparent" />
       <div className="from-ground pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t to-transparent" />
 
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="relative flex items-center justify-center">
-          {/*
-            The clearing behind the heading, as a separate layer rather than a
-            background on the `h2`. Against a scattered field a plain padded box
-            reads as a rectangle laid over the blobatars; a radial fade to nothing
-            makes the field look like it thins around the words instead.
-
-            A tint, not a blur. Masking a `backdrop-blur` bands badly here — the
-            blur quantises the near-black ground, and the mask's alpha ramp
-            turns those steps into visible concentric rings. A plain gradient in
-            the ground colour has nothing to quantise.
-
-            The far stop is the ground colour at zero alpha, not the `transparent`
-            keyword. `transparent` is *transparent black*, and the ground is
-            #0a0a0b rather than #000 — so interpolating to it dips through
-            colours darker than the page and paints a visible dark ring around
-            the heading on top of the very field it is meant to disappear into.
-          */}
-          <div
-            className="absolute -inset-x-40 -inset-y-32"
-            style={{
-              backgroundImage:
-                "radial-gradient(ellipse at center, var(--color-ground) 0%, var(--color-ground) 32%, rgb(from var(--color-ground) r g b / 0) 70%)",
-            }}
-          />
-          <h2 className="relative text-center text-[clamp(2.5rem,9vw,6rem)] leading-[0.9] font-medium tracking-[-0.05em]">
-            Millions
-            <br />
-            of options
-          </h2>
-        </div>
-      </div>
-    </section>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Blobatar } from "@blobatar/react";
 import {
   Popover,
@@ -6,28 +6,32 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../src/components/ui/popover";
-import { PoseTile } from "../src/components/ui/pose-tile";
-import { ChevronIcon } from "../src/components/ui/chevron";
-import { cn } from "../src/lib/utils";
+import { WallPanel, anchor } from "../src/components/WallPanel";
 import {
   WallCanvas,
   type At,
   type Inspected,
   type WallApi,
 } from "../src/components/WallCanvas";
-import { FACES, FACE_NAMES, faceOf } from "../src/wall/expressions";
+import { FACE_NAMES, faceOf } from "../src/wall/expressions";
 import { FIRST, type Cell } from "../src/wall/geometry";
+import { createSource, findMine, submit, type Placed } from "../src/wall/source";
+import { EMPTY_SEED } from "../src/wall/copy";
+import { fixtureSource } from "../src/wall/fixture";
 import { mount } from "../mount";
 
 /**
- * The wall, on its own, against fixture data.
+ * The wall, on its own.
  *
  * A development surface rather than a page anyone is meant to land on: the
  * section's real home is the landing page, but a full-height canvas is easier
- * to judge alone than wedged between a hero and a chat, and the chunk fetcher
- * does not exist yet. Placement here writes to the fixture in memory and to
- * nothing else, which is what the real one will do first — the network call
- * goes beside that, not in front of it.
+ * to judge alone than wedged between a hero and a chat.
+ *
+ * Two sources, chosen by `?live`. The default is the fixture — a wall that
+ * never existed, in memory, where a placement costs nothing and nobody has to
+ * be running a database. `?live` is the same page against the Worker: real
+ * chunks, a real challenge, a real cooldown. The component under both is
+ * identical, which is the point of the source being a parameter.
  */
 
 /**
@@ -42,54 +46,171 @@ type Focus =
   | { kind: "place"; cell: Cell; at: At }
   | { kind: "who"; placement: Inspected; at: At };
 
+/** Where this browser remembers its own blobatar, so that "Find mine" needs no
+ * request on the device that placed it. The cookie behind `/wall/mine` is the
+ * slow path, for a second device or a cleared browser. */
+const REMEMBERED = "wall:mine";
+
 function WallPreview() {
+  const live = typeof location !== "undefined" && new URLSearchParams(location.search).has("live");
+  // Once. A source holds every chunk this browser has fetched, and rebuilding
+  // it on a render would throw the wall away and fetch it again.
+  const source = useMemo(() => (live ? createSource() : fixtureSource()), [live]);
+
   const [face, setFace] = useState(FACE_NAMES[0]!);
   const [name, setName] = useState("");
   const [mine, setMine] = useState<Cell | null>(null);
   const [focus, setFocus] = useState<Focus | null>(null);
-  const [faces, setFaces] = useState(false);
+  const [refused, setRefused] = useState<Placed | null>(null);
+  const [sending, setSending] = useState(false);
+  const token = useRef<string | null>(null);
   const api = useRef<WallApi | null>(null);
+  /*
+   * The panel's arrow, reached from inside the canvas's draw loop.
+   *
+   * A ref rather than a prop chain because of what it is for: the arrow's far
+   * end is a cell, and a cell moves on every frame of a flight. Handing the
+   * canvas a function to call is one `setAttribute` per frame; handing React a
+   * state setter would be sixty renders of a panel with a text field in it.
+   */
+  const track = useRef<((at: At | null) => void) | null>(null);
+  const onTrack = useCallback((at: At | null) => track.current?.(at), []);
 
-  // Memoised: it is read by the draw loop, and a fresh object every render is
-  // what used to make the canvas repaint from blank.
-  const draft = useMemo(() => ({ seed: name || "you", expression: face }), [name, face]);
+  /*
+   * Where this browser's own blobatar is: local first, cookie second.
+   *
+   * The cookie round trip happens once, on a page that has nothing remembered
+   * — which is the second device, and the case the token exists for.
+   */
+  useEffect(() => {
+    const remembered = localStorage.getItem(REMEMBERED);
+    if (remembered) {
+      setMine(JSON.parse(remembered) as Cell);
+      return;
+    }
+    if (live) void findMine().then(cells => cells[0] && setMine(cells[0]));
+  }, [live]);
+
+  /*
+   * What is being placed, as the canvas and the panel both read it.
+   *
+   * Two fields for the name rather than one: `seed` always has a value, because
+   * an empty cell still has to draw *something* and that something is a chosen
+   * blobatar rather than whatever an arbitrary word hashes to; `label` is empty
+   * until somebody types, so the fallback seed is never printed as a name.
+   *
+   * Memoised: it is read by the draw loop, and a fresh object every render is
+   * what used to make the canvas repaint from blank.
+   */
+  const draft = useMemo(
+    () => ({ seed: name.trim() || EMPTY_SEED, expression: face, label: name.trim() }),
+    [name, face],
+  );
 
   const onReady = useCallback((ready: WallApi) => {
     api.current = ready;
   }, []);
 
-  const onPick = useCallback((cell: Cell, at: At) => setFocus({ kind: "place", cell, at }), []);
+  /*
+   * Picking a cell also *frames* it.
+   *
+   * The panel is docked to one side, so a cell left where it was clicked is
+   * underneath the panel as often as not — and the arrow drawn between them
+   * would be a stub across a corner. Flying it to a known point makes the whole
+   * composition the same every time: panel here, blobatar there, arrow between.
+   */
+  const onPick = useCallback((cell: Cell, at: At) => {
+    setFocus({ kind: "place", cell, at });
+    api.current?.flyTo(cell, anchor({ width: window.innerWidth, height: window.innerHeight }));
+  }, []);
   const onInspect = useCallback(
     (placement: Inspected, at: At) => setFocus({ kind: "who", placement, at }),
     [],
   );
   const dismiss = useCallback(() => {
     setFocus(null);
-    // Otherwise the inner panel outlives the panel it was opened from, and
-    // reopens with it the next time somebody clicks a cell.
-    setFaces(false);
+    setRefused(null);
   }, []);
 
-  const place = () => {
-    if (focus?.kind !== "place") return;
-    api.current?.place(focus.cell, draft.seed, draft.expression);
-    setMine(focus.cell);
+  /**
+   * Leave it here.
+   *
+   * The optimistic draw happens *after* the server answers rather than before
+   * it, which is the one place this deviates from what the wall's own comments
+   * describe as optimistic. The reason is that the answer can move the cell:
+   * a placement refused for being taken, or walked back to placeable ground,
+   * would otherwise have to be drawn and then undrawn, and a blobatar that
+   * appears and vanishes is worse than one that takes a moment. Against the
+   * fixture there is no server and it is immediate.
+   */
+  const place = async () => {
+    if (focus?.kind !== "place" || sending) return;
+    setRefused(null);
+
+    if (!live) {
+      api.current?.place(focus.cell, draft.seed, draft.expression);
+      remember(focus.cell);
+      dismiss();
+      return;
+    }
+
+    setSending(true);
+    const result = await submit({
+      cell: focus.cell,
+      seed: draft.seed,
+      expression: draft.expression,
+      // An unsolved challenge is still sent: the Worker is what refuses it, and
+      // a client that refuses on its own behalf is a second implementation of
+      // the same rule that can disagree with the first.
+      turnstile: token.current ?? "",
+    });
+    setSending(false);
+
+    if (!result.ok) {
+      setRefused(result);
+      // Somewhere to go, when the server had somewhere to suggest.
+      if (result.why === "unplaceable" && result.nearest) api.current?.flyTo(result.nearest);
+      return;
+    }
+
+    api.current?.place(result.cell, result.seed, draft.expression);
+    remember(result.cell);
     dismiss();
+  };
+
+  const remember = (cell: Cell) => {
+    setMine(cell);
+    localStorage.setItem(REMEMBERED, JSON.stringify(cell));
   };
 
   return (
     <main className="bg-ground relative h-dvh w-dvw overflow-hidden">
       <WallCanvas
+        source={source}
         draft={draft}
         mine={mine}
         pinned={focus?.kind === "place" ? focus.cell : null}
+        dim={focus?.kind === "place"}
+        // The preview is the whole page, so there is no scroll to protect and
+        // the wheel has no other job. In the landing page's section it does.
+        wheelZooms
         onPick={onPick}
         onInspect={onInspect}
         onCameraMove={dismiss}
+        onTrack={onTrack}
         onReady={onReady}
       />
 
-      <Popover open={!!focus} onOpenChange={open => !open && dismiss()}>
+      {/*
+        Somebody else's cell: a small card where the blob is, not a panel.
+
+        The two targets get two different weights on purpose. Placing is the
+        thing this section exists for and takes over the screen; asking who
+        somebody is answers a passing curiosity and should cost nothing —
+        dimming the whole wall to show one name and a date would be the
+        interface making more of the question than the person asking it did.
+      */}
+      <Popover open={focus?.kind === "who"} onOpenChange={open => !open && dismiss()}>
         {/*
           A zero-size element pinned to the cell in viewport coordinates. Radix
           needs a real node to measure and flip against; the canvas has no nodes
@@ -102,8 +223,8 @@ function WallPreview() {
           />
         </PopoverAnchor>
 
-        <PopoverContent side="top" sideOffset={40} className="w-auto min-w-[19rem]">
-          {focus?.kind === "who" ? (
+        <PopoverContent side="top" sideOffset={40} className="w-auto">
+          {focus?.kind === "who" && (
             <div className="flex items-center gap-3">
               <Blobatar
                 name={focus.placement.seed}
@@ -124,156 +245,28 @@ function WallPreview() {
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {/*
-                A sentence, not a form — the same construction the hero uses and
-                for the same reason. The question is the label, `htmlFor` makes
-                clicking it focus the blank, and the blank is a dashed rule that
-                grows with what you type rather than a box that says "data
-                entry". Here it does one thing more than the hero's: the wall
-                behind it is already drawing the blobatar this names, held on
-                the cell the panel is pointing at.
-              */}
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-lg">
-                <label htmlFor="wall-name" className="text-muted cursor-text tracking-tight">
-                  You found a nice spot,
-                </label>
-                <span
-                  className={cn(
-                    "inline-grid border-b border-dashed pb-0.5 transition-colors duration-200",
-                    "border-line hover:border-muted focus-within:border-ink",
-                  )}
-                >
-                  {/*
-                    An invisible copy of the value is what carries the width, so
-                    the blank is exactly as wide as the name. `whitespace-pre`
-                    keeps a trailing space measurable, without which the caret
-                    walks off the end of the rule.
-                  */}
-                  <span
-                    aria-hidden="true"
-                    className="invisible col-start-1 row-start-1 px-1 tracking-tight whitespace-pre"
-                  >
-                    {name || "someone"}
-                  </span>
-                  <input
-                    id="wall-name"
-                    autoFocus
-                    value={name}
-                    onChange={event => setName(event.target.value)}
-                    placeholder="someone"
-                    maxLength={24}
-                    spellCheck={false}
-                    autoComplete="off"
-                    // `size={1}` is load-bearing: both elements share one grid
-                    // cell, and an input's default intrinsic width is about
-                    // twenty characters, which would set the column instead of
-                    // the name.
-                    size={1}
-                    className={cn(
-                      "col-start-1 row-start-1 w-full min-w-0 bg-transparent px-1",
-                      "tracking-tight outline-none placeholder:text-muted/40",
-                    )}
-                  />
-                </span>
-              </div>
-
-              {/*
-                The faces as blobatars of the name being typed, not as labels. A
-                row of words is a form; a row of your own face pulling seven
-                expressions is what the wall is actually offering — and it is
-                the only place the page shows that the avatar is a function of
-                the string, by changing all seven at once as you type.
-              */}
-              {/*
-                The same control the hero uses, and the same reason: a pose is a
-                look, so the trigger wears the current one rather than naming it
-                and the panel is fourteen faces of the name being typed. A
-                `<select>` here would be fourteen words describing pictures.
-
-                A panel opened from a panel, which is a shape worth being
-                careful with — nested layers are where dismissal usually breaks.
-                Radix stacks them, so escape and an outside click each close the
-                innermost first, and the placement panel survives being browsed.
-              */}
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg">
-                {/*
-                  The second half of the sentence, not a field label. The panel
-                  asks two questions and neither of them is `expression:` — the
-                  wall is a place people put themselves, and a form asking for
-                  an enum value is the wrong register for that by a mile.
-                */}
-                <span className="text-muted tracking-tight">And you are feeling?</span>
-
-                <Popover open={faces} onOpenChange={setFaces}>
-                  <PopoverTrigger
-                    aria-label="Expression"
-                    className={cn(
-                      "border-line flex items-center gap-2 rounded-full border py-1 pr-2.5 pl-1",
-                      "font-mono text-sm lowercase transition-colors duration-150",
-                      "hover:bg-line/30 hover:border-muted text-ink",
-                    )}
-                  >
-                    <Blobatar
-                      name={draft.seed}
-                      expression={FACES[face]}
-                      alt=""
-                      className="size-6"
-                    />
-                    {face}
-                    <ChevronIcon down={!faces} />
-                  </PopoverTrigger>
-
-                  <PopoverContent
-                    side="top"
-                    align="end"
-                    sideOffset={10}
-                    collisionPadding={16}
-                    className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto"
-                  >
-                    <div className="grid grid-cols-4 gap-1" role="group" aria-label="All expressions">
-                      {/*
-                        The whole roster, the selected one included. A picker
-                        that hides what you already chose makes you close it to
-                        find out whether you chose it.
-                      */}
-                      {FACE_NAMES.map(each => (
-                        <PoseTile
-                          key={each}
-                          name={each}
-                          expression={FACES[each]!}
-                          seed={draft.seed}
-                          selected={each === face}
-                          onClick={() => {
-                            setFace(each);
-                            setFaces(false);
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <button
-                type="button"
-                onClick={place}
-                disabled={!name.trim()}
-                className={cn(
-                  "bg-ink text-ground rounded-full px-4 py-2 text-sm tracking-wide lowercase",
-                  "transition-opacity duration-150 disabled:opacity-40",
-                )}
-              >
-                leave it here
-                <span className="pl-2 font-mono text-xs opacity-50">
-                  {focus?.kind === "place" ? `${focus.cell.x}, ${focus.cell.y}` : ""}
-                </span>
-              </button>
-            </div>
           )}
         </PopoverContent>
       </Popover>
+
+      {focus?.kind === "place" && (
+        <WallPanel
+          cell={focus.cell}
+          name={name}
+          onName={setName}
+          face={face}
+          onFace={setFace}
+          seed={draft.seed}
+          first={source.wall().size === 0}
+          live={live}
+          sending={sending}
+          refused={refused}
+          onTurnstile={value => (token.current = value)}
+          onPlace={place}
+          onDismiss={dismiss}
+          track={track}
+        />
+      )}
 
       <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/60 px-3 py-2 font-mono text-xs text-white/80 backdrop-blur">
         {mine ? (

@@ -50,6 +50,31 @@ demo happens inside the interaction rather than next to it.
 Empty and occupied cells are different targets. Occupied shows whose it is;
 empty places.
 
+> **Picking a cell dims the wall.** The panel that asks for a name was a popover
+> anchored to the cell, and a popover has to compete with several hundred
+> blobatars for the eye — it can only win by shouting. Dimming ends the
+> competition instead: a scrim between the canvas and the one cell that is DOM
+> rather than pixels, so the picked blobatar is the only lit thing on screen and
+> everything else recedes to context. The wall stays visible through it at three
+> quarters, because "you found a nice spot" means nothing if you cannot see what
+> the spot is next to.
+>
+> What that costs is the spatial link — a panel docked to the side is not
+> pointing at anything — so the camera flies the cell to a known point and a
+> hand-drawn arrow curves from the panel to it. The arrow is the only element
+> doing a job neither the copy nor the layout can do: it says *that one*.
+>
+> The copy goes with it. One hand-lettered heading ("You found a nice spot!"),
+> the name as a signature under it rather than a labelled field, and the
+> expression asked as a question with all fourteen faces in a strip below —
+> fourteen blobatars of the name being typed, changing together as you type,
+> which is the library's whole argument happening inside the control. The
+> hand-lettered face is 8 KB, subset to the characters of that one sentence.
+>
+> Asking *who somebody is* keeps the small anchored card. The two targets get
+> two different weights on purpose: placing is what this section is for and
+> takes the screen; a passing curiosity should cost nothing.
+
 ## Positions snap to a grid, and growth is bounded to the frontier
 
 Free positioning was rejected on appearance: raw coordinates clump, and the
@@ -77,6 +102,17 @@ same kind: the wall has a history you can see.
 
 A visitor who starts placing beyond R is panned back to the nearest placeable
 ground — an affordance about to be refused should never have been offered.
+
+> **R is 32**, set before the first write and not by an argument about
+> loneliness. Reach is also the spacing of the stones when a group walks out
+> into the quiet to draw something, and at 16 the fixture's two-letter word cost
+> five stones before the first letter — five people, at one blob a day each. 32
+> halves every bridge on the wall. It is one cell short of `CHUNK`, which bounds
+> a reach box to three chunks per axis; the write path queries the cell box
+> directly rather than reading those chunks, so that bound is a size limit on
+> one query rather than a read count. A wall built under one reach cannot be
+> re-walked under another, which is why the number was settled while the wall
+> was still empty.
 
 Nothing is seeded. The first blobatar is placed by a person, and it goes at the
 origin by rule, which is what anchors the wall's coordinate system to it rather
@@ -117,6 +153,21 @@ the mechanism itself.
 The rejected alternative is a single global version in every chunk URL: one
 placement anywhere invalidates every URL at once.
 
+> **The index is served per region, not per viewport.** "The chunks around the
+> viewport" has no cacheable URL — every visitor's viewport is a slightly
+> different query string, and the one request here that cannot be immutable is
+> precisely the one that has to be shared. So the plane is cut into fixed
+> regions of 8×8 chunks and the index is `/wall/r/<rx>_<ry>`: a viewport covers
+> one and straddles at most four, and everybody looking at the same part of the
+> wall asks for the same URL. Full chunks stay *in* the index, marked, rather
+> than being omitted — a client that already holds one pins it and stops asking,
+> but a client that has never fetched it cannot tell an absent entry meaning
+> "frozen" from an absent entry meaning "empty". The index also carries the
+> wall's total placement count, which is the one thing occupancy cannot answer
+> for a browser: no cells here means an empty wall to the Worker and an
+> unfetched one to a client, and only the first of those puts the next blobatar
+> at the origin.
+
 This matters because `apps/site/wrangler.jsonc` is built around assets being
 free and Worker requests being billed — `run_worker_first` is scoped to
 `/avatar/*` precisely so that reading the site costs nothing. Putting a fetch in
@@ -138,6 +189,11 @@ rejected for the first version.
 
 The limit is a unique index on `(ip_hash, day)`. A `SELECT` then `INSERT` does
 not survive two concurrent Worker invocations; letting the insert fail does.
+
+> **On its own table, not on the placement row.** If the constraint lived on the
+> placement, deleting a slur would hand its author the day back — moderation
+> would be a refund. The quota row is spent first in the same transaction that
+> claims the cell, and it stays spent.
 `ip_hash` is `CF-Connecting-IP` hashed with a secret and the date, so no raw
 address is stored and the row expires by becoming unreachable.
 
@@ -169,6 +225,15 @@ was enough to show up in Total Blocking Time, which is why the current field
 waits for the viewport. Hundreds of DOM nodes panning at 60fps is not a smaller
 version of that problem. The wall rasterises `blobatar()` output to a single
 canvas; DOM is reserved for the hovered cell and its tooltip.
+
+> **The section never captures the wheel.** It is one viewport tall and sits in
+> the middle of a page people are reading, so a wheel over it scrolls past it
+> like anything else. Zoom is a pinch — which arrives as ctrl+wheel and means
+> nothing else — plus two buttons, because a mouse cannot pinch. A canvas that
+> swallows the wheel to zoom is the rudest thing an embedded map does, and the
+> wall is not worth trapping somebody on their way down the page. The
+> consequence is that leaving mid-placement is easy, so the panel lets go when
+> the section scrolls out of view rather than following it.
 
 ## The generated field stays
 

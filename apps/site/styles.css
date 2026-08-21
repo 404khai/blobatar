@@ -38,6 +38,15 @@
   --font-mono: "Geist Mono", ui-monospace, monospace;
 
   /*
+   * The wall's one hand-lettered voice, and the fallback matters more than
+   * usual: it is 8 KB subset to a single heading, so anything set in it that
+   * is not in `src/wall/copy.ts` falls through to whatever cursive the system
+   * has — which on most machines is nothing, and then to the sans. That is the
+   * failure `copy.test.ts` exists to catch before it ships.
+   */
+  --font-hand: "Caveat", "Segoe Print", cursive;
+
+  /*
    * Near-black rather than #000. Blob blobatars have a transparent backdrop by
    * default — the body *is* the blobatar — so they sit directly on this color.
    * Against true black the silhouettes read as cut out; against #0A0A0B they

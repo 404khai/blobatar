@@ -4,19 +4,20 @@ import {
   FLIGHT_MS,
   cellToScreen,
   cellUnder,
+  chunksInView,
   flightAt,
+  framing,
   panBy,
   zoomAt,
   type Camera,
   type Viewport,
 } from "@/wall/camera";
-import { chunkMap, placementAt, placements, type ChunkBody, type Placement } from "@/wall/chunk";
-import { fixtureChunks } from "@/wall/fixture";
+import { placementAt, placements, type Placement } from "@/wall/chunk";
+import type { Source } from "@/wall/source";
 import {
   FIRST,
   cellIndex,
   cellKey,
-  chunkKey,
   chunkOf,
   isPlaceable,
   nearestPlaceable,
@@ -24,6 +25,7 @@ import {
 } from "@/wall/geometry";
 import { CELL } from "@/wall/camera";
 import { faceOf } from "@/wall/expressions";
+import { cn } from "@/lib/utils";
 import { FILL, paint } from "@/wall/paint";
 
 /**
@@ -64,8 +66,26 @@ type Spot =
 export type At = { x: number; y: number };
 
 type Props = {
+  /**
+   * Where the wall comes from.
+   *
+   * A source rather than a fetcher, because the two callers of this component
+   * want different ones and neither wants the other's: the preview page runs it
+   * against a fixture, and the landing page runs it against the Worker. The
+   * canvas asks the same questions of both.
+   */
+  source: Source;
   /** What the visitor would be placing, drawn as the ghost under the pointer. */
-  draft: { seed: string; expression: string };
+  /**
+   * What the visitor would be placing.
+   *
+   * `seed` is what the blobatar is *drawn* from and is never empty — an empty
+   * cell still has to show something, so it falls back to a chosen seed. `label`
+   * is what the plate under it *prints*, and is empty until somebody types:
+   * printing the fallback would put a name nobody chose on the wall under a
+   * blob nobody has placed yet.
+   */
+  draft: { seed: string; expression: string; label?: string };
   /** Their existing blob, if they have one — ringed, and the target of the
    * locate control. */
   mine?: Cell | null;
@@ -92,12 +112,68 @@ type Props = {
    * the thing this component is arranged to avoid.
    */
   onCameraMove?: () => void;
+  /**
+   * Whether a plain wheel zooms.
+   *
+   * Off by default, and that default is about where this component now lives: a
+   * section inside a scrolling page. A canvas that swallows the wheel is a
+   * canvas that traps a reader on their way down the page, which is the single
+   * rudest thing an embedded map can do. Pinch — which arrives as ctrl+wheel —
+   * still zooms, because that gesture means nothing else.
+   *
+   * The full-screen preview turns it on: there is no page to scroll there, so
+   * the wheel has no other job.
+   */
+  wheelZooms?: boolean;
+  /**
+   * The wall changed underneath — how many blobatars it now holds, across the
+   * whole wall rather than the part on screen.
+   *
+   * Zero is a real state with its own design (the generated field behind it),
+   * so the section that renders this has to hear about it.
+   */
+  onLoaded?: (size: number) => void;
+  /**
+   * Dim everything except the cell being placed in.
+   *
+   * The scrim goes *between* the canvas and the overlay node, which is the
+   * whole reason this is a prop here rather than a sibling element in the page:
+   * the one cell that matters is already the only thing on this wall that is
+   * DOM rather than pixels, so dimming the canvas under it lights that cell and
+   * nothing else, with no second render path and no compositing tricks.
+   */
+  dim?: boolean;
+  /**
+   * Where the focused cell is on screen, reported from inside the draw loop.
+   *
+   * This runs on every frame of a flight, so it must not set state — it exists
+   * for the arrow, which mutates one SVG path attribute and is exactly the kind
+   * of per-frame work the rest of this component is arranged to keep out of
+   * React.
+   */
+  onTrack?: (at: At | null) => void;
   /** Hands the surface's imperative bits to whatever renders the controls. */
   onReady?: (api: WallApi) => void;
 };
 
 export type WallApi = {
-  flyTo: (cell: Cell) => void;
+  /**
+   * Fly to a cell, optionally landing it at a given point on screen rather than
+   * in the middle.
+   *
+   * The placement panel occupies one side of the viewport, so "centre it" would
+   * put half the picked cells underneath the panel that is talking about them.
+   * The caller measures where it has room and says so.
+   */
+  flyTo: (cell: Cell, at?: At) => void;
+  /** Ask the source for whatever is under the viewport now. The canvas does
+   * this on its own cadence; this is for the caller who has just learned that
+   * something changed. */
+  sync: () => void;
+  /** Zoom about the middle of the canvas, for a control that is not a wheel.
+   * With plain-wheel zoom off by default, this is how a mouse without a
+   * trackpad gets there at all. */
+  zoomBy: (factor: number) => void;
   /** Draw a placement into the wall immediately.
    *
    * Optimistic on purpose: the writer sees their own blob land at once, while
@@ -113,12 +189,17 @@ export type WallApi = {
 const DRAG_SLOP = 4;
 
 export function WallCanvas({
+  source,
   draft,
   mine = null,
   pinned = null,
+  dim = false,
+  wheelZooms = false,
+  onLoaded,
   onPick,
   onInspect,
   onCameraMove,
+  onTrack,
   onReady,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -139,10 +220,40 @@ export function WallCanvas({
    * every time any state anywhere above changed. `draw` is now stable and reads
    * through here instead.
    */
-  const propsRef = useRef({ draft, mine, pinned, onPick, onInspect, onCameraMove });
-  propsRef.current = { draft, mine, pinned, onPick, onInspect, onCameraMove };
+  const propsRef = useRef({ draft, mine, pinned, wheelZooms, onPick, onInspect, onCameraMove, onTrack });
+  propsRef.current = { draft, mine, pinned, wheelZooms, onPick, onInspect, onCameraMove, onTrack };
 
-  const chunksRef = useRef<Map<string, ChunkBody>>(chunkMap(fixtureChunks()));
+  /**
+   * Where the canvas sits in the viewport.
+   *
+   * Everything inside this component thinks in canvas coordinates, which used
+   * to be the same thing as viewport coordinates because the only page holding
+   * a wall was a full-screen one. In a section halfway down the landing page it
+   * is not, and the difference is exactly the arrow pointing at the wrong cell.
+   *
+   * Cached rather than measured per frame: `getBoundingClientRect` inside a
+   * draw loop is a layout read sixty times a second. Refreshed where it can
+   * actually change — a resize, and a scroll, which moves the canvas without
+   * the wall moving at all.
+   */
+  const rectRef = useRef({ left: 0, top: 0 });
+
+  /** Through a ref so a parent that re-renders on this callback cannot make
+   * `rebuild` — and therefore every effect that depends on it — unstable. */
+  const onLoadedRef = useRef(onLoaded);
+  onLoadedRef.current = onLoaded;
+
+  /** The debounced fetch, reached through a ref by the hand-bound wheel
+   * listener — which must not re-bind on every render. Assigned below, once
+   * the source and the draw loop it depends on exist. */
+  const syncRef = useRef<() => void>(() => {});
+
+  // The source, through a ref for the same reason the props are: the draw loop
+  // and the pointer handlers must not change identity when the parent renders.
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+  const chunksOf = useCallback(() => sourceRef.current.wall().chunks, []);
+
   // Occupancy as a mutable set rather than rebuilt from the chunks on every
   // placement: a placement is the one thing that changes it, and it changes it
   // by exactly one cell.
@@ -178,6 +289,20 @@ export function WallCanvas({
   const placeSpot = useCallback(() => {
     const node = spotRef.current;
     const at = spotAtRef.current;
+    const { pinned: held, onTrack: track } = propsRef.current;
+    // The arrow follows the *held* cell only. A ghost under a moving pointer is
+    // not something to point at, and pointing at it would mean an arrow
+    // redrawn on every pointer move for no one's benefit.
+    track?.(
+      held
+        ? (() => {
+            const screen = cellToScreen(cameraRef.current, viewRef.current, held.x, held.y);
+            // Viewport coordinates: the arrow is drawn by a fixed-position
+            // element that knows nothing about where this canvas is.
+            return { x: screen.x + rectRef.current.left, y: screen.y + rectRef.current.top };
+          })()
+        : null,
+    );
     if (!node || !at) return;
     const screen = cellToScreen(cameraRef.current, viewRef.current, at.x, at.y);
     const size = CELL * cameraRef.current.zoom * FILL;
@@ -201,8 +326,12 @@ export function WallCanvas({
       if (flight) {
         const t = (performance.now() - flight.start) / FLIGHT_MS;
         cameraRef.current = flightAt(flight.from, flight.to, t);
-        if (t >= 1) flightRef.current = null;
-        else draw();
+        if (t >= 1) {
+          flightRef.current = null;
+          // Landed somewhere else entirely, which is the one gesture guaranteed
+          // to need chunks this browser has never asked for.
+          syncRef.current();
+        } else draw();
       }
 
       const { mine: ringed } = propsRef.current;
@@ -213,24 +342,84 @@ export function WallCanvas({
       paint(ctx, {
         camera: cameraRef.current,
         view: viewRef.current,
-        chunks: chunksRef.current,
+        chunks: chunksOf(),
         skip: skipRef.current,
         mine: ringed,
         onSpriteReady: draw,
       });
     });
-  }, [placeSpot]);
+  }, [placeSpot, chunksOf]);
 
-  /** Rebuilt whenever the chunk set changes wholesale, which for now is once. */
-  useEffect(() => {
+  /**
+   * Occupancy, rebuilt from whatever the source now holds.
+   *
+   * Whole rather than incremental, because this runs when a *chunk* arrives —
+   * a thousand cells at a time — and the incremental path exists for the one
+   * case that changes a single cell, which is somebody placing.
+   */
+  const rebuild = useCallback(() => {
+    const wall = sourceRef.current.wall();
     const taken = new Set<string>();
-    for (const placement of placements(chunksRef.current)) {
+    for (const placement of placements(wall.chunks)) {
       taken.add(cellKey(placement.x, placement.y));
     }
     takenRef.current = taken;
-    populatedRef.current = taken.size > 0;
+    // From the source rather than from `taken.size`: the count is the whole
+    // wall's, and this browser holds the chunks under one viewport. An unloaded
+    // wall and an empty one look identical from here and mean opposite things.
+    populatedRef.current = wall.size > 0;
     draw();
+    onLoadedRef.current?.(wall.size);
   }, [draw]);
+
+  /**
+   * Fetch whatever is under the viewport, and redraw if anything came back.
+   *
+   * Called after a gesture rather than during one — the source coalesces and
+   * the chunks under a pan are mostly ones it already holds, but a fetch per
+   * frame would still be a fetch per frame. `changed` being false is the common
+   * case and costs nothing.
+   */
+  const sync = useCallback(async () => {
+    const wanted = chunksInView(cameraRef.current, viewRef.current);
+    if (await sourceRef.current.load(wanted)) rebuild();
+  }, [rebuild]);
+
+  /**
+   * The same, once the camera has stopped.
+   *
+   * A wheel gesture is dozens of events and a drag is hundreds, and the chunks
+   * under the viewport change on perhaps two of them. The debounce is what
+   * keeps a pan across the wall a handful of requests rather than one per
+   * frame — and the fetch has to happen *after* the movement, because the
+   * chunks worth asking for are the ones the camera ended up over.
+   */
+  const syncTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const syncSoon = useCallback(() => {
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(sync, 200);
+  }, [sync]);
+
+  syncRef.current = syncSoon;
+
+  useEffect(() => {
+    rebuild();
+    void sync();
+    return () => clearTimeout(syncTimer.current);
+  }, [rebuild, sync]);
+
+  /**
+   * And again, on the index's own cadence.
+   *
+   * This is what makes it a wall other people are on: a placement made
+   * elsewhere is invisible here until something asks, and thirty seconds is
+   * what the region index is cached for anyway, so asking faster would only
+   * re-read the same answer.
+   */
+  useEffect(() => {
+    const timer = setInterval(sync, 30_000);
+    return () => clearInterval(timer);
+  }, [sync]);
 
   /**
    * The backing store follows the element, and the context is scaled so that
@@ -243,6 +432,7 @@ export function WallCanvas({
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
+      rectRef.current = { left: rect.left, top: rect.top };
       const dpr = window.devicePixelRatio || 1;
       viewRef.current = { width: rect.width, height: rect.height };
       canvas.width = Math.round(rect.width * dpr);
@@ -254,8 +444,25 @@ export function WallCanvas({
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [draw]);
+
+    /*
+     * A scroll moves the canvas without changing the wall, so nothing here
+     * would otherwise redraw — but the overlay and the arrow are positioned in
+     * viewport coordinates and both are now wrong. Passive: this listens, it
+     * never blocks the scroll it is watching.
+     */
+    const scrolled = () => {
+      const rect = canvas.getBoundingClientRect();
+      rectRef.current = { left: rect.left, top: rect.top };
+      placeSpot();
+    };
+    window.addEventListener("scroll", scrolled, { passive: true, capture: true });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", scrolled, true);
+    };
+  }, [draw, placeSpot]);
 
   /** Wheel, bound by hand: React's `onWheel` is passive and cannot
    * `preventDefault`, so a trackpad pinch would zoom the page instead. */
@@ -264,6 +471,9 @@ export function WallCanvas({
     if (!canvas) return;
 
     const onWheel = (event: WheelEvent) => {
+      // A pinch arrives as ctrl+wheel and means zoom and nothing else. A plain
+      // wheel means "further down the page" unless this wall is the page.
+      if (!event.ctrlKey && !propsRef.current.wheelZooms) return;
       event.preventDefault();
       flightRef.current = null;
       propsRef.current.onCameraMove?.();
@@ -279,6 +489,7 @@ export function WallCanvas({
         event.clientY - rect.top,
       );
       draw();
+      syncRef.current();
     };
 
     canvas.addEventListener("wheel", onWheel, { passive: false });
@@ -324,7 +535,7 @@ export function WallCanvas({
         setSpot(null);
         return;
       }
-      const there = placementAt(chunksRef.current, chunkOf(cell.x, cell.y), cellIndex(cell.x, cell.y));
+      const there = placementAt(chunksOf(), chunkOf(cell.x, cell.y), cellIndex(cell.x, cell.y));
       const next: Spot | null = there
         ? { kind: "who", cell, seed: there.seed, expression: there.expression }
         : held || isPlaceable(cell.x, cell.y, occupied, populatedRef.current)
@@ -332,7 +543,7 @@ export function WallCanvas({
           : null;
       setSpot(next);
     },
-    [occupied],
+    [occupied, chunksOf],
   );
 
   // Both directions: holding a cell shows it, and letting go hands the overlay
@@ -358,32 +569,54 @@ export function WallCanvas({
 
   useEffect(() => {
     onReady?.({
-      flyTo: (cell: Cell) => {
+      flyTo: (cell: Cell, at?: At) => {
+        /*
+         * A floor on the zoom, and a higher one when the flight is framing a
+         * cell for the panel.
+         *
+         * "Find mine" only has to put the blobatar on screen, and arriving at
+         * whatever zoom you were reading at preserves the sense of where it
+         * sits. Placing is the opposite: the cell is the subject of everything
+         * the panel says, and at 0.45 the thing being talked about is 36px of
+         * silhouette. Pulling in is what makes it a blobatar rather than a dot
+         * with an arrow at it.
+         */
+        const zoom = Math.max(cameraRef.current.zoom, at ? 1.4 : 1);
         flightRef.current = {
           from: cameraRef.current,
-          to: { ...cell, zoom: Math.max(cameraRef.current.zoom, 1) },
+          to: at ? framing(viewRef.current, cell, at, zoom) : { ...cell, zoom },
           start: performance.now(),
         };
         draw();
       },
+      zoomBy: (factor: number) => {
+        flightRef.current = null;
+        cameraRef.current = zoomAt(
+          cameraRef.current,
+          viewRef.current,
+          factor,
+          viewRef.current.width / 2,
+          viewRef.current.height / 2,
+        );
+        draw();
+        syncRef.current();
+      },
       place: (cell: Cell, seed: string, expression: string) => {
-        const chunk = chunkOf(cell.x, cell.y);
-        const key = chunkKey(chunk);
-        let body = chunksRef.current.get(key);
-        if (!body) chunksRef.current.set(key, (body = { key, version: 0, cells: [] }));
-        body.cells.push({
+        sourceRef.current.claim(chunkOf(cell.x, cell.y), {
           index: cellIndex(cell.x, cell.y),
           seed,
           expression,
           at: Math.floor(Date.now() / 1000),
         });
-        body.version++;
+        // The one change that is a single cell, so it is applied as one rather
+        // than by walking every chunk in memory again.
         takenRef.current.add(cellKey(cell.x, cell.y));
         populatedRef.current = true;
         draw();
       },
+      sync,
     });
-  }, [draw, onReady]);
+  }, [draw, onReady, sync]);
 
   const pointFrom = (event: React.PointerEvent) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -445,7 +678,11 @@ export function WallCanvas({
         const drag = dragRef.current;
         dragRef.current = null;
         cursor(event.currentTarget, "grab");
-        if (!drag || drag.moved > DRAG_SLOP) return;
+        if (!drag || drag.moved > DRAG_SLOP) {
+          // The wall moved, so what is under it may not be loaded.
+          if (drag) syncRef.current();
+          return;
+        }
 
         const point = pointFrom(event);
         const aimed = cellUnder(cameraRef.current, viewRef.current, point.x, point.y);
@@ -468,7 +705,7 @@ export function WallCanvas({
         };
 
         if (occupied(aimed.x, aimed.y)) {
-          const found = placementAt(chunksRef.current, chunkOf(aimed.x, aimed.y), cellIndex(aimed.x, aimed.y));
+          const found = placementAt(chunksOf(), chunkOf(aimed.x, aimed.y), cellIndex(aimed.x, aimed.y));
           if (found) inspect?.({ ...found, ...aimed }, anchorFor(aimed, false));
           return;
         }
@@ -504,6 +741,23 @@ export function WallCanvas({
       />
 
       {/*
+        The scrim.
+        
+        Between the canvas and the overlay below it, in the DOM and therefore in
+        the stacking order — so the wall dims and the one cell being placed in
+        stays lit, without either of them being drawn twice. Not fully opaque:
+        "you found a nice spot" only means something if the neighbours the spot
+        is next to are still visible.
+      */}
+      <div
+        aria-hidden="true"
+        className={cn(
+          "bg-ground pointer-events-none absolute inset-0 transition-opacity duration-300",
+          dim ? "opacity-75" : "opacity-0",
+        )}
+      />
+
+      {/*
         The live cell. Keyed by its coordinates so moving to the next cell
         remounts it: that is what restarts the pose and re-fires the label's
         entry, where a reused node would sit there already animated.
@@ -520,11 +774,17 @@ export function WallCanvas({
             expression={faceOf(spot.kind === "who" ? spot.expression : draft.expression)}
             animate="always"
             className="h-full w-full"
-            style={spot.kind === "ghost" ? { opacity: 0.45 } : undefined}
+            /* A ghost, but a brighter one while the wall behind it is dimmed:
+               0.45 reads as "not yet real" against a lit wall and as "barely
+               there" against a scrim, and this is the moment the blobatar is
+               supposed to be the only thing on screen. */
+            style={spot.kind === "ghost" ? { opacity: dim ? 0.75 : 0.45 } : undefined}
           />
-          <span className="wall-plate text-ink/50 absolute top-full left-1/2 pt-1 font-mono text-[0.65rem] whitespace-nowrap">
-            {spot.kind === "who" ? spot.seed : draft.seed}
-          </span>
+          {(spot.kind === "who" ? spot.seed : draft.label) && (
+            <span className="wall-plate text-ink/50 absolute top-full left-1/2 pt-1 font-mono text-[0.65rem] whitespace-nowrap">
+              {spot.kind === "who" ? spot.seed : draft.label}
+            </span>
+          )}
         </div>
       )}
     </div>

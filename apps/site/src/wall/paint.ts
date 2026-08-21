@@ -43,6 +43,13 @@ const SPRITE_PX = 96;
  * rebuilt them, each rebuild fired `onload`, and every `onload` asked for
  * another frame. A hundred SVGs rasterised per frame, forever, on an idle wall.
  * The guard below is the real fix — this number only has to be comfortable.
+ *
+ * A 4K viewport at minimum zoom still passes it: about three thousand blobs are
+ * on screen, so the cache runs over budget and eviction correctly refuses to
+ * touch any of them. That is the guard working rather than a leak, and it costs
+ * ~110MB of bitmaps while somebody sits there. The case that removes it is the
+ * overview tile in ADR 0011 — which is the same case, measured: see the
+ * handoff's numbers.
  */
 const SPRITE_BUDGET = 1500;
 
@@ -81,7 +88,21 @@ export function colourOf(seed: string, expression: string): string {
   return colour;
 }
 
-type Sprite = { image: HTMLImageElement; ready: boolean; used: number };
+/**
+ * A rasterised blobatar.
+ *
+ * `bitmap` rather than the `<img>` it was decoded from, and that is a
+ * measured decision rather than a tidy one. The source is an SVG data URI, and
+ * an SVG-backed image is a *description*: drawing it at 36px asks the engine to
+ * rasterise it at 36px, and the next frame at a slightly different zoom asks
+ * again. At 4K and minimum zoom — three thousand blobs a frame — that was 61ms
+ * per frame, which is sixteen frames a second on a wall being dragged.
+ *
+ * `createImageBitmap` freezes it into pixels once. After that a draw is a
+ * scaled blit of a bitmap the engine already has, which is the thing canvases
+ * are fast at. The `<img>` is kept only until the bitmap exists.
+ */
+type Sprite = { bitmap: ImageBitmap | HTMLImageElement | null; ready: boolean; used: number };
 
 const sprites = new Map<string, Sprite>();
 
@@ -106,7 +127,7 @@ export function spriteOf(
   seed: string,
   expression: string,
   onReady: () => void,
-): HTMLImageElement | null {
+): CanvasImageSource | null {
   const key = spriteKey(seed, expression);
   const known = sprites.get(key);
   if (known) {
@@ -116,15 +137,35 @@ export function spriteOf(
     known.used = frame;
     sprites.delete(key);
     sprites.set(key, known);
-    return known.ready ? known.image : null;
+    return known.ready ? known.bitmap : null;
   }
 
   const image = new Image();
-  const sprite: Sprite = { image, ready: false, used: frame };
+  const sprite: Sprite = { bitmap: null, ready: false, used: frame };
   sprites.set(key, sprite);
   image.onload = () => {
-    sprite.ready = true;
-    onReady();
+    // Two steps, because decoding the SVG and freezing it into pixels are two
+    // different things and only the second one makes drawing cheap. The
+    // fallback is the decoded image itself: correct everywhere, and slow only
+    // where `createImageBitmap` does not exist.
+    if (typeof createImageBitmap !== "function") {
+      sprite.bitmap = image;
+      sprite.ready = true;
+      onReady();
+      return;
+    }
+    void createImageBitmap(image).then(
+      bitmap => {
+        sprite.bitmap = bitmap;
+        sprite.ready = true;
+        onReady();
+      },
+      () => {
+        sprite.bitmap = image;
+        sprite.ready = true;
+        onReady();
+      },
+    );
   };
   // A failed decode stays unready forever and keeps drawing as a dot, which is
   // the correct degradation: the wall is still the right shape and the right
@@ -150,7 +191,12 @@ function evict() {
   if (sprites.size <= SPRITE_BUDGET) return;
   for (const [key, sprite] of sprites) {
     if (sprites.size <= SPRITE_BUDGET) break;
-    if (sprite.used !== frame) sprites.delete(key);
+    if (sprite.used === frame) continue;
+    // Closed rather than merely dropped: a bitmap is pixels the engine holds
+    // outside the JS heap, so letting go of the reference is not the same as
+    // giving the memory back.
+    if (sprite.bitmap instanceof ImageBitmap) sprite.bitmap.close();
+    sprites.delete(key);
   }
 }
 
