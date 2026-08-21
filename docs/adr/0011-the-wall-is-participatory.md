@@ -242,6 +242,14 @@ It becomes the backdrop. An empty wall on launch day is strictly worse than the
 render above the generated field, larger and labelled, so what is real is
 visibly the foreground.
 
+> **Reversed once the wall was on the page.** The "larger and labelled" half
+> never shipped — the canvas draws no plate under a placement — so on a
+> cold-start wall the *invented* blobatars were the labelled ones, floating over
+> a lattice of real ones. The backdrop was arguing against the section. The
+> field is gone: component, parallax, and float animation. An empty lattice
+> reads as "be the first", which is true, where sixty made-up names read as a
+> wall that already has people on it, which is not.
+
 ## Moderation is the actual cost
 
 Free text on a public wall on our own domain, in a public MIT repo with 38

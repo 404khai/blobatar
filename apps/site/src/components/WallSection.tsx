@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Blobatar } from "@blobatar/react";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { Field } from "@/components/Field";
 import { WallCanvas, type At, type Inspected, type WallApi } from "@/components/WallCanvas";
 import { WallPanel, anchor } from "@/components/WallPanel";
 import { cn } from "@/lib/utils";
@@ -21,26 +20,18 @@ import { fixtureSource } from "@/wall/fixture";
  * blobatar for it appear, permanently, on a wall other people are on. The
  * generated field asserts; the wall shows. See ADR 0011.
  *
- * The generated field is still here, underneath, and only while the wall is
- * empty: an empty wall on launch day is strictly worse than sixty blobs, and
- * the cold-start window is real.
+ * The field it replaced is gone entirely, backdrop and all. ADR 0011 kept it
+ * for cold start, on the argument that an empty wall on launch day is worse
+ * than sixty blobs; what it actually produced was a section whose decoration
+ * was labelled and whose real placements were not, so the invented blobatars
+ * read as the wall and the wall read as noise over them. An empty lattice says
+ * "be the first" without saying anything untrue.
  */
 
 /** Where this browser remembers its own blobatar, so "Find mine" needs no
  * request on the device that placed it. The cookie behind `/wall/mine` is the
  * slow path, for a second device or a cleared browser. */
 const REMEMBERED = "wall:mine";
-
-/**
- * How many real blobatars it takes before the generated field goes.
- *
- * Not one. ADR 0011 keeps the field as the *backdrop* during cold start —
- * placements render above it, so what is real is visibly the foreground — and
- * dropping it the instant somebody places would leave a section containing one
- * blob and a lot of black. Sixty is what the field itself holds, so the
- * handover happens when the wall can carry the section on its own.
- */
-const COLD_START = 60;
 
 /**
  * Everything a popover needs, including where to put it.
@@ -223,11 +214,6 @@ export function WallSection() {
       className="bg-ground relative h-dvh w-full overflow-clip"
     >
       <div ref={frameRef} className="absolute inset-0">
-        {/*
-          The cold start, underneath, until the wall is bigger than it is.
-        */}
-        <Field faded={size >= COLD_START} />
-
         <WallCanvas
           source={source}
           draft={draft}
@@ -244,21 +230,17 @@ export function WallSection() {
       </div>
 
       {/*
-        The heading, out of the middle.
-
-        It was centred over the field with a radial clearing behind it, which
-        was right for a backdrop and wrong for a surface: the middle of this
-        section is where somebody has to be able to click. What it says changed
-        with it — "Millions of options" was the assertion the generated field
-        was standing in for, and the wall makes the same point by being one.
+        The heading, out of the middle: the middle of this section is where
+        somebody has to be able to click. What it says is an instruction rather
+        than a claim — "Millions of options" was the assertion the field was
+        standing in for, and the wall makes its point by being one.
       */}
       {/*
         A clearing behind the heading, as its own layer.
 
-        The same trick the generated field used and for the same reason: over a
-        field of blobatars a padded box reads as a rectangle laid on top of
-        them, where a fade to nothing makes the wall look like it thins around
-        the words. Anchored to the corner the heading is in rather than to the
+        Over a lattice of blobatars a padded box reads as a rectangle laid on
+        top of them, where a fade to nothing makes the wall look like it thins
+        around the words. Anchored to the corner the heading is in rather than to the
         middle, because that is where the heading went.
 
         The far stop is the ground colour at zero alpha, not the `transparent`
@@ -278,21 +260,19 @@ export function WallSection() {
       <div className="pointer-events-none absolute inset-x-0 top-0 p-6 sm:p-10">
         <h2
           id="wall-heading"
-          className="max-w-[14ch] text-[clamp(2rem,5vw,3.5rem)] leading-[0.95] font-medium tracking-[-0.05em]"
+          className="max-w-[18ch] text-[clamp(2rem,5vw,3.5rem)] leading-[0.95] font-medium tracking-[-0.05em]"
         >
-          Everyone gets
+          Leave your blobatar
           <br />
-          their own
+          on the wall
         </h2>
         <p className="text-muted mt-3 max-w-[34ch] text-sm">
           {/*
-            Two lines, and the switch is the same threshold the field uses,
-            because the sentence has to be *true*: "every blobatar here is
-            somebody's name" is a lie while sixty of them are generated.
+            Every blobatar on this wall is somebody's name — true now that the
+            generated field is gone, and the sentence the section is for.
           */}
-          {size >= COLD_START
-            ? "Every blobatar here is somebody's name, and nobody chose their colour. Click an empty cell to leave yours."
-            : "Type a name and the same blobatar comes out every time. Click an empty cell to leave yours."}
+          Every blobatar here is somebody&apos;s name, and nobody chose their colour. Click an
+          empty cell to leave yours.
         </p>
       </div>
 

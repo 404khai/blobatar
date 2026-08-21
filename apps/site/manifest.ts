@@ -62,10 +62,9 @@ export const PAGES: Page[] = [
     ogTitle: "blobatar",
     /*
      * The hero, the chat, the closing section and the wall's heading — every
-     * word on the page. Not the blobatars: the generated field renders only
-     * after mount, and prerendering it measured *worse* than doing nothing; the
-     * wall itself is a canvas, which prerenders to an empty element by
-     * definition. See the note above `finish` in `build.ts`.
+     * word on the page. Not the blobatars: the wall is a canvas, which
+     * prerenders to an empty element by definition. See the note above `finish`
+     * in `build.ts`.
      */
     prerender: async () => {
       const { createElement } = await import("react");
