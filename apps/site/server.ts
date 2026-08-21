@@ -143,11 +143,61 @@ const wallRoutes = Object.fromEntries(
       // there is no edge, and a cooldown needs *something* to key on.
       const headers = new Headers(request.headers);
       if (!headers.has("CF-Connecting-IP")) headers.set("CF-Connecting-IP", "127.0.0.1");
+
+      if (request.method === "POST") await spendNothing();
+
       const answered = await wall(new Request(request, { headers }), wallEnv);
-      return answered ?? new Response("not the wall", { status: 404 });
+      if (!answered) return new Response("not the wall", { status: 404 });
+      return uncached(answered);
     },
   ]),
 );
+
+/**
+ * The day's quota, forgotten before every write.
+ *
+ * One blob per address per day is the right rule for a public wall and the
+ * wrong one for the person building it: development is a hundred placements an
+ * afternoon, all from `127.0.0.1`, and the second one gets a cooldown that
+ * lasts until tomorrow. Working around it by hand — deleting a row out of the
+ * dev database between attempts — is a step nobody remembers, and forgetting it
+ * looks exactly like a broken write path.
+ *
+ * Cleared rather than skipped, and that distinction is the whole design: the
+ * quota is not a check the router performs, it is a `UNIQUE (ip_hash, day)`
+ * insert inside the placement's own transaction (see `place` in
+ * `worker/wall/db.ts`), so a bypass that only silenced `spentToday` would still
+ * fail on the insert and roll the whole placement back. Emptying the table
+ * leaves every statement in that batch running for real, exactly as deployed.
+ *
+ * It lives here, in the dev server, rather than behind a flag the Worker reads.
+ * A cooldown bypass in shipped code is one misread environment variable away
+ * from being a wall with no rate limit at all, and this file does not deploy.
+ */
+const spendNothing = () => wallEnv.BLOBATAR.prepare("DELETE FROM quota").run();
+
+/**
+ * Cache headers, dropped on the way out.
+ *
+ * The Worker serves chunk bodies at version-keyed URLs with `immutable` and a
+ * year of `max-age`, which is sound in production because a chunk's version
+ * only ever increases — a given URL's body genuinely cannot change.
+ *
+ * A development database breaks that promise on purpose. Clear the wall and
+ * place something new, and chunk `0_0` is back at version 1 with different
+ * contents, so the browser answers `/wall/c/0_0/1` out of its own disk cache
+ * and shows a blobatar that no longer exists — indistinguishable, from the
+ * outside, from the client decoding the wrong seed. That cost an investigation
+ * once already.
+ *
+ * So: nothing this server says is cacheable. The deployed policy is untouched
+ * and still worth testing, which is what `bunx wrangler dev` is for.
+ */
+function uncached(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "no-store");
+  return new Response(response.body, { status: response.status, headers });
+}
 
 const server = serve({
   routes: {

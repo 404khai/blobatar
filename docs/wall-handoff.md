@@ -22,14 +22,20 @@ Branch: `feat/blob-wall`. Running it:
 
 - **`bun run site`** (port 3000, or `PORT`) serves the wall's five endpoints
   itself — the same router the Worker runs, over the same SQL and migrations,
-  against `bun:sqlite` in `.wrangler/state/wall-dev.sqlite`. So the landing page
-  is the real thing in development: real chunks, real cooldown, real refusals.
+  against `bun:sqlite` in `.wrangler/state/blobatar-dev.sqlite`. So the landing
+  page is the real thing in development: real chunks, real refusals.
   `.dev.vars` is read if present and Cloudflare's published test values are used
   if it is not, so a fresh clone works with no setup.
-  - The cooldown is real too, and every request from your machine is one
-    address: the second placement of the day is refused. `rm
-    apps/site/.wrangler/state/wall-dev.sqlite` is the reset — it is a scratch
-    database and nothing but the wall is in it.
+  - **Two things the dev server does that the Worker does not**, both in
+    `server.ts` and neither deployed. It empties the `quota` table before every
+    write, because one blob per address per day is the right rule for a wall and
+    an unusable one for the person building it — cleared rather than skipped, so
+    the placement's own transaction still runs every statement it does in
+    production. And it answers `no-store` on every wall response: chunk bodies
+    are `immutable` for a year at version-keyed URLs, which a database you reset
+    turns into a browser showing blobatars that no longer exist.
+  - `rm apps/site/.wrangler/state/blobatar-dev.sqlite` is the full reset — it is
+    a scratch database and nothing but the wall is in it.
   - Placement needs a network, because the challenge is verified for real
     against Cloudflare with a secret that accepts any token. There is no bypass
     and there should not be one.
