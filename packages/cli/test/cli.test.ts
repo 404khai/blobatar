@@ -1,12 +1,10 @@
 /**
  * The whole flag/output/batch matrix, in-process through the injected process
  * seam (argv, stdin, stdout-TTY-ness, file writes). One end-to-end smoke
- * (`scripts/smoke.mjs`) spawns the built bin under node; param-table
- * correctness (values, ranges, messages) is render-core's suite — what is
- * asserted here is that flags reach that table and its answers reach the user.
+ * (`scripts/smoke.mjs`) spawns the built bin under node. What is asserted here
+ * is that flags reach `src/params.ts` and its answers reach the user.
  */
 import { describe, expect, test } from "bun:test";
-import { IGNORED, KNOWN } from "render-core";
 
 import { PARAM_FLAGS, run, type CliDeps, type CliIO } from "../src/cli";
 
@@ -95,29 +93,38 @@ describe("single blobatar", () => {
     expect(typo.err.join("")).toContain("thinking");
   });
 
-  test("tone speaks the glossary's 0–1, and an exact 1 stays in the last swatch", async () => {
-    // The table clamps just inside the half-open top bucket — see render-core.
+  test("tone speaks the glossary's 0–1, and passes an exact 1 through", async () => {
+    // Not clamped: the swatches are banded with half-open edges, so `--tone 1`
+    // renders what `--tone 0` renders, in argv exactly as in a URL and in a
+    // library call. See CONTEXT.md's Tone entry.
     const c = cli(["alain", "--tone", "1"]);
     expect(await c.run()).toBe(0);
-    expect(text(c.out)).toContain('"tone":0.999999');
+    expect(text(c.out)).toContain('"tone":1');
     // The old 0–100 dialect is gone: 40 is now out of range, loudly.
     const old = cli(["alain", "--tone", "40"]);
     expect(await old.run()).toBe(1);
     expect(old.err.join("")).toContain("tone must be between 0 and 1, got 40");
   });
 
-  test("size clamps like the endpoint clamps, and non-numbers are dropped", async () => {
+  test("size clamps out of range, and rejects what is not a number at all", async () => {
     const big = cli(["alain", "--size", "2048"]);
     expect(await big.run()).toBe(0);
     expect(text(big.out)).toContain('"size":1024');
     const small = cli(["alain", "--size", "4"]);
     expect(await small.run()).toBe(0);
     expect(text(small.out)).toContain('"size":8');
-    // The endpoint ignores an unparseable size rather than erroring; the same
-    // table gives the CLI the same answer.
+    /*
+     * The one place the terminal is stricter than the URL, and deliberately.
+     * The endpoint drops an unparseable size silently because a live Gravatar
+     * URL may carry one and a 400 is a broken image where a clamp is only the
+     * wrong scale. Nothing types `--size abc` on purpose, there is no
+     * compatibility to keep, and rendering at the default instead would be a
+     * bug the caller cannot see — the very thing the endpoint refuses to do
+     * for an unknown *param*.
+     */
     const junk = cli(["alain", "--size", "abc"]);
-    expect(await junk.run()).toBe(0);
-    expect(text(junk.out)).toBe("<svg>alain|g2|{}</svg>");
+    expect(await junk.run()).toBe(1);
+    expect(junk.err.join("")).toContain('size must be a number, got "abc"');
   });
 
   test("hue is a number, not digits — floats fine, bounds enforced", async () => {
@@ -348,21 +355,6 @@ describe("batch", () => {
     expect(err).toContain("UserA");
     expect(err).toContain("usera");
     expect(c.files.size).toBe(0);
-  });
-});
-
-describe("parity with the endpoint", () => {
-  test("every param the table knows is spellable as a flag, minus the URL-only spellings", () => {
-    // The structural guarantee behind "one validation table": a param added to
-    // render-core must surface here as a flag — or be added to URL_ONLY with a
-    // reason — before this suite goes green again. The allowed asymmetries are
-    // Gravatar compatibility, which only a URL carries: the `s` alias for size
-    // and the accepted-and-ignored params.
-    const URL_ONLY = ["s", ...IGNORED];
-    const flags = new Set(Object.values(PARAM_FLAGS));
-    expect(KNOWN.filter((p) => !URL_ONLY.includes(p) && !flags.has(p))).toEqual([]);
-    // And the inverse: no flag spells a param the table does not know.
-    expect([...flags].filter((p) => !KNOWN.includes(p))).toEqual([]);
   });
 });
 

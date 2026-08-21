@@ -13,13 +13,13 @@ import {
   parseOptions,
   type Generation,
   type UrlOptions,
-} from "render-core";
+} from "./params";
 
 /**
- * What a render receives: the URL-spellable options, plus the one option the
- * terminal adds. `normalize` is deliberately not in the shared table — a URL
- * always normalizes, and the flag exists for local, case-sensitive ids — so it
- * joins here, in the transport, after the table has spoken.
+ * What a render receives: the flag-spellable options, plus the one the endpoint
+ * has no version of. `normalize` is not in `params.ts` because a URL always
+ * normalizes and the flag exists for local, case-sensitive ids — so it joins
+ * here, in the transport, after the table has spoken.
  */
 export type RenderOptions = UrlOptions & { normalize?: boolean };
 
@@ -76,9 +76,10 @@ Options:
 `;
 
 /**
- * Flags that carry one of the endpoint's URL params, spelled straight into the
- * shared table. A flag here and a query key there are the same word on
- * purpose: \`--tone 0.4\` and \`?tone=0.4\` must be one sentence.
+ * Flags that carry a render option, spelled the way the endpoint spells the
+ * matching query key. That is a convention held by hand rather than a shared
+ * table, and it is held on purpose: `--tone 0.4` and `?tone=0.4` should be one
+ * sentence, so a param renamed on either surface is renamed on both.
  */
 export const PARAM_FLAGS: Record<string, string> = {
   "--size": "size",
@@ -92,7 +93,7 @@ export const PARAM_FLAGS: Record<string, string> = {
 
 interface Parsed {
   name?: string;
-  raw: URLSearchParams;
+  raw: Map<string, string>;
   noNormalize: boolean;
   out?: string;
   dir?: string;
@@ -105,7 +106,7 @@ interface Parsed {
 /** argv to a plain description of what was asked — no validation beyond shape. */
 function parseArgv(argv: string[]): Parsed | { error: string } {
   const parsed: Parsed = {
-    raw: new URLSearchParams(),
+    raw: new Map(),
     noNormalize: false,
     stdin: false,
     help: false,
@@ -184,8 +185,6 @@ export async function run(io: CliIO, deps: CliDeps): Promise<0 | 1> {
     return 0;
   }
 
-  // The same call the endpoint makes on a query string — same values, same
-  // ranges, same error text, whichever surface the caller typed into.
   let request;
   try {
     request = parseOptions(parsed.raw);

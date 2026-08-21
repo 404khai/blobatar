@@ -1,9 +1,8 @@
 /**
- * Builds the published bin: one plain-JS ESM file with the private
- * `render-core` inlined (it is never published, so it cannot stay an import)
- * and the three real runtime dependencies — `blobatar`, its frozen-v1 alias
- * `blobatar-v1`, and `@resvg/resvg-js` — left external, to be resolved from
- * the consumer's node_modules.
+ * Builds the published bin: one plain-JS ESM file, with the three real runtime
+ * dependencies — `blobatar`, its frozen-v1 alias `blobatar-v1`, and
+ * `@resvg/resvg-js` — left external, to be resolved from the consumer's
+ * node_modules. Everything under `src/` is bundled in.
  */
 import { chmod } from "node:fs/promises";
 

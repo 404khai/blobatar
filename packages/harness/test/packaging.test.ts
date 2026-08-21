@@ -160,6 +160,28 @@ describe("the adapters pin core to one major", () => {
       expect(manifest.version).toBe(core.version);
     });
   }
+
+  /*
+   * The CLI is in lockstep too, and is the one member the adapter reasoning
+   * does not cover: it has semantics of its own — flags, output, exit codes —
+   * and still publishes on core's number, because `fixed` in the changesets
+   * config names `@blobatar/*` as a glob and the scope is the membership. A
+   * rule the glossary states and nothing enforces is the drift this file
+   * exists to refuse, so it is asserted here rather than assumed.
+   *
+   * A real dependency rather than a peer range: the audience runs
+   * `npx @blobatar/cli` with nothing else installed, so an unmet peer is a
+   * broken command. The major is still pinned, since the major is the
+   * generation (ADR-0008).
+   */
+  test(`@blobatar/cli depends on blobatar@${major}.x and publishes core's version`, () => {
+    const manifest = require_("@blobatar/cli/package.json") as {
+      version: string;
+      dependencies?: Record<string, string>;
+    };
+    expect(manifest.dependencies?.blobatar).toBe(`${major}.x`);
+    expect(manifest.version).toBe(core.version);
+  });
 });
 
 /**

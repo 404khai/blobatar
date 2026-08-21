@@ -1,16 +1,16 @@
-# blobatar-cli
+# @blobatar/cli
 
 Deterministic geometric blobatars from any string, in your terminal. No JS
 project required — designers, CI pipelines, shell scripts, database seeds:
 
 ```sh
-npx blobatar-cli alain > alain.svg     # or: bunx blobatar-cli alain
+npx @blobatar/cli alain > alain.svg    # or: bunx @blobatar/cli alain
 ```
 
 Installed globally, it answers to just `blobatar`:
 
 ```sh
-npm i -g blobatar-cli                  # or: bun add -g blobatar-cli
+npm i -g @blobatar/cli                 # or: bun add -g @blobatar/cli
 blobatar alain
 ```
 
