@@ -1,0 +1,7 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "blobatar",
+  "homepage": "https://blobatar.dev",
+  "//include": "The items themselves stay in `apps/site`, next to the site that builds and serves them at blobatar.dev/r/. This file exists only because shadcn's GitHub resolver looks for a `registry.json` at the repository root and nowhere else; `include` paths are resolved relative to the file that declares them, so `registry/blobatar.tsx` still means `apps/site/registry/blobatar.tsx` and nothing had to move.",
+  "include": ["apps/site/registry.json"]
+}

@@ -98,6 +98,15 @@ npx shadcn@latest registry add @blobatar=https://blobatar.dev/r/{name}.json
 npx shadcn@latest add @blobatar/avatar
 ```
 
+Or straight from this repository, without registering anything:
+
+```sh
+npx shadcn@latest add Alain00/blobatar/avatar
+```
+
+That reads `main`, so it is the current composition rather than the last
+released one. Both forms copy the same file.
+
 ```tsx
 import { Blobatar } from "@/components/ui/blobatar";
 
