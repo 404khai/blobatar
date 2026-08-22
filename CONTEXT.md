@@ -292,6 +292,21 @@ The public landing page (`apps/site`). Static, dark-only, editorial. Also the
 deployable that puts the endpoint on blobatar.dev.
 _Avoid_: demo, docs.
 
+**Share URL**:
+The **Site**'s own address carrying the hero's controls — `name`, `background`,
+`hue`, `expression`, `shape`. The third surface that states a blobatar's options
+as text, and it spells them the way the **Endpoint** and the **CLI** do, which
+is the way the props do: `?expression=happy` because the prop is `expression`,
+never `?pose=`, since a **pose** is what an expression resolves to and not
+something a caller picks.
+`shape` is the one key with no counterpart on the other two, and it names an
+**override** rather than an option — there is no shape option to name.
+What the URL carries is what identifies a blobatar and nothing about how the
+page was being read, so the framework and package manager the **snippet** is
+written in stay out of it.
+_Avoid_: permalink, deep link, state. The first two describe the addressing; the
+last is what it is deliberately not — a page's mode is not in it.
+
 **Endpoint**:
 The HTTP surface (`apps/api`) — `GET /avatar/<name>` — and the standalone Worker
 serving it, which anyone can deploy to their own Cloudflare account. `apps/site`
@@ -339,15 +354,16 @@ The terminal surface (`packages/cli`, published as `@blobatar/cli`) —
 `blobatar <name>` with flags. It renders locally through the library, never
 through the endpoint, and pins generations the same way the endpoint does
 (`--gen`, both majors bundled).
-It and the **Endpoint** are the two surfaces that take a blobatar's options as
-text, and they hold one vocabulary deliberately: a param carries the same name,
-the same range and the same meaning in `--tone 0.4` as in `?tone=0.4`. That is
+It, the **Endpoint** and the **Share URL** are the three surfaces that take a
+blobatar's options as text, and they hold one vocabulary deliberately: a param
+carries the same name, the same range and the same meaning in `--tone 0.4` as
+in `?tone=0.4`. That is
 a convention kept by hand, not a shared module — each surface owns its own
 table, because a query string and argv are different transports and the
 endpoint's table is shaped by things a terminal has no version of: Gravatar's
 `s` alias, its accepted-and-ignored spellings, a name parsed out of a path.
 The cost is the thing to know: a param added to one does not appear in the
-other on its own. Renaming a flag means renaming a query key in the same
+others on its own. Renaming a flag means renaming a query key in the same
 change.
 `--no-normalize` is the one flag with no query spelling at all — a URL always
 normalizes, and the flag exists for local, case-sensitive ids.
