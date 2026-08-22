@@ -24,17 +24,36 @@ export const CELL = 80;
  * quarter you want, in far enough to read a caption. Beyond either end the wall
  * stops being a wall — a field of dots, or one blob and nothing else.
  *
- * The floor is a cost decision as much as a legibility one, and it was measured
- * rather than picked. At 0.35 a 4K viewport covers 137 cells across, which is
- * 24 chunks in the worst alignment — two dozen requests, each carrying seeds
- * and names, to draw 28px blobs whose captions cannot be read anyway. 0.45
- * costs 15 there and 6 on a laptop, for 36px blobs and an overview only a fifth
- * narrower. The floor drops once the overview tile lands — a drawing made of
- * occupancy is only legible from far out, so zooming out is the payoff rather
- * than an edge case, and chunks are the wrong thing to serve there. See ADR
- * 0011.
+ * The floor was 0.45, and it was a cost decision that has twice stopped being
+ * the right one.
+ *
+ * The original argument counted requests: a 4K viewport at 0.35 covers 137
+ * cells, two dozen chunks in the worst alignment, and two dozen bodies full of
+ * seeds and names to draw blobs whose captions cannot be read anyway. That
+ * argument was about where those requests landed, and they landed in D1 once
+ * per client, because nothing upstream caches a Response a Worker builds. They
+ * land in the edge cache now (`cached`, in `worker/wall/index.ts`), and a chunk
+ * nobody has ever written to is not asked for at all — so the worst alignment
+ * is a bound on a full wall rather than a bill for an empty one.
+ *
+ * The second argument was legibility, and it put the floor at `SPRITE_ZOOM` —
+ * 0.3, the last zoom that draws faces rather than colours. That was wrong about
+ * what the far end is *for*. A field of flat discs is a poor way to look at
+ * ninety blobatars and the only way to look at five thousand: the dots stop
+ * being failed faces and become the drawing. Which is what ADR 0011 wants an
+ * overview tile for, and what the sprite path already renders below
+ * `SPRITE_ZOOM` without one.
+ *
+ * So: 0.1. Eight pixels a cell, twenty times the wall on screen, and the LOD
+ * that was written as a fallback doing the job it turns out to be good at.
+ *
+ * The thing that bounds this is `SPRITE_BUDGET` in `paint.ts`, and the risk is
+ * not where it looks: the expensive zooms are the ones just *above*
+ * `SPRITE_ZOOM`, where thousands of blobs are on screen and every one of them
+ * still wants a sprite. Below it they are rectangles. Measured against the
+ * five-thousand fixture rather than the wall we have — see the handoff.
  */
-export const MIN_ZOOM = 0.45;
+export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 2;
 
 /** Where the camera looks, in cell space, and how close. `x`/`y` are the cell
@@ -45,6 +64,7 @@ export type Camera = { x: number; y: number; zoom: number };
 export type Viewport = { width: number; height: number };
 
 export const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+
 
 /** Cell space to screen space. The half-viewport is the camera's centre, so the
  * camera's own cell always lands in the middle whatever the zoom. */
@@ -156,6 +176,7 @@ const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 
  * instead.
  */
 export const FLIGHT_MS = 700;
+
 
 /**
  * The camera partway through a flight, `t` from 0 to 1.

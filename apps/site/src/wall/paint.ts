@@ -4,7 +4,6 @@ import type { ChunkBody } from "./chunk";
 import {
   CELL,
   MAX_ZOOM,
-  MIN_ZOOM,
   cellToScreen,
   edgeMarker,
   visibleBox,
@@ -65,15 +64,33 @@ const SPRITE_BUDGET = 1500;
 /**
  * Below this zoom, blobatars are drawn as their colour and nothing else.
  *
- * Deliberately below `MIN_ZOOM`, which is to say: never, for now. The first
- * cut put it at 0.7 on the theory that a 48px blob is four pixels of eye and
- * not worth fetching — which was wrong about what people are looking at. A
- * face at 48px still reads as a face, and a wall of flat discs reads as a
+ * Reachable now, and the reason the floor could move at all. It sat below
+ * `MIN_ZOOM` — never, for practical purposes — until the floor went to 0.1, and
+ * the far third of the range is now this path rather than the sprite one. That
+ * turns out to be what makes the far end fast as well as legible: five thousand
+ * `arc` fills cost a fraction of five thousand `drawImage`s against a sprite
+ * cache that cannot hold them, and the measured worst frame on the whole range
+ * is not the floor but the zooms just above this line.
+ *
+ * The first cut put this at 0.7 on the theory that a 48px blob is four pixels
+ * of eye and not worth fetching — which was wrong about what people are looking
+ * at. A face at 48px still reads as a face, and a wall of flat discs reads as a
  * palette swatch; the crowd stops being made of anybody. Dots stay in the file
  * as the not-yet-decoded fallback, and the zoom that earns them is the one the
  * overview tile will serve, much further out than anything reachable today.
  */
 const SPRITE_ZOOM = 0.3;
+
+/**
+ * Where the grid has finished fading out.
+ *
+ * The old floor, which is not sentimentality: 0.45 is where a cell is 36px, and
+ * 36px is about where a lattice stops reading as a set of places to put things
+ * and starts reading as a weave. The fade runs from here down to `SPRITE_ZOOM`
+ * so that the grid leaves before the faces do, rather than both vanishing on
+ * the same frame.
+ */
+const LATTICE_FADE = 0.45;
 
 const spriteKey = (seed: string, expression: string) => `${seed}|${expression}`;
 
@@ -265,8 +282,16 @@ export type Scene = {
  * - **Underneath.** Drawn before the placements, so a line never crosses a
  *   face. The blobs sit *in* the grid rather than on top of a graph.
  *
- * Cost is a couple of dozen strokes a frame at the widest zoom — the loop is
- * bounded by the viewport, not by the wall, and the wall is unbounded.
+ * - **Gone, past a point.** The loop is bounded by the viewport rather than by
+ *   the wall, which made it free while the floor was 0.45 — forty cells across
+ *   a laptop, sixty dashed lines, a couple of dozen strokes as this comment
+ *   used to say flatly. At a floor of 0.1 the same loop draws 269 lines at a
+ *   six-pixel dash period, which is about 130,000 dash segments a frame and,
+ *   on a retina buffer, more than half the frame's budget. It is also the exact
+ *   texture the bullet above is against: at eight pixels a cell the guide *is*
+ *   the moiré. So it fades out over `LATTICE_FADE` and stops at `SPRITE_ZOOM`,
+ *   the same threshold that turns faces into dots — below it there is nothing
+ *   to align to anyway, because nothing down there is a cell you can click.
  */
 function lattice(
   ctx: CanvasRenderingContext2D,
@@ -274,9 +299,18 @@ function lattice(
   view: Viewport,
   box: { x0: number; y0: number; x1: number; y1: number },
 ) {
-  const t = (camera.zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
+  // Out over the fade band, and absent below it. Returning early rather than
+  // stroking at zero alpha: an invisible grid costs exactly as much to raster
+  // as a visible one, which is the whole reason this is here.
+  const fade = Math.min(1, (camera.zoom - SPRITE_ZOOM) / (LATTICE_FADE - SPRITE_ZOOM));
+  if (fade <= 0) return;
+
+  // Ramped from where the grid actually starts rather than from `MIN_ZOOM`:
+  // the floor is far below anything that draws a line now, and anchoring to it
+  // would spend most of the range on zooms this function returns early from.
+  const t = (camera.zoom - SPRITE_ZOOM) / (MAX_ZOOM - SPRITE_ZOOM);
   ctx.save();
-  ctx.strokeStyle = `rgba(255,255,255,${(0.03 + 0.05 * t).toFixed(3)})`;
+  ctx.strokeStyle = `rgba(255,255,255,${((0.03 + 0.05 * t) * fade).toFixed(3)})`;
   ctx.lineWidth = 1;
   // Dashes scale with the cell, so the rhythm stays the same fraction of a cell
   // at every zoom rather than getting denser as you pull back — which is the

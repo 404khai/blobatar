@@ -126,15 +126,33 @@ describe("what to fetch", () => {
   });
 
   /**
-   * ...and yet still not many more chunks, which is the whole reason the chunk
-   * is 32 cells. A 51-cell-wide view of a 32-cell lattice lands on three chunks
-   * across at worst. If this ceiling ever moves, the cost argument in ADR 0011
-   * has moved with it.
+   * The ceiling, and it has moved.
+   *
+   * This asserted nine, and nine was the point: a 51-cell view of a 32-cell
+   * lattice lands on three chunks across, which is the whole reason a chunk is
+   * 32 cells. That held while the floor was 0.45. At 0.1 the same viewport is
+   * 180 cells across and the worst alignment is 28 chunks — 160 on a 4K screen.
+   *
+   * Changed rather than deleted, because it is still the tripwire ADR 0011
+   * wants; what moved is what it is a tripwire *for*. Three things pay the
+   * difference, and each is a thing that can stop being true:
+   *
+   * - A chunk nobody has written to is never requested. The client reads the
+   *   region index, sees no entry, and draws nothing (`source.ts`). This is a
+   *   count of chunks a viewport *covers*, not of requests it makes: today's
+   *   wall is 92 blobatars in four chunks, so the far end costs four.
+   * - The ones it does ask for are edge-cached now, so the twenty-eighth is not
+   *   twenty-eight D1 reads.
+   * - Nothing down there needs a name or a seed, only a colour — which is what
+   *   makes the overview tile in ADR 0011 the actual answer if a wall ever gets
+   *   dense enough for this to bite.
+   *
+   * If this number climbs again, it is the third bullet that has come due.
    */
-  test("even zoomed all the way out a viewport is under ten requests", () => {
+  test("zoomed all the way out, a viewport covers a bounded number of chunks", () => {
     const wide: Camera = { x: 0, y: 0, zoom: MIN_ZOOM };
     for (let x = 0; x < 32; x++) {
-      expect(chunksInView({ ...wide, x, y: x }, VIEW).length).toBeLessThanOrEqual(9);
+      expect(chunksInView({ ...wide, x, y: x }, VIEW).length).toBeLessThanOrEqual(28);
     }
   });
 
