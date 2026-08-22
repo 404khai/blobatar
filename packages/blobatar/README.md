@@ -57,6 +57,32 @@ import { blobatarUri } from "blobatar/uri";
 el.style.backgroundImage = `url("${blobatarUri(user.id)}")`;
 ```
 
+## When to use it
+
+Reach for blobatar when something needs a picture of somebody it has no picture
+of: a user who has not uploaded an avatar, a commit author, a bot, a team, a
+repository, a seat in a list. It turns any string into a stable geometric face,
+so the same handle is the same creature everywhere it appears — with nothing
+stored, no upload, and no request if you render in-process.
+
+- **In an app you control** — install the package for your framework and render
+  from the name you already have. No network, no cache to warm, ~4.4 KB.
+- **Where an avatar has to be a URL** — an `<img src>`, an email, a Slack or
+  GitHub profile field, an OG image, anything rendered by software you do not
+  control: call `https://blobatar.dev/avatar/<name>`. No key, no account. See
+  [the developer page](https://blobatar.dev/docs) and
+  [the OpenAPI spec](https://blobatar.dev/openapi.json).
+- **Replacing Gravatar** — swap the host and keep the rest of the URL. Its
+  parameters are accepted, and every string renders, so nobody is left without
+  an avatar.
+- **As a deterministic placeholder in tests or fixtures** — the same seed is
+  the same markup, byte for byte, forever within a major version.
+
+It is the wrong tool for two jobs. It is not an identicon-compatible drop-in:
+the shapes are its own, so switching from another generator changes every
+existing avatar. And it is not an image host — there is no upload and nothing
+you send is kept.
+
 ## Shapes
 
 A soft body and two capsule eyes, drawn from ten silhouettes: `round`,

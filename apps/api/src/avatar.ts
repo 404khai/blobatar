@@ -1,5 +1,6 @@
 import { blobatar as blobatar2 } from "blobatar/blob";
 import { blobatar as blobatar1 } from "blobatar-v1/blob";
+import { errorBody, wantsJson, type ErrorCode } from "./errors";
 import {
   BadRequest,
   parseName,
@@ -194,6 +195,73 @@ const text = (body: string, status: number) =>
   });
 
 /**
+ * An error, in whichever of the two dialects the caller asked for.
+ *
+ * One function for all three of them — 400, 404, 405 — because the thing that
+ * varies between an error a person reads and an error a program reads is the
+ * serialization, not the error. Text is what has always been served and stays
+ * the default; `Accept: application/json` gets the envelope in `errors.ts`.
+ *
+ * `body` overrides the text form for the two cases where the message is not
+ * what a human wants to read on its own: a 404 is the whole usage text, and a
+ * 405 is one line with no parameter list, since the method is the problem.
+ */
+function fail(
+  request: Request,
+  {
+    status,
+    code,
+    message,
+    body = `${message}\n\n${USAGE}`,
+    headers = {},
+  }: {
+    status: number;
+    code: ErrorCode;
+    message: string;
+    body?: string;
+    headers?: Record<string, string>;
+  },
+): Response {
+  const json = wantsJson(request);
+  return new Response(
+    json ? `${JSON.stringify(errorBody(status, code, message), null, 2)}\n` : body,
+    {
+      status,
+      headers: {
+        "content-type": json
+          ? "application/json; charset=utf-8"
+          : "text/plain; charset=utf-8",
+        /*
+         * Two bodies at one URL, chosen by a request header — so every cache
+         * between here and the caller has to key on that header or serve one
+         * dialect to the other's client. `no-store` makes that theoretical
+         * today; `Vary` is what keeps it theoretical if the policy ever moves.
+         */
+        vary: "accept",
+        "cache-control": "no-store",
+        ...SECURITY,
+        ...headers,
+      },
+    },
+  );
+}
+
+/**
+ * Every path this deployment does not answer.
+ *
+ * Exported for `apps/api`, which has no site behind it: there, everything off
+ * the avatar path lands here. On blobatar.dev the Worker never sees those
+ * paths at all — the asset pipeline does.
+ */
+export const notFound = (request: Request) =>
+  fail(request, {
+    status: 404,
+    code: "not_found",
+    message: `no route for ${new URL(request.url).pathname}`,
+    body: USAGE,
+  });
+
+/**
  * The help text, as a response.
  *
  * Exported because a standalone deploy has no site behind it. `apps/api` serves
@@ -220,9 +288,12 @@ export const usage = (status = 200) => text(USAGE, status);
  */
 export function avatar(request: Request): Response {
   if (request.method !== "GET" && request.method !== "HEAD") {
-    return new Response(`${request.method} not allowed`, {
+    return fail(request, {
       status: 405,
-      headers: { allow: "GET, HEAD", "content-type": "text/plain; charset=utf-8", ...SECURITY },
+      code: "method_not_allowed",
+      message: `${request.method} not allowed`,
+      body: `${request.method} not allowed`,
+      headers: { allow: "GET, HEAD" },
     });
   }
 
@@ -236,7 +307,9 @@ export function avatar(request: Request): Response {
     const { generation, options } = parseOptions(url.searchParams);
     body = RENDERERS[generation](parseName(url.pathname, PREFIX), options);
   } catch (e) {
-    if (e instanceof BadRequest) return text(`${e.message}\n\n${USAGE}`, 400);
+    if (e instanceof BadRequest) {
+      return fail(request, { status: 400, code: e.code, message: e.message });
+    }
     throw e;
   }
 

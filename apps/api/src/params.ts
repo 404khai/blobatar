@@ -1,3 +1,4 @@
+import type { ErrorCode } from "./errors";
 import type { BlobatarOptions } from "blobatar/blob";
 import type { Expression } from "blobatar/expression";
 import {
@@ -5,8 +6,23 @@ import {
   unsure, wink,
 } from "blobatar/expression";
 
-/** A caller error, carrying the text served as the 400 body. */
-export class BadRequest extends Error {}
+/**
+ * A caller error, carrying the text served as the 400 body and a stable code.
+ *
+ * The code is what an agent branches on. The message is written for a person
+ * reading a 400 in a terminal and says what was wrong with *this* request —
+ * which value, and what was expected — so it changes whenever the message
+ * would; the code does not, which is the whole point of having both. See
+ * `errors.ts` for the envelope they come out in.
+ */
+export class BadRequest extends Error {
+  constructor(
+    message: string,
+    readonly code: ErrorCode = "bad_request",
+  ) {
+    super(message);
+  }
+}
 
 /**
  * The whole roster, by name.
@@ -17,7 +33,7 @@ export class BadRequest extends Error {}
  * gets made here — once, explicitly, rather than by indexing the namespace,
  * which would also expose `poseVars` and `bakePose` as if they were poses.
  */
-const EXPRESSIONS: Record<string, Expression> = {
+export const EXPRESSIONS: Record<string, Expression> = {
   idle, happy, sad, mad, surprised, wink, sleepy, smug, unsure, scared, love, shy, sick,
   thinking,
 };
@@ -35,7 +51,7 @@ const EXPRESSIONS: Record<string, Expression> = {
  */
 export type Generation = 1 | 2;
 
-const GENERATIONS: Record<string, Generation> = {
+export const GENERATIONS: Record<string, Generation> = {
   1: 1,
   2: 2,
 };
@@ -68,7 +84,7 @@ export interface RenderRequest {
  * `none` rather than `false` because a query string has no booleans, and
  * `background=false` reads like a mistake in a URL a human is writing by hand.
  */
-const BACKGROUNDS: Record<string, UrlOptions["background"]> = {
+export const BACKGROUNDS: Record<string, UrlOptions["background"]> = {
   none: false,
   square: "square",
   circle: "circle",
@@ -83,7 +99,7 @@ const BACKGROUNDS: Record<string, UrlOptions["background"]> = {
 export const MAX_NAME = 256;
 
 /** `title` lands in the accessible name, where a paragraph is already wrong. */
-const MAX_TITLE = 128;
+export const MAX_TITLE = 128;
 
 /**
  * The markup is byte-identical at every size — `size` only emits `width` and
@@ -107,18 +123,20 @@ export const MAX_SIZE = 1024;
  * nobody documents is a typo, and `?expresion=happy` rendering a perfectly
  * valid blobatar wearing the wrong face is a bug the caller cannot see.
  */
-const IGNORED = ["d", "default", "f", "forcedefault", "r", "rating"];
+export const IGNORED = ["d", "default", "f", "forcedefault", "r", "rating"];
 
-const KNOWN = ["s", "size", "background", "hue", "tone", "expression", "title", "gen", ...IGNORED];
+export const KNOWN = ["s", "size", "background", "hue", "tone", "expression", "title", "gen", ...IGNORED];
 
 function number(raw: string, key: string, min: number, max: number): number {
   const n = Number(raw);
   // `Number("")` is 0 and `Number(" 12 ")` is 12, neither of which anyone meant
   // to write. Checking the parse this way also rejects `NaN` and both infinities.
   if (raw.trim() === "" || !Number.isFinite(n)) {
-    throw new BadRequest(`${key} must be a number, got "${raw}"`);
+    throw new BadRequest(`${key} must be a number, got "${raw}"`, "invalid_number");
   }
-  if (n < min || n > max) throw new BadRequest(`${key} must be between ${min} and ${max}, got ${n}`);
+  if (n < min || n > max) {
+    throw new BadRequest(`${key} must be between ${min} and ${max}, got ${n}`, "out_of_range");
+  }
   return n;
 }
 
@@ -128,7 +146,10 @@ function oneOf<T>(raw: string, key: string, table: Record<string, T>): T {
   // `in` truthily for `__proto__` and `constructor` — neither of which is an
   // entry, and both of which would flow downstream as one.
   if (!Object.hasOwn(table, raw)) {
-    throw new BadRequest(`unknown ${key} "${raw}" — expected one of ${Object.keys(table).join(", ")}`);
+    throw new BadRequest(
+      `unknown ${key} "${raw}" — expected one of ${Object.keys(table).join(", ")}`,
+      "unknown_value",
+    );
   }
   return table[raw]!;
 }
@@ -150,7 +171,10 @@ function oneOf<T>(raw: string, key: string, table: Record<string, T>): T {
 export function parseOptions(params: URLSearchParams): RenderRequest {
   for (const key of params.keys()) {
     if (!KNOWN.includes(key)) {
-      throw new BadRequest(`unknown parameter "${key}" — expected one of ${KNOWN.join(", ")}`);
+      throw new BadRequest(
+        `unknown parameter "${key}" — expected one of ${KNOWN.join(", ")}`,
+        "unknown_parameter",
+      );
     }
   }
 
@@ -193,7 +217,10 @@ export function parseOptions(params: URLSearchParams): RenderRequest {
   if (expression !== null) opts.expression = oneOf(expression, "expression", EXPRESSIONS);
   if (title !== null) {
     if (title.length > MAX_TITLE) {
-      throw new BadRequest(`title must be ${MAX_TITLE} characters or fewer, got ${title.length}`);
+      throw new BadRequest(
+        `title must be ${MAX_TITLE} characters or fewer, got ${title.length}`,
+        "title_too_long",
+      );
     }
     opts.title = title;
   }
@@ -225,11 +252,14 @@ const EXTENSIONS = [".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp"];
 export function parseName(pathname: string, prefix: string): string {
   const raw = pathname.slice(prefix.length);
   if (raw.includes("/")) {
-    throw new BadRequest(`expected ${prefix}<name> — a name containing a slash must be percent-encoded as %2F`);
+    throw new BadRequest(
+      `expected ${prefix}<name> — a name containing a slash must be percent-encoded as %2F`,
+      "name_has_slash",
+    );
   }
   const ext = EXTENSIONS.find(e => raw.toLowerCase().endsWith(e));
   const encoded = ext ? raw.slice(0, -ext.length) : raw;
-  if (encoded === "") throw new BadRequest("name is empty");
+  if (encoded === "") throw new BadRequest("name is empty", "name_empty");
 
   let name: string;
   try {
@@ -237,13 +267,16 @@ export function parseName(pathname: string, prefix: string): string {
   } catch {
     // `decodeURIComponent("%")` throws URIError. Reported as the caller error
     // it is, rather than escaping as a 500.
-    throw new BadRequest("name is not valid percent-encoding");
+    throw new BadRequest("name is not valid percent-encoding", "name_encoding");
   }
 
   // Measured after decoding, so the cap is on the name rather than on how
   // verbosely it was spelled: an emoji-heavy name triples in length encoded.
   if (name.length > MAX_NAME) {
-    throw new BadRequest(`name must be ${MAX_NAME} characters or fewer, got ${name.length}`);
+    throw new BadRequest(
+      `name must be ${MAX_NAME} characters or fewer, got ${name.length}`,
+      "name_too_long",
+    );
   }
   return name;
 }

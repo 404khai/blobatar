@@ -13,6 +13,7 @@
  * The output is gitignored; `apps/site/*.html` is not a file you edit.
  */
 import { PAGES, type Page } from "./manifest";
+import { absolute } from "./origin";
 
 /** Attribute-safe. Everything interpolated below lands inside `content="…"`. */
 const attr = (value: string) =>
@@ -27,9 +28,8 @@ const attr = (value: string) =>
  * thing less credibly. One image for the whole site for the same reason: the
  * pages are one product.
  *
- * The root-relative URLs here are rewritten to absolute ones at build time from
- * the deploy origin — see `build.ts`. Crawlers will not resolve a relative one
- * against the page they found it on.
+ * Stated root-relative and made absolute at the tag, from `origin.ts`.
+ * Crawlers will not resolve a relative one against the page they found it on.
  */
 const OG_IMAGE = "/og.png";
 const OG_IMAGE_ALT =
@@ -88,7 +88,51 @@ const FONTS = `<style>
       }
     </style>`;
 
-function render(page: Page): string {
+/**
+ * The page's JSON-LD, if it declares any.
+ *
+ * `<` is escaped rather than the string being trusted: a `</script>` inside a
+ * JSON string ends the block early in an HTML parser, which is the one way a
+ * data island becomes markup. Nothing in the manifest contains one today, and
+ * that is precisely the kind of thing that stops being true later.
+ *
+ * Written as one `application/ld+json` block per node rather than as an array
+ * in a single block. Both are valid and consumers accept either; separate
+ * blocks mean a page can add an identity without reformatting the one it has.
+ */
+/**
+ * How this page wants to be indexed: a canonical, or a refusal.
+ *
+ * The two are exclusive on purpose. A canonical says "of the several URLs that
+ * reach this page, here is the one that is the entity" — the site answers on
+ * two hostnames (`www` redirects to the apex) and `auto-trailing-slash` means
+ * `/editor` and `/editor/` both resolve, so every page here has more than one
+ * spelling and exactly one of them should be the one that counts.
+ *
+ * A page the manifest marks unindexable is making the opposite claim, and
+ * saying both at once is incoherent — a canonical is an instruction to index
+ * *this* URL. So those pages get `noindex` and no canonical. There are two:
+ * the wall preview, which renders fixture data, and the 404 document, which is
+ * a page every wrong URL resolves to and none of them should be indexed as.
+ */
+function indexing(page: Page): string {
+  return page.indexable === false
+    ? '<meta name="robots" content="noindex, follow" />'
+    : `<link rel="canonical" href="${attr(absolute(page.route))}" />`;
+}
+
+function schema(page: Page): string {
+  return (page.schema ?? [])
+    .map(
+      node =>
+        `\n    <script type="application/ld+json">${JSON.stringify(node).replace(/</g, "\\u003c")}</script>`,
+    )
+    .join("");
+}
+
+/** One page's document. Exported for `document.test.ts`, which asserts on the
+ * head rather than on a built artifact — every fact it checks is decided here. */
+export function render(page: Page): string {
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -108,22 +152,23 @@ function render(page: Page): string {
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <title>${attr(page.title)}</title>
     <meta name="description" content="${attr(page.description)}" />
+    ${indexing(page)}
 
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="${attr(page.route)}" />
+    <meta property="og:url" content="${attr(absolute(page.route))}" />
     <meta property="og:title" content="${attr(page.ogTitle)}" />
     <meta
       property="og:description"
       content="${attr(page.ogDescription ?? page.description)}"
     />
-    <meta property="og:image" content="${OG_IMAGE}" />
+    <meta property="og:image" content="${attr(absolute(OG_IMAGE))}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="${attr(OG_IMAGE_ALT)}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:creator" content="@alain_0012" />
 
-    ${FONTS}
+    ${FONTS}${schema(page)}
   </head>
   <body>
     <div id="root"></div>

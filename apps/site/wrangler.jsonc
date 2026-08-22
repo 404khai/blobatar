@@ -19,15 +19,22 @@
    * `auto-trailing-slash` is what `cleanUrls` was doing on Vercel — `/editor`
    * resolves to `editor.html`, and a link somebody already shared keeps working.
    *
-   * `not_found_handling` is left at its default 404 rather than made an SPA
-   * fallback. The site is two real documents, not one client-routed app; the
-   * dev server's `"/*": index` catch-all is a convenience that production never
-   * had, and adopting it here would turn every typo'd URL into a 200.
+   * `not_found_handling` is `404-page`, not an SPA fallback, and the difference
+   * is the status code. A fallback would answer every typo'd URL with the
+   * landing page and a 200, which tells a crawler that every path on this
+   * domain exists; `404-page` serves `dist/404.html` — generated from the
+   * manifest like every other document — with a real 404. It was left at the
+   * default before that, which was the right status and an empty body: correct
+   * to a browser, a dead end to anything reading this site programmatically.
+   *
+   * The dev server's `"/*": index` catch-all remains a convenience production
+   * does not have.
    */
 	"assets": {
 		"directory": "./dist",
 		"binding": "ASSETS",
 		"html_handling": "auto-trailing-slash",
+		"not_found_handling": "404-page",
 		/*
      * `/wall/*` joins `/avatar/*` here, and that is a deliberate spend rather
      * than a widening by accident: the wall puts a fetch in the second section

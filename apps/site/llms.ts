@@ -13,6 +13,8 @@
  * minus the parts a consumer cannot act on.
  */
 import { dirname, join } from "node:path";
+import { PAGES } from "./manifest";
+import { absolute } from "./origin";
 
 const REPO = "https://github.com/Alain00/blobatar";
 
@@ -26,6 +28,35 @@ const README = join(
 );
 
 export const LLMS_PATH = new URL("./public/llms.txt", import.meta.url).pathname;
+
+/**
+ * The rest of this domain, in the format llms.txt asks for.
+ *
+ * The README describes the package and stops there — correctly, since it ships
+ * inside the package and cannot know what is deployed beside it. Everything a
+ * reader of *this file* is missing is a URL on this site: where the endpoint is
+ * documented, where its machine-readable description is, who to contact, and
+ * what the one part of the site that stores anything stores.
+ *
+ * Built from `manifest.ts` rather than typed out, so a page added tomorrow is
+ * listed here without anybody remembering. `/` is skipped — a reader who has
+ * this file has already been to the domain — and so is anything the manifest
+ * marks unindexable.
+ */
+function links(): string {
+  const pages = PAGES.filter(page => page.indexable !== false && page.route !== "/").map(
+    page => `- [${page.ogTitle}](${absolute(page.route)}): ${page.description}`,
+  );
+
+  return [
+    "## On blobatar.dev",
+    "",
+    ...pages,
+    `- [OpenAPI spec](${absolute("/openapi.json")}): the avatar endpoint as OpenAPI 3.1 — every parameter, its accepted values, and the error codes. Generated from the endpoint's own parser.`,
+    `- [Sitemap](${absolute("/sitemap.xml")}): every indexable page here.`,
+    "",
+  ].join("\n");
+}
 
 export async function writeLlmsTxt() {
   const readme = await Bun.file(README).text();
@@ -54,5 +85,5 @@ export async function writeLlmsTxt() {
       `](${REPO}/blob/main/packages/blobatar/$1)`,
     );
 
-  await Bun.write(LLMS_PATH, text);
+  await Bun.write(LLMS_PATH, `${text.trimEnd()}\n\n${links()}`);
 }

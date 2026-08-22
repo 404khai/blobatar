@@ -14,7 +14,10 @@ import { renderToString } from "react-dom/server";
 import { writePages } from "./document";
 import { writeFavicon } from "./favicon";
 import { writeLlmsTxt } from "./llms";
-import { PAGES } from "./manifest";
+import { ALIASES, PAGES } from "./manifest";
+import { writeOpenApi } from "./openapi";
+import { ORIGIN } from "./origin";
+import { writeSitemap } from "./sitemap";
 
 const OUT = "dist";
 
@@ -46,17 +49,19 @@ const UNCOMPILED = ["@theme", "@apply", "@tailwind"];
 await rm(OUT, { recursive: true, force: true });
 
 /*
- * The three generated inputs, all before the bundle.
+ * The five generated inputs, all before the bundle.
  *
  * The favicon has to exist for a document to link it, so the bundler can hash
  * it into `dist` and rewrite the href; the documents themselves are what the
- * bundler is pointed at below; `llms.txt` lands in `public/`, which is copied
- * wholesale further down. None of the three is in the repo, so a fresh clone
- * builds only because all three run here.
+ * bundler is pointed at below; `llms.txt`, `openapi.json` and `sitemap.xml` land
+ * in `public/`, which is copied wholesale further down. None of the five is in
+ * the repo, so a fresh clone builds only because all five run here.
  */
 await writeFavicon();
 await writePages();
 await writeLlmsTxt();
+await writeOpenApi();
+await writeSitemap();
 
 const result = await Bun.build({
   /*
@@ -104,42 +109,29 @@ await cp("fonts", `${OUT}/fonts`, { recursive: true });
 // does not.
 await cp("public", OUT, { recursive: true });
 
+/*
+ * `_redirects`, for the alias URLs.
+ *
+ * Cloudflare's asset pipeline reads this file out of the assets directory and
+ * answers the redirects itself, which is the whole reason the aliases are
+ * redirects rather than routes: a route would be a billed Worker invocation
+ * per request, and `run_worker_first` in `wrangler.jsonc` exists to keep the
+ * document side of this site off the Worker entirely.
+ */
+await Bun.write(
+  `${OUT}/_redirects`,
+  `${ALIASES.map(({ from, to, status }) => `${from} ${to} ${status}`).join("\n")}\n`,
+);
+
 if (!result.success) {
   for (const log of result.logs) console.error(log);
   process.exit(1);
 }
 
-/**
- * Where this build will be served from.
- *
- * `og:image` and `og:url` have to be absolute — every crawler that matters
- * refuses to resolve a relative one against the page it found it on.
- *
- * Defaulted rather than required, and the default is a literal. This read
- * `VERCEL_PROJECT_PRODUCTION_URL` back when the site deployed to Vercel and
- * fell through to `null` otherwise, which left the tags relative; after the move
- * to Cloudflare that variable is never set, so every production build was
- * silently shipping cards no crawler could resolve. A hardcoded origin cannot
- * fail that way, and it is what the repo already does elsewhere — `snippet.ts`
- * hardcodes the same domain for the endpoint it tells people to call.
- *
- * `SITE_URL` still overrides, for a staging host or a preview that wants its
- * own cards.
- *
- * The apex rather than `www`, matching the canonical the redirect rule sends
- * traffic to. Both hostnames are custom domains in `wrangler.jsonc`.
- */
-const ORIGIN = process.env.SITE_URL ?? "https://blobatar.dev";
-
-for (const { name } of PAGES) {
-  const page = `${OUT}/${name}.html`;
-  const html = await Bun.file(page).text();
-  // Narrow on purpose: `content="/…"` is the shape only the OG tags have. The
-  // bundler has already rewritten every real asset reference to a hashed
-  // filename by this point, so nothing else in the file starts a `content`
-  // attribute with a slash.
-  await Bun.write(page, html.replaceAll('content="/', `content="${ORIGIN}/`));
-}
+// Reported rather than applied: `og:url`, `og:image`, the canonical and every
+// URL inside the JSON-LD are written absolute by `document.ts` from this same
+// constant, so there is nothing left to rewrite here. Logged because a build
+// that silently shipped cards pointing at the wrong host has happened before.
 console.log(`  origin                   ${ORIGIN}`);
 
 let failed = false;

@@ -1,3 +1,5 @@
+import { SiteNav } from "./SiteNav";
+
 const FACTS = [
   ["~4.4 KB", "gzipped, blob only"],
   ["0", "dependencies"],
@@ -21,21 +23,14 @@ export function Close() {
         No install command here any more — it is in the hero, under the
         description. Repeating it would mean two copy buttons for one string,
         and the reason it moved was that this was the only place it appeared.
+
+        The two links that used to be written out here are the first two
+        entries of `SiteNav` now. This was the only exit from the landing page,
+        which meant the documentation, the spec and `llms.txt` were reachable
+        from nowhere at all — a file a machine cannot discover is a file it
+        does not have.
       */}
-      <div className="mt-10 flex flex-wrap items-start gap-x-8 gap-y-4">
-        <a
-          href="/editor"
-          className="text-muted hover:text-ink text-sm underline underline-offset-4 transition-colors"
-        >
-          Open the editor
-        </a>
-        <a
-          href="https://github.com/Alain00/blobatar"
-          className="text-muted hover:text-ink text-sm underline underline-offset-4 transition-colors"
-        >
-          Source on GitHub
-        </a>
-      </div>
+      <SiteNav className="mt-10" />
 
       <footer className="border-line text-muted mt-32 border-t pt-8 text-xs">
         MIT licensed. Every blobatar on this page was generated in your browser.

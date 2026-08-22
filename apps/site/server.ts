@@ -4,18 +4,23 @@ import { readdir } from "node:fs/promises";
 import { documentPath, writePages } from "./document";
 import { writeFavicon } from "./favicon";
 import { writeLlmsTxt } from "./llms";
-import { PAGES } from "./manifest";
+import { ALIASES, PAGES } from "./manifest";
+import { writeOpenApi } from "./openapi";
+import { writeSitemap } from "./sitemap";
 import { PREFIX as WALL, wall, type BlobatarEnv } from "./worker/wall/index";
 import { sqliteD1 } from "./worker/wall/sqlite";
 import { TEST_SECRET } from "./worker/wall/turnstile";
 
-// All three before anything reads for them: importing a document is what
+// All five before anything reads for them: importing a document is what
 // resolves its `<link rel="icon">` href, the documents themselves do not exist
-// until `writePages` runs, and the asset routes below enumerate `public/`. On a
-// clean checkout none of the three generated inputs is there yet.
+// until `writePages` runs, and the asset routes below enumerate `public/` —
+// which is where `llms.txt`, `openapi.json` and `sitemap.xml` are written. On a
+// clean checkout none of the five generated inputs is there yet.
 await writeFavicon();
 await writePages();
 await writeLlmsTxt();
+await writeOpenApi();
+await writeSitemap();
 
 /**
  * One document per manifest entry.
@@ -53,6 +58,17 @@ const routes = Object.fromEntries(
           [`${page.route}.html`, document] as const,
         ];
   }).sort(([a], [b]) => (a === "/*" ? 1 : b === "/*" ? -1 : 0)),
+);
+
+/**
+ * The alias URLs, answered here the way `dist/_redirects` answers them in
+ * production. Same list, same statuses — see `ALIASES`.
+ */
+const aliases = Object.fromEntries(
+  ALIASES.map(({ from, to, status }) => [
+    from,
+    () => Response.redirect(new URL(to, server.url), status),
+  ]),
 );
 
 /**
@@ -211,6 +227,7 @@ const server = serve({
         headers: { "cache-control": "public, max-age=31536000, immutable" },
       });
     },
+    ...aliases,
     ...assets,
     /*
      * Every page, last, so that the catch-all among them cannot shadow an
