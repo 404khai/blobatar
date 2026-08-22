@@ -371,3 +371,81 @@ describe("full chunks", () => {
     expect(index.f).toEqual([chunkKey(chunk)]);
   });
 });
+
+/**
+ * The edge cache, faked.
+ *
+ * Workers has a `caches.default`; `bun test` has nothing, which is the case
+ * `edge()` returns null for and the reason every other test in this file still
+ * reads the database. These install a minimal one and check the two things
+ * worth checking: that a hit skips D1 entirely, and that the answers which must
+ * never be kept are not kept.
+ */
+describe("the edge cache", () => {
+  let store: Map<string, Response>;
+
+  beforeEach(() => {
+    store = new Map();
+    (globalThis as Record<string, unknown>).caches = {
+      default: {
+        match: async (request: Request) => store.get(request.url)?.clone(),
+        put: async (request: Request, response: Response) => {
+          store.set(request.url, response);
+        },
+      },
+    };
+  });
+
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).caches;
+  });
+
+  /** A database that fails if anything asks it anything. The only way to prove
+   * a hit cost no read is to make a read impossible. */
+  const unplugged = () => {
+    env.BLOBATAR = new Proxy({} as typeof env.BLOBATAR, {
+      get() {
+        throw new Error("the database was asked");
+      },
+    });
+  };
+
+  test("a second read of a region is served without touching the database", async () => {
+    await post(placement(FIRST.x, FIRST.y), asSomeoneElse(1));
+    const first = (await (await get("/wall/r/0_0"))!.json()) as { n: number };
+    expect(first.n).toBe(1);
+
+    unplugged();
+    const again = (await (await get("/wall/r/0_0"))!.json()) as { n: number };
+    expect(again.n).toBe(1);
+  });
+
+  test("a second read of a chunk body is served without touching the database", async () => {
+    await post(placement(FIRST.x, FIRST.y), asSomeoneElse(1));
+    const key = chunkKey(chunkOf(FIRST.x, FIRST.y));
+    const body = decodeChunk(await (await get(`/wall/c/${key}/1`))!.text());
+    expect(body!.cells).toHaveLength(1);
+
+    unplugged();
+    const again = decodeChunk(await (await get(`/wall/c/${key}/1`))!.text());
+    expect(again!.cells).toHaveLength(1);
+  });
+
+  test("a body asked for at the wrong version is answered but never stored", async () => {
+    await post(placement(FIRST.x, FIRST.y), asSomeoneElse(1));
+    const key = chunkKey(chunkOf(FIRST.x, FIRST.y));
+
+    // Version 9 is not the version. The route answers with the current body
+    // under `no-store` precisely so this URL cannot enter a cache — a client
+    // that later asked for it again would be handed a body promised to be a
+    // version it is not.
+    const stale = await get(`/wall/c/${key}/9`);
+    expect(stale!.headers.get("cache-control")).toBe("no-store");
+    expect(store.has(`${ORIGIN}/wall/c/${key}/9`)).toBe(false);
+  });
+
+  test("one visitor's own placements are never stored", async () => {
+    await get("/wall/mine");
+    expect(store.size).toBe(0);
+  });
+});

@@ -44,10 +44,14 @@ import { verifyTurnstile } from "./turnstile";
  * Worker requests being billed — `run_worker_first` was scoped to `/avatar/*`
  * precisely so that reading the site costs nothing — and putting a fetch in the
  * second section of the landing page spends that deliberately. What pays it
- * back is that almost every one of these responses is cached: a chunk body is
- * `immutable` for a year under a URL that contains its version, so a client
- * fetches any given body at most once, ever, and the only thing it asks
- * repeatedly is a region index a few bytes an entry with a 30-second TTL.
+ * back is that almost every one of these responses is cached — twice. A chunk
+ * body is `immutable` for a year under a URL that contains its version, so a
+ * client fetches any given body at most once, ever, and the only thing it asks
+ * repeatedly is a region index a few bytes an entry with a 30-second TTL; and
+ * behind that, the same two answers are held in the edge cache (see `cached`),
+ * so the client that has never been here before is usually not a D1 read
+ * either. The browser cache protects a visitor who comes back. The edge cache
+ * protects the wall from everybody else.
  *
  * The rules themselves are not in this file. They are in `src/wall/geometry.ts`,
  * imported by both sides, because a client that offers a cell the server would
@@ -56,6 +60,85 @@ import { verifyTurnstile } from "./turnstile";
  */
 
 export const PREFIX = "/wall/";
+
+/**
+ * The edge cache, and what it is doing here.
+ *
+ * The cache headers below were written as though something upstream honoured
+ * them, and for a browser they are: a client fetches a given chunk body once
+ * and never asks again. Cloudflare is not that something. A Response a Worker
+ * *constructs* is handed straight back to the eyeball — the CDN caches what
+ * comes back from an origin `fetch`, not what a Worker made up — so before this
+ * existed, every cold client paid the full D1 cost of every chunk in its
+ * viewport, and a loop over `curl` paid it as fast as it could ask.
+ *
+ * The Cache API is the missing half. It is only worth wiring to the two GET
+ * routes: their URLs are the whole of their identity — a chunk carries its
+ * version in the path, a region is a fixed grid square rather than a viewport —
+ * which is exactly the property `REGION` exists to give them, and the reason
+ * the wall is chunked the way it is rather than queried by rectangle.
+ *
+ * Per colo rather than global, so a body is fetched once per city rather than
+ * once, and that is fine: the alternative is once per *visitor*.
+ */
+type EdgeCache = {
+  match(request: Request): Promise<Response | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+};
+
+/** Somewhere to hand the cache write so the response need not wait for it.
+ * Structural, like the D1 types, because this Worker has no `workers-types`. */
+export type Waiter = { waitUntil(promise: Promise<unknown>): void };
+
+/** The shared cache, where there is one. There is not one in `bun test` or in
+ * the dev server, and both must still serve the wall. */
+const edge = (): EdgeCache | null =>
+  (globalThis as { caches?: { default?: EdgeCache } }).caches?.default ?? null;
+
+/**
+ * Whether an answer may be kept.
+ *
+ * Read off the response rather than decided by the caller, because the caller
+ * would have to know things the route already decided: `chunk` answers a stale
+ * version with the current body under `no-store` precisely so that the wrong
+ * URL never enters a cache, and a 400 for a malformed key is not a fact about
+ * the wall. Asking the header keeps that judgement in one place.
+ */
+const storable = (response: Response): boolean => {
+  if (response.status !== 200) return false;
+  const control = response.headers.get("cache-control") ?? "";
+  return control.includes("max-age=") && !control.includes("no-store");
+};
+
+/**
+ * A GET, answered from the edge when the edge has it.
+ *
+ * On a hit nothing here touches D1 at all, which is the entire point: the wall
+ * costs a Worker invocation per request no matter what, and those are cheap
+ * next to a chunk read that scans a thousand rows.
+ */
+async function cached(
+  request: Request,
+  ctx: Waiter | undefined,
+  produce: () => Promise<Response>,
+): Promise<Response> {
+  const store = edge();
+  if (!store) return produce();
+
+  const hit = await store.match(request);
+  if (hit) return hit;
+
+  const response = await produce();
+  if (!storable(response)) return response;
+
+  // Cloned before returning: the body is a stream and the cache and the client
+  // cannot both read the same one.
+  const written = store.put(request, response.clone()).catch(() => {});
+  // A failed cache write is a slow wall, not a broken one, so it is swallowed
+  // above and never awaited on the way out where a `ctx` exists to hold it.
+  if (ctx) ctx.waitUntil(written);
+  return response;
+}
 
 export type BlobatarEnv = {
   BLOBATAR: D1Database;
@@ -106,7 +189,11 @@ const inBounds = (value: unknown): value is number =>
  * honest: anything this function does not claim is still the site, served by the
  * asset pipeline, even though `run_worker_first` now has to send `/wall/*` here.
  */
-export async function wall(request: Request, env: BlobatarEnv): Promise<Response | null> {
+export async function wall(
+  request: Request,
+  env: BlobatarEnv,
+  ctx?: Waiter,
+): Promise<Response | null> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith(PREFIX)) return null;
   const [head, ...rest] = url.pathname.slice(PREFIX.length).split("/");
@@ -118,11 +205,13 @@ export async function wall(request: Request, env: BlobatarEnv): Promise<Response
   // working.
   if (!head) return null;
 
+  // The two cacheable routes, and the only two: `mine` is one visitor's cookie
+  // and `place` is a write.
   if (request.method === "GET" && head === "r" && rest.length === 1) {
-    return region(env, rest[0]!);
+    return cached(request, ctx, () => region(env, rest[0]!));
   }
   if (request.method === "GET" && head === "c" && rest.length === 2) {
-    return chunk(env, rest[0]!, rest[1]!);
+    return cached(request, ctx, () => chunk(env, rest[0]!, rest[1]!));
   }
   if (request.method === "GET" && head === "mine" && rest.length === 0) {
     return mine(request, env);

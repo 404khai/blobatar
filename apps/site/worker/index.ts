@@ -27,14 +27,20 @@ import { PREFIX as WALL, wall, type BlobatarEnv } from "./wall/index";
  * of the two parsers.
  */
 export default {
-  async fetch(request: Request, env: BlobatarEnv & { ASSETS: { fetch(request: Request): Promise<Response> } }) {
+  async fetch(
+    request: Request,
+    env: BlobatarEnv & { ASSETS: { fetch(request: Request): Promise<Response> } },
+    // Handed down so the wall's cache writes need not be awaited on the way
+    // out. Optional there, because the dev server has no such thing.
+    ctx?: { waitUntil(promise: Promise<unknown>): void },
+  ) {
     const { pathname } = new URL(request.url);
     if (pathname.startsWith(PREFIX)) return avatar(request);
     // `null` is the wall declining a path under its own prefix — `/wall/` is
     // the preview *page*, not an endpoint — and it falls through to the site
     // like anything else.
     if (pathname.startsWith(WALL)) {
-      const response = await wall(request, env);
+      const response = await wall(request, env, ctx);
       if (response) return response;
     }
     return env.ASSETS.fetch(request);
