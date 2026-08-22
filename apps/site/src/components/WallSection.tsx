@@ -4,6 +4,7 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { WallCanvas, type At, type Inspected, type WallApi } from "@/components/WallCanvas";
 import { WallPanel, anchor } from "@/components/WallPanel";
 import { cn } from "@/lib/utils";
+import { ZOOM_STEP } from "@/wall/camera";
 import { FACE_NAMES, faceOf } from "@/wall/expressions";
 import { EMPTY_SEED } from "@/wall/copy";
 import { FIRST, type Cell } from "@/wall/geometry";
@@ -323,8 +324,8 @@ export function WallSection() {
       */}
       <div className="absolute right-4 bottom-4 flex flex-col gap-1 sm:right-6 sm:bottom-6">
         {[
-          { label: "Zoom in", glyph: "+", factor: 1.4 },
-          { label: "Zoom out", glyph: "−", factor: 1 / 1.4 },
+          { label: "Zoom in", glyph: "+", factor: ZOOM_STEP },
+          { label: "Zoom out", glyph: "−", factor: 1 / ZOOM_STEP },
         ].map(control => (
           <button
             key={control.label}

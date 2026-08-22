@@ -65,6 +65,22 @@ export type Viewport = { width: number; height: number };
 
 export const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 
+/**
+ * One press of a zoom button.
+ *
+ * A ratio rather than a step, because zoom is multiplicative everywhere else in
+ * this file — `zoomAt` multiplies, a pinch multiplies — and a constant *added*
+ * to zoom would move the wall by a different amount at each end of the range.
+ * 1.4 is about ten presses across the whole span now that the span is 0.1 to 2,
+ * which is few enough to cross deliberately and many enough that no single
+ * press throws away where you were looking.
+ *
+ * Here rather than in the buttons that spend it: it was a literal in
+ * `WallSection`, written once as `1.4` and once as `1 / 1.4`. Two places to
+ * change, and a pair that can quietly stop being each other's inverse — press
+ * in, press out, and land somewhere that is not where you started.
+ */
+export const ZOOM_STEP = 1.4;
 
 /** Cell space to screen space. The half-viewport is the camera's centre, so the
  * camera's own cell always lands in the middle whatever the zoom. */
@@ -177,6 +193,16 @@ const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 
  */
 export const FLIGHT_MS = 700;
 
+/**
+ * How long a zoom press takes.
+ *
+ * Much shorter than a flight, because it is a different kind of motion. A
+ * flight is travel and wants watching; a press is a control and wants to be
+ * over. Long enough to see which way the wall went — a snap leaves you
+ * re-reading a screen with no evidence it is the same one — and short enough
+ * that four presses in a row feel like four presses rather than a queue.
+ */
+export const ZOOM_MS = 220;
 
 /**
  * The camera partway through a flight, `t` from 0 to 1.
@@ -210,7 +236,11 @@ export function flightAt(from: Camera, to: Camera, t: number): Camera {
   return {
     x: from.x + (to.x - from.x) * eased,
     y: from.y + (to.y - from.y) * eased,
-    zoom: clampZoom((from.zoom + (to.zoom - from.zoom) * eased) * arc),
+    // Geometrically, not linearly. Zoom is a ratio — everything that sets it
+    // multiplies — so the middle of the range 0.1 to 2 is 0.45, not 1.05.
+    // Interpolated linearly, the far half of a long zoom-out crawls while the
+    // near half snaps: the wall appears to stick, then let go.
+    zoom: clampZoom(from.zoom * (to.zoom / from.zoom) ** eased * arc),
   };
 }
 

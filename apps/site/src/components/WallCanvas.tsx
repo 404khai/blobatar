@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { Blobatar } from "@blobatar/react";
 import {
   FLIGHT_MS,
+  ZOOM_MS,
   cellToScreen,
   cellUnder,
   chunksInView,
@@ -208,7 +209,10 @@ export function WallCanvas({
   const viewRef = useRef<Viewport>({ width: 0, height: 0 });
   const hoverRef = useRef<Cell | null>(null);
   const frameRef = useRef(0);
-  const flightRef = useRef<{ from: Camera; to: Camera; start: number } | null>(null);
+  /** `ms` rather than the one `FLIGHT_MS`, because two different motions ride
+   * this: a flight across the wall, and a zoom press that must be over before
+   * the next press. */
+  const flightRef = useRef<{ from: Camera; to: Camera; start: number; ms: number } | null>(null);
   const dragRef = useRef<{ x: number; y: number; moved: number } | null>(null);
 
   /**
@@ -366,7 +370,7 @@ export function WallCanvas({
 
       const flight = flightRef.current;
       if (flight) {
-        const t = (performance.now() - flight.start) / FLIGHT_MS;
+        const t = (performance.now() - flight.start) / flight.ms;
         cameraRef.current = flightAt(flight.from, flight.to, t);
         if (t >= 1) {
           flightRef.current = null;
@@ -628,20 +632,41 @@ export function WallCanvas({
           from: cameraRef.current,
           to: at ? framing(viewRef.current, cell, at, zoom) : { ...cell, zoom },
           start: performance.now(),
+          ms: FLIGHT_MS,
         };
         draw();
       },
+      /*
+       * A press of the zoom buttons, animated rather than applied.
+       *
+       * It used to assign the camera and redraw, which is correct and reads as
+       * a cut: the wall you were looking at is replaced by a different one the
+       * same instant, and the eye has to find its place again from scratch. Two
+       * hundred milliseconds of the same arithmetic is enough to carry the
+       * where-was-I across, and it costs nothing the drag path was not already
+       * paying — this is the same coalesced frame loop a pan runs through.
+       *
+       * Stacked from the target rather than from the camera, so that four
+       * presses in a row are four steps. Reading `cameraRef` would compose each
+       * press with a zoom that is a fifth of the way through the last one, and
+       * pressing steadily would cover less and less ground.
+       */
       zoomBy: (factor: number) => {
-        flightRef.current = null;
-        cameraRef.current = zoomAt(
-          cameraRef.current,
-          viewRef.current,
-          factor,
-          viewRef.current.width / 2,
-          viewRef.current.height / 2,
-        );
+        const from = cameraRef.current;
+        const base = flightRef.current?.to ?? from;
+        flightRef.current = {
+          from,
+          to: zoomAt(
+            base,
+            viewRef.current,
+            factor,
+            viewRef.current.width / 2,
+            viewRef.current.height / 2,
+          ),
+          start: performance.now(),
+          ms: ZOOM_MS,
+        };
         draw();
-        syncRef.current();
       },
       place: (cell: Cell, seed: string, expression: string) => {
         sourceRef.current.claim(chunkOf(cell.x, cell.y), {
@@ -828,6 +853,7 @@ export function WallCanvas({
             from: cameraRef.current,
             to: { ...target, zoom: Math.max(cameraRef.current.zoom, 1) },
             start: performance.now(),
+            ms: FLIGHT_MS,
           };
         }
         hoverRef.current = target;
