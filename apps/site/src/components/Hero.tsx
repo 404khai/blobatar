@@ -49,8 +49,17 @@ import {
 } from "@/frameworks";
 import { EggMark, eggFor } from "@/eggs";
 import { cn } from "@/lib/utils";
+import {
+  createParser,
+  debounce,
+  parseAsNumberLiteral,
+  parseAsString,
+  parseAsStringLiteral,
+  useQueryStates,
+} from "nuqs";
 
-type Bg = "none" | "squircle" | "circle" | "square";
+const BACKGROUNDS = ["none", "squircle", "circle", "square"] as const;
+type Background = (typeof BACKGROUNDS)[number];
 
 /**
  * Eight stops around the wheel plus an auto chip.
@@ -60,7 +69,7 @@ type Bg = "none" | "squircle" | "circle" | "square";
  * has nowhere to express "unset", and implies a precision nobody tuning a
  * landing page wants.
  */
-const HUES = [12, 40, 78, 140, 190, 225, 275, 320];
+const HUES = [12, 40, 78, 140, 190, 225, 275, 320] as const;
 
 /**
  * One silhouette option: its name and the trait position that selects it.
@@ -76,7 +85,7 @@ type Shape = ShapeOption;
  * — it is a real expression with a real export, and it is the one the snippet
  * omits, because omitting `expression` is what `idle` means.
  */
-const POSES = [
+const EXPRESSIONS = [
   { name: "idle", value: idle },
   { name: "happy", value: happy },
   { name: "sad", value: sad },
@@ -93,7 +102,32 @@ const POSES = [
   { name: "thinking", value: thinking },
 ] as const;
 
-type Pose = (typeof POSES)[number];
+type ExpressionOption = (typeof EXPRESSIONS)[number];
+
+function parseAsNamedObject<T extends { name: string }>(list: readonly T[]) {
+  return createParser({
+    parse(query) {
+      const item = list.find((p) => p.name === query);
+      return item ?? null;
+    },
+    serialize(item) {
+      return item.name;
+    },
+    eq: (a, b) => a.name === b.name,
+  });
+}
+
+const controlsSearchParams = {
+  name: parseAsString.withDefault("alain00"),
+  background: parseAsStringLiteral(BACKGROUNDS).withDefault("none"),
+  hue: parseAsNumberLiteral(HUES),
+  expression: parseAsNamedObject(EXPRESSIONS).withDefault(EXPRESSIONS[0]),
+  shape: parseAsNamedObject(SHAPES),
+};
+
+function useControls() {
+  return useQueryStates(controlsSearchParams);
+}
 
 /**
  * How many of the roster the panel shows without being asked.
@@ -106,14 +140,14 @@ type Pose = (typeof POSES)[number];
  * eyes small, and the one that spends colour). Someone who opens this panel and
  * reads no further has still seen what an expression *is*.
  *
- * The order is the roster's, not a ranking — `POSES` is the single list, and the
+ * The order is the roster's, not a ranking — `EXPRESSIONS` is the single list, and the
  * panel takes a prefix of it rather than keeping a second one that can drift.
  */
 const SHOWN = 4;
-const MORE = POSES.slice(SHOWN);
+const MORE = EXPRESSIONS.slice(SHOWN);
 
 /**
- * How long a reaction is held before it releases back to the picked pose.
+ * How long a reaction is held before it releases back to the picked expression.
  *
  * Measured from the click, so it *contains* the morph in rather than following
  * it: at 300ms in and 400ms back the face sits at full strength for the
@@ -157,25 +191,25 @@ function useWide() {
  * a module of its own on the grounds that a generator inside a component is
  * testable only by rendering one; that is true of a *private* one, and a named
  * export is the cheaper half of the same fix. It stays here because its inputs
- * — `Bg`, `Pose`, `Shape` — are this file's, and moving four types out to
+ * — `Background`, `ExpressionOption`, `Shape` — are this file's, and moving four types out to
  * follow one function would be the larger change, not the smaller one.
  */
 export function snippet(
   fw: Framework,
   seed: string,
-  bg: Bg,
+  background: Background,
   hue: number | null,
-  pose: Pose,
+  expression: ExpressionOption,
   shape: Shape | null,
 ) {
-  const posed = pose.value !== idle;
+  const posed = expression.value !== idle;
   const { pkg, flavor } = infoFor(fw);
 
   const imports = [`import { Blobatar } from "${pkg}";`];
   // Expressions are values, not strings, and they are core's rather than any
   // adapter's — so this import is the one line of the five that is identical in
   // all five.
-  if (posed) imports.push(`import { ${pose.name} } from "blobatar/expression";`);
+  if (posed) imports.push(`import { ${expression.name} } from "blobatar/expression";`);
   imports.push(`import "blobatar/motion.css";`);
 
   // Only what differs from the defaults. A snippet that restates every default
@@ -183,9 +217,9 @@ export function snippet(
   // what a one-prop library wants to advertise.
   const props = [attrString(flavor, "name", seed || "blobatar")];
   if (shape) props.push(attrExpr(flavor, "traits", `{ shape: ${shape.at} }`));
-  if (bg !== "none") props.push(attrString(flavor, "background", bg));
+  if (background !== "none") props.push(attrString(flavor, "background", background));
   if (hue !== null) props.push(attrExpr(flavor, "hue", String(hue)));
-  if (posed) props.push(attrExpr(flavor, "expression", pose.name));
+  if (posed) props.push(attrExpr(flavor, "expression", expression.name));
   props.push(attrString(flavor, "animate", "hover"));
 
   // The one line here that cannot be read off the code. `0.885` is a position in
@@ -220,28 +254,28 @@ export function snippet(
  */
 export function shadcnSnippet(
   seed: string,
-  bg: Bg,
+  background: Background,
   hue: number | null,
-  pose: Pose,
+  expression: ExpressionOption,
   shape: Shape | null,
 ) {
-  const posed = pose.value !== idle;
+  const posed = expression.value !== idle;
 
   // The filename with its extension dropped, not `SHADCN_FILE` itself — that
   // constant is the label above the code box, and an import specifier that
   // carried `.tsx` would not resolve in any of the bundlers this lands in.
   const from = SHADCN_FILE.replace(/\.tsx$/, "");
   const imports = [`import { Blobatar } from "@/components/ui/${from}";`];
-  if (posed) imports.unshift(`import { ${pose.name} } from "blobatar/expression";`);
+  if (posed) imports.unshift(`import { ${expression.name} } from "blobatar/expression";`);
   imports.push(`import "blobatar/motion.css";`);
 
   // Everything the adapters take as props, one level down. `animate` is always
   // here, so the object is never empty and never needs a conditional.
   const opts: string[] = [];
   if (shape) opts.push(`traits: { shape: ${shape.at} },`);
-  if (bg !== "none") opts.push(`background: "${bg}",`);
+  if (background !== "none") opts.push(`background: "${background}",`);
   if (hue !== null) opts.push(`hue: ${hue},`);
-  if (posed) opts.push(`expression: ${pose.name},`);
+  if (posed) opts.push(`expression: ${expression.name},`);
   opts.push(`animate: "hover",`);
 
   return wrap("jsx", imports, [
@@ -260,11 +294,8 @@ export function shadcnSnippet(
 }
 
 export function Hero() {
-  const [seed, setSeed] = useState("alain00");
-  const [bg, setBg] = useState<Bg>("none");
-  const [hue, setHue] = useState<number | null>(null);
-  const [pose, setPose] = useState<Pose>(POSES[0]);
-  const [shape, setShape] = useState<Shape | null>(null);
+  const [{ name: seed, background, hue, expression, shape }, setControls] =
+    useControls();
 
   /**
    * Which adapter the snippet is written in.
@@ -293,7 +324,7 @@ export function Hero() {
   const shadcn = pm === "shadcn";
 
   /**
-   * A reaction is a temporary override of the picked pose, not a replacement
+   * A reaction is a temporary override of the picked expression, not a replacement
    * for it — clicking the big blobatar borrows the face and gives it back. Held
    * separately for exactly that reason: `null` here means "show what the picker
    * says", so the release is a single `setBurst(null)` and the picker never has
@@ -305,7 +336,7 @@ export function Hero() {
 
   /**
    * The nested panel is controlled rather than left to Radix, for one reason:
-   * picking a pose in it has to close it. An uncontrolled popover would stay
+   * picking an expression in it has to close it. An uncontrolled popover would stay
    * open over the face it just changed, which is the one thing the panel is in
    * the way of.
    */
@@ -333,10 +364,10 @@ export function Hero() {
 
   useEffect(() => () => clearTimeout(release.current ?? undefined), []);
 
-  const shown = burst ?? pose.value;
-  /** Whether the picked pose is one of the ones the row hides. */
-  const extra = MORE.some((p) => p.name === pose.name);
-  const tuned = bg !== "none" || hue !== null || pose.value !== idle || shape !== null;
+  const shown = burst ?? expression.value;
+  /** Whether the picked expression is one of the ones the row hides. */
+  const extra = MORE.some((p) => p.name === expression.name);
+  const tuned = background !== "none" || hue !== null || expression.value !== idle || shape !== null;
 
   /**
    * The burst pattern the library documents: an expression is a latched state,
@@ -346,20 +377,20 @@ export function Hero() {
    * that re-picks the same expression looks like a click that did nothing.
    */
   const react = () => {
-    const pool = POSES.filter((p) => p.value !== shown && p.value !== idle);
+    const pool = EXPRESSIONS.filter((p) => p.value !== shown && p.value !== idle);
     setBurst(pool[Math.floor(Math.random() * pool.length)]!.value);
     clearTimeout(release.current ?? undefined);
     release.current = setTimeout(() => setBurst(null), HOLD);
   };
 
-  const pick = (p: Pose) => {
+  const pick = (p: ExpressionOption) => {
     clearTimeout(release.current ?? undefined);
     setBurst(null);
-    setPose(p);
+    setControls({ expression: p });
   };
 
   const opts: BlobatarOptions = {
-    background: bg === "none" ? false : bg,
+    background: background === "none" ? false : background,
     hue: hue ?? undefined,
     expression: shown,
     // Sparse on purpose: pinning `shape` leaves every other trait — eye gap,
@@ -474,7 +505,14 @@ export function Hero() {
                   // from a previous name lands the click reaction on the reveal
                   // of the next one, and the two transforms fight.
                   onChange={(e) => {
-                    setSeed(e.target.value);
+                    setControls(
+                      { name: e.target.value },
+                      {
+                        limitUrlUpdates: e.target.value
+                          ? debounce(250)
+                          : undefined,
+                      },
+                    );
                     setNudge(false);
                   }}
                   spellCheck={false}
@@ -619,7 +657,7 @@ export function Hero() {
                       seed={seed}
                       opts={{ ...opts, traits: undefined }}
                       selected={shape === null}
-                      onClick={() => setShape(null)}
+                      onClick={() => setControls({ shape: null })}
                     />
                     {SHAPES.map((s) => (
                       <ShapeTile
@@ -628,7 +666,7 @@ export function Hero() {
                         seed={seed}
                         opts={{ ...opts, traits: { shape: s.at } }}
                         selected={shape?.name === s.name}
-                        onClick={() => setShape(s)}
+                        onClick={() => setControls({ shape: s })}
                       />
                     ))}
                   </div>
@@ -645,14 +683,14 @@ export function Hero() {
                 <Field label="expression">
                   <div className="flex flex-col gap-1">
                     <div className="grid grid-cols-4 gap-1" role="group" aria-label="Expression">
-                      {POSES.slice(0, SHOWN).map((p) => (
+                      {EXPRESSIONS.slice(0, SHOWN).map((p) => (
                         <PoseTile
                           key={p.name}
                           name={p.name}
                           expression={p.value}
                           seed={seed}
                           opts={opts}
-                          selected={pose.name === p.name}
+                          selected={expression.name === p.name}
                           onClick={() => pick(p)}
                         />
                       ))}
@@ -671,7 +709,7 @@ export function Hero() {
                       A row rather than a fifth tile: the grid is four across,
                       and a lone tile on a second row reads as an accident.
 
-                      The label carries the current pose when the selection came
+                      The label carries the current expression when the selection came
                       from behind it. Otherwise picking `wink` would leave four
                       unselected tiles and a `+6 more` that says nothing — the
                       panel would be the only place on the page that cannot tell
@@ -688,7 +726,7 @@ export function Hero() {
                             : "text-muted hover:bg-line/30 hover:text-ink",
                         )}
                       >
-                        {extra ? `${pose.name} · ${MORE.length} more` : `+${MORE.length} more`}
+                        {extra ? `${expression.name} · ${MORE.length} more` : `+${MORE.length} more`}
                         <ChevronIcon down={!wide} />
                       </PopoverTrigger>
 
@@ -717,14 +755,14 @@ export function Hero() {
                             hides what you already chose makes you close it to
                             find out whether you chose it.
                           */}
-                          {POSES.map((p) => (
+                          {EXPRESSIONS.map((p) => (
                             <PoseTile
                               key={p.name}
                               name={p.name}
                               expression={p.value}
                               seed={seed}
                               opts={opts}
-                              selected={pose.name === p.name}
+                              selected={expression.name === p.name}
                               onClick={() => {
                                 pick(p);
                                 setMore(false);
@@ -740,8 +778,8 @@ export function Hero() {
                 <Field label="background">
                   <Segmented
                     type="single"
-                    value={bg}
-                    onValueChange={(v) => v && setBg(v as Bg)}
+                    value={background}
+                    onValueChange={(v) => v && setControls({ background: v as Background })}
                     aria-label="Background"
                   >
                     {/*
@@ -771,7 +809,7 @@ export function Hero() {
                     aria-label="Hue"
                   >
                     <button
-                      onClick={() => setHue(null)}
+                      onClick={() => setControls({ hue: null })}
                       aria-pressed={hue === null}
                       className={cn(
                         "border-line rounded-full border px-2.5 py-0.5 text-[0.7rem] lowercase transition-colors",
@@ -785,7 +823,7 @@ export function Hero() {
                     {HUES.map((h) => (
                       <button
                         key={h}
-                        onClick={() => setHue(h)}
+                        onClick={() => setControls({ hue: h })}
                         aria-label={`Hue ${h} degrees`}
                         aria-pressed={hue === h}
                         style={{ background: `oklch(0.72 0.15 ${h})` }}
@@ -892,8 +930,8 @@ export function Hero() {
           <Snippet
             code={
               shadcn
-                ? shadcnSnippet(seed, bg, hue, pose, shape)
-                : snippet(fw, seed, bg, hue, pose, shape)
+                ? shadcnSnippet(seed, background, hue, expression, shape)
+                : snippet(fw, seed, background, hue, expression, shape)
             }
           />
           <p className="text-muted text-xs leading-relaxed">
@@ -929,7 +967,7 @@ export function Hero() {
  * Static `<img>`s, deliberately — same trade the expression row makes: seven
  * live SVG trees inside a panel would be seven things competing with the one
  * that is supposed to be moving. The options spread in carry whatever else is
- * currently tuned, so the row restyles as you change hue or pose rather than
+ * currently tuned, so the row restyles as you change hue or expression rather than
  * showing six blobatars from a different configuration.
  */
 function ShapeTile({
