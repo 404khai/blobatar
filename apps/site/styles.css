@@ -38,6 +38,15 @@
   --font-mono: "Geist Mono", ui-monospace, monospace;
 
   /*
+   * The wall's one hand-lettered voice, and the fallback matters more than
+   * usual: it is 8 KB subset to a single heading, so anything set in it that
+   * is not in `src/wall/copy.ts` falls through to whatever cursive the system
+   * has — which on most machines is nothing, and then to the sans. That is the
+   * failure `copy.test.ts` exists to catch before it ships.
+   */
+  --font-hand: "Caveat", "Segoe Print", cursive;
+
+  /*
    * Near-black rather than #000. Blob blobatars have a transparent backdrop by
    * default — the body *is* the blobatar — so they sit directly on this color.
    * Against true black the silhouettes read as cut out; against #0A0A0B they
@@ -124,6 +133,68 @@
   }
 }
 
+@layer components {
+  /*
+   * The name under the cell the pointer is on.
+   *
+   * It exists for a fraction of a second at a time and it is the only thing
+   * that identifies who a blob belongs to without a click, so it has to arrive
+   * fast enough not to be waited for. 140ms is inside the tooltip band; the
+   * curve is a strong ease-out, because the moment the eye is watching most
+   * closely is the first frame and an ease-in would spend it standing still.
+   *
+   * `@starting-style` rather than a mounted flag: the element is keyed by its
+   * cell, so moving to the next blob genuinely remounts it and the entry fires
+   * again — which is the behaviour wanted, one name announcing itself per cell.
+   *
+   * There is no exit. The node is gone the moment the pointer moves on, and a
+   * label fading out of a cell the pointer has already left is a ghost of an
+   * answer to a question nobody is asking any more.
+   */
+  .wall-plate {
+    /*
+     * Both the centring and the entry ride one property, and that is not a
+     * style choice — it is what survives the build.
+     *
+     * The obvious split (centre on `translate`, animate `transform`) reads
+     * correctly and compiles away: Lightning CSS lowers standalone `translate`
+     * into `transform` for the browser targets, so a `transform` declared
+     * afterwards in the same rule silently eliminates it. The compiled
+     * stylesheet had no -50% in it at all.
+     *
+     * The Tailwind utility is gone from the element for the mirror-image
+     * reason: with it there, two sources both claimed the horizontal half-width
+     * and the label moved a whole one.
+     */
+    opacity: 1;
+    transform: translate(-50%, 0);
+    transition:
+      opacity 140ms cubic-bezier(0.23, 1, 0.32, 1),
+      transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    @starting-style {
+      .wall-plate {
+        opacity: 0;
+        /* Half of the gap it sits in. Any further and it reads as sliding in
+           from somewhere else rather than as settling under its own blob. The
+           -50% is carried along because this replaces the whole transform. */
+        transform: translate(-50%, -3px);
+      }
+    }
+  }
+
+  /* Motion off: the name still has to appear, it simply must not travel. */
+  @media (prefers-reduced-motion: reduce) {
+    @starting-style {
+      .wall-plate {
+        opacity: 0;
+      }
+    }
+  }
+}
+
 /*
  * Below-the-fold sections.
  *
@@ -154,79 +225,6 @@
   .defer-offscreen {
     content-visibility: auto;
     contain-intrinsic-size: auto 100vh;
-  }
-}
-
-/*
- * The wall.
- *
- * A scattered field of blobatars on three depth layers. Two motions stack, and
- * they are deliberately on different elements: the layer carries the scroll
- * parallax, each blobatar carries its own idle float. Both would be fighting for
- * the same `transform` if they shared an element.
- *
- * The parallax is scroll-linked, not time-linked: `animation-timeline` ties
- * progress to scroll position, so it runs off the main thread and cannot drift
- * out of sync with the page the way a scroll listener does.
- */
-@layer components {
-  .wall-layer {
-    --wall-shift: 0px;
-  }
-
-  @supports (animation-timeline: view()) {
-    @media (prefers-reduced-motion: no-preference) {
-      .wall-layer {
-        animation-name: wall-drift;
-        animation-timing-function: linear;
-        animation-fill-mode: both;
-        animation-timeline: view();
-        animation-range: cover 0% cover 100%;
-        /*
-         * Required, and the reason not to use the `animation` shorthand here:
-         * the shorthand resets duration to 0s, and a scroll-driven animation
-         * with a 0s duration attaches, reports its timeline correctly, and
-         * renders a flat identity transform. It fails silently.
-         */
-        animation-duration: auto;
-      }
-    }
-  }
-
-  @keyframes wall-drift {
-    from {
-      transform: translate3d(0, var(--wall-shift), 0);
-    }
-    to {
-      transform: translate3d(0, calc(var(--wall-shift) * -1), 0);
-    }
-  }
-
-  /*
-   * The float. Six pixels over five-to-ten seconds — small and slow enough
-   * that no single blobatar is ever the thing you are looking at, which is the
-   * only version of this that can run on sixty elements at once without
-   * pulling attention off the heading.
-   *
-   * The negative delay each blobatar is given starts it mid-cycle, so the field
-   * is already dispersed on first paint instead of rising together and
-   * gradually falling out of phase.
-   */
-  @media (prefers-reduced-motion: no-preference) {
-    .wall-float {
-      animation: wall-float var(--float-duration, 7s) ease-in-out infinite;
-      animation-delay: var(--float-delay, 0s);
-    }
-  }
-
-  @keyframes wall-float {
-    0%,
-    100% {
-      transform: translate3d(0, 3px, 0);
-    }
-    50% {
-      transform: translate3d(0, -3px, 0);
-    }
   }
 }
 

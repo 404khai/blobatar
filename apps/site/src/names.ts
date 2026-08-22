@@ -7,8 +7,8 @@
  * and undercuts the emotional one; these are what blobatars are actually made
  * from.
  *
- * The wall shuffles these per visit and appends a numeric suffix, so the field
- * is different every load without needing a larger list.
+ * The wall's fixture and the editor's crowd both walk this list; the wall
+ * itself is seeded by whatever people type.
  */
 export const NAMES = [
   "alain", "astrid", "bao", "beatriz", "bjorn", "camille", "carlos", "chidi",
@@ -30,13 +30,3 @@ export const NAMES = [
   "ulrik", "una", "valeria", "vera", "viktor", "vilma", "wei", "wilhelm",
   "yara", "yasmin", "yuki", "zaid", "zara", "zoya",
 ] as const;
-
-/** Fisher-Yates over a copy — the source list stays stable across re-renders. */
-export function shuffled<T>(items: readonly T[]): T[] {
-  const out = items.slice();
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j]!, out[i]!];
-  }
-  return out;
-}

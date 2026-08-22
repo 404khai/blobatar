@@ -65,6 +65,27 @@ const FONTS = `<style>
         font-weight: 100 900;
         font-display: swap;
       }
+
+      /*
+        The wall's hand.
+
+        Declared on every page and downloaded by almost none of them: a browser
+        fetches a face only when something it renders actually matches, and the
+        only thing that matches this is the placement panel's heading — which
+        exists after a click, on one section, on one page. Deliberately *not* in
+        the preload list in \`build.ts\` for the same reason.
+
+        One weight, not a range: this is instanced at 600 rather than shipped
+        variable, which is a third of the bytes for a face used at exactly one
+        size in exactly one place. And it is subset to the characters in
+        \`src/wall/copy.ts\` and no others — see \`fonts-src/README.md\`.
+      */
+      @font-face {
+        font-family: "Caveat";
+        src: url("/fonts/caveat-hand.woff2") format("woff2");
+        font-weight: 600;
+        font-display: swap;
+      }
     </style>`;
 
 function render(page: Page): string {
