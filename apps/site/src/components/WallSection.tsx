@@ -238,6 +238,16 @@ export function WallSection() {
 
   return (
     <section
+      /*
+        A link target, because the section is where the invitation lives.
+
+        Posted somewhere — a comment, a message — the address that matters is
+        the wall, not the top of the page: `#wall` lands somebody on the thing
+        they were told to go and use, rather than on a hero they have to scroll
+        past first. The heading keeps its own id; that one names the section for
+        a screen reader and is not an address.
+      */
+      id="wall"
       aria-labelledby="wall-heading"
       className="bg-ground relative h-dvh w-full overflow-clip"
     >
