@@ -208,8 +208,14 @@
         "blobatar": "2.x",
         "react": ">=18",
         "react-native": ">=0.76",
+        "react-native-reanimated": ">=4",
         "react-native-svg": ">=15",
+        "react-native-worklets": ">=0.5",
       },
+      "optionalPeers": [
+        "react-native-reanimated",
+        "react-native-worklets",
+      ],
     },
     "packages/solid": {
       "name": "@blobatar/solid",
