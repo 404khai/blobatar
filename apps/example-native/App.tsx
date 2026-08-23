@@ -319,7 +319,18 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "flex-start" },
   cell: { alignItems: "center", gap: 4 },
   caption: { fontSize: 11, opacity: 0.5 },
-  morph: { alignItems: "center", paddingVertical: 8 },
+  // Side by side rather than stacked, because the thing this pair exists to
+  // show is a *difference* between two loops, and two creatures a screen-height
+  // apart are two things you compare from memory. Level with each other, a
+  // breath that is out of step is visible without looking twice.
+  morph: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 8,
+  },
   // No colours here. Every one of them depends on the device's theme and is
   // set at the element, which is what `useInk` is for.
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
