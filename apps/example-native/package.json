@@ -19,6 +19,8 @@
     "react-native-svg": "^15.15.5"
   },
   "devDependencies": {
-    "@types/react": "^19"
-  }
+    "@types/react": "^19",
+    "typescript": "~5.9.2"
+  },
+  "//typescript": "Pinned to 5.x here, against the workspace's TypeScript 7. Expo's CLI reads the project tsconfig through the TypeScript API and crashes on 7 before Metro ever starts, which is the same incompatibility ADR-0010 records breaking `@sveltejs/package`. Local to this app so the rest of the workspace stays on 7."
 }

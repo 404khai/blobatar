@@ -13,8 +13,16 @@
  * `check` script worth writing here: an emulator in CI would test the emulator.
  *
  * ```sh
- * cd apps/example-native && bun install && bun start
+ * cd apps/example-native
+ * bun start          # then press i, a, or scan the QR code with Expo Go
  * ```
+ *
+ * Two pins here exist for reasons that are not obvious from this file. The app
+ * declares `typescript` at 5.x, because Expo's CLI reads the project tsconfig
+ * through the TypeScript API and crashes on the 7 the rest of the workspace is
+ * on. And `packages/react-native` pins its type-only `react-native` devDependency
+ * to the exact version this app uses, because a floating range there resolves
+ * higher, hoists over this one, and hands Metro mismatched internals.
  *
  * What to look for, in the order the screens are laid out:
  *
