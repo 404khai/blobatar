@@ -26,9 +26,10 @@ export function About() {
         </P>
         <P>
           It ships as a zero-dependency JavaScript package of about 4.4&nbsp;KB
-          gzipped, with thin components for React, Vue, Svelte, Solid and
-          Preact, a CLI, a shadcn registry item, and the HTTP endpoint this
-          domain serves. Everything is MIT licensed and developed in the open.
+          gzipped, with thin components for React, Vue, Svelte, Solid, Preact
+          and React Native, a CLI, a shadcn registry item, and the HTTP endpoint
+          this domain serves. Everything is MIT licensed and developed in the
+          open.
         </P>
       </Section>
 

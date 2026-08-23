@@ -206,7 +206,7 @@ export function Docs() {
           core to an exact major, because the two are one release.
         </P>
         <Code>{`bun add blobatar                # the generator, ~4.4 KB gzipped
-bun add @blobatar/react         # also /vue, /svelte, /solid, /preact
+bun add @blobatar/react         # also /vue, /svelte, /solid, /preact, /react-native
 bunx @blobatar/cli alain        # write one to a file`}</Code>
         <Code>{`import { Blobatar } from "@blobatar/react";
 
