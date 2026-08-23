@@ -236,28 +236,6 @@ function n3(v: number): number {
   return Math.round(v * 1000) / 1000;
 }
 
-/** `m · n`, both in `Mat` order. */
-function mul(m: Mat, n: Mat): Mat {
-  "worklet";
-  return [
-    m[0] * n[0] + m[2] * n[1],
-    m[1] * n[0] + m[3] * n[1],
-    m[0] * n[2] + m[2] * n[3],
-    m[1] * n[2] + m[3] * n[3],
-    m[0] * n[4] + m[2] * n[5] + m[4],
-    m[1] * n[4] + m[3] * n[5] + m[5],
-  ];
-}
-
-/** `rotate(deg)`, about the origin. */
-function rot(deg: number): Mat {
-  "worklet";
-  const r = (deg * Math.PI) / 180;
-  const c = Math.cos(r);
-  const s = Math.sin(r);
-  return [c, s, -s, c, 0, 0];
-}
-
 /** `.mo-root`: the tremor. */
 export function rootT(f: IdleFrame): Mat {
   "worklet";
@@ -312,6 +290,20 @@ export function rockT(f: IdleFrame, p: Pose, side: number): Mat {
  * optional. The blink closes the capsule across its own width, so it is
  * bracketed by the seeded lean. The foreshortening is a screen-space effect, so
  * it is not.
+ *
+ * The seven terms are multiplied out here rather than composed through a pair
+ * of matrix helpers, and that is a size decision rather than a taste one. A
+ * worklet carries its own source across the bridge, so a helper two worklets
+ * call is not shared the way a function normally is — it is serialized into
+ * each of them. `mul` and `rot` cost more in this bundle than the algebra they
+ * were hiding, and `@blobatar/react-native/animated` has a 10 kB budget it was
+ * already sitting at 99% of.
+ *
+ * The lean bracket collapses first: `rotate(l) · scale(1 bl) · rotate(-l)` is
+ * symmetric, and works out to `[cos²l + sin²l·bl, k, k, sin²l + cos²l·bl]` with
+ * `k = sin l · cos l · (1 − bl)`. The outer rotation and the foreshortening
+ * scale multiply into it, and the two translates fall out as the offset that
+ * keeps the whole thing about the eye's own centre.
  */
 export function glanceT(
   f: IdleFrame,
@@ -321,18 +313,34 @@ export function glanceT(
   side: number,
 ): Mat {
   "worklet";
-  const x = n3(cx);
-  const y = n3(cy);
   const sx = n3(1 + f.wrap.mx + f.wrap.side * side);
   const sy = n3(1 + f.wrap.sy);
   const bl = n3(f.blink);
-  const l = n3(lean);
-  // The same seven terms in the same order, multiplied out rather than printed.
-  let m: Mat = [1, 0, 0, 1, x, y];
-  m = mul(m, rot(n3(f.wrap.rot * side)));
-  m = mul(m, [sx, 0, 0, sy, 0, 0]);
-  m = mul(m, rot(l));
-  m = mul(m, [1, 0, 0, bl, 0, 0]);
-  m = mul(m, rot(-l));
-  return mul(m, [1, 0, 0, 1, n3(-cx), n3(-cy)]);
+
+  const r = (n3(f.wrap.rot * side) * Math.PI) / 180;
+  const cr = Math.cos(r);
+  const sr = Math.sin(r);
+
+  const q = (n3(lean) * Math.PI) / 180;
+  const cq = Math.cos(q);
+  const sq = Math.sin(q);
+  const k = sq * cq * (1 - bl);
+  const ba = cq * cq + sq * sq * bl;
+  const bd = sq * sq + cq * cq * bl;
+
+  // `rotate(rot) · scale(sx sy)`, then that against the bracket above.
+  const a1 = cr * sx;
+  const b1 = sr * sx;
+  const c1 = -sr * sy;
+  const d1 = cr * sy;
+  const a = a1 * ba + c1 * k;
+  const b = b1 * ba + d1 * k;
+  const c = a1 * k + c1 * bd;
+  const d = b1 * k + d1 * bd;
+
+  // Rounded the way the printed form rounded them, which is not the same as
+  // negating the rounded centre: `r3(-cx)` is what core writes.
+  const ix = n3(-cx);
+  const iy = n3(-cy);
+  return [a, b, c, d, n3(cx) + a * ix + c * iy, n3(cy) + b * ix + d * iy];
 }

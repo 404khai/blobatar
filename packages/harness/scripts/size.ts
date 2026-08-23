@@ -231,11 +231,21 @@ const ENTRIES: {
     // moves a smaller row is a tier leaking into the one below, which is the
     // failure the whole three-component shape exists to prevent and which the
     // keyframe tables caused twice before landing on their own entry point.
-    // 9880 B, against 7360 for the same component on a `requestAnimationFrame`
-    // driver. The ~2.5 kB is Reanimated's, and it is not overhead that can be
+    // 10144 B, against 7360 for the same component on a `requestAnimationFrame`
+    // driver. The ~2.8 kB is Reanimated's, and it is not overhead that can be
     // optimised away: the worklets plugin embeds each worklet's *source* as a
     // string, because that is how a function reaches the UI runtime. Twenty-one
     // worklets means twenty-one copies of their own text.
+    //
+    // Up from 9880 when the loops started composing a matrix instead of
+    // printing a `transform` string, which is the only spelling that survives a
+    // prop written from the UI thread — `packages/react-native/src/worklets.ts`
+    // has the account. The arithmetic is the same arithmetic; what costs the
+    // 264 B is that every character of it is paid for twice, once as code and
+    // once as the source string beside it. That is also why the glance is
+    // multiplied out by hand rather than composed through matrix helpers: a
+    // helper two worklets call is serialized into both of them, so the pair
+    // that read better cost more than the algebra they hid.
     //
     // Bought deliberately. The loops run off the JS thread, which is the only
     // way a sidebar of agents animating at once stays smooth, and that is what
@@ -243,7 +253,7 @@ const ENTRIES: {
     // native dependency imports one of the two rows above and links none of it,
     // which is why this lives behind `/animated` rather than at the root.
     name: "@blobatar/react-native animated",
-    budget: 10_000,
+    budget: 10_200,
     // Reanimated and worklets are external for the reason the native modules
     // already here are: they are a JavaScript half bolted to a native half that
     // the consumer's app links once. Their bytes are not this package's to
