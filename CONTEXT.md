@@ -98,6 +98,11 @@ Reached through `blobatar/internal` (`_marks`), and it exists for one reason:
 `react-native-svg` has no `innerHTML`, so an adapter there builds real elements
 or it builds nothing, and serializing here to parse there would put an XML
 parser between the renderer and the screen.
+Marks come back two ways, and the pair is the point: `_marks` is the figure with
+the pose already welded into it, which is what a still blobatar wants, and
+`_posed` is the same figure before the pose touched it with the pose handed back
+as channels, which is what a morph needs (see _Channel_). Neither is a mode on
+the other, so a consumer of one links none of the other.
 A mark carries its own fill, where the string groups by fill with `<g fill>`.
 Attribute inheritance is cheaper on the wire and means nothing to a renderer
 that never reads a group.
@@ -210,24 +215,50 @@ rather than a file it cannot execute, which is not.
 _Avoid_: unbuilt, raw, uncompiled. All three suggest something unfinished; the
 source _is_ the artifact. See ADR-0010.
 
-**Static-only adapter**:
+**Idle-less adapter**:
 `@blobatar/react-native`, and so far only it. Every other adapter honors
-`animate`; this one has no such prop, because the idle motion is a stylesheet
-(`motion.css`, a root class, a dozen seeded custom properties) and React Native
-has no stylesheet, no custom properties and no CSS transitions. Re-expressing
-the motion spec against Reanimated would make it exist twice, in two languages,
-drifting.
+`animate`; this one has no such prop, because the **idle** motion is a
+stylesheet (`motion.css`, a root class, a dozen seeded custom properties) and
+React Native has no stylesheet, no custom properties and no CSS transitions.
+Re-expressing the motion spec against Reanimated would make it exist twice, in
+two languages, drifting. `animate="hover"` is the recommended default for a
+grid on the web and has no trigger at all on a touch screen, so porting it is a
+new design question rather than a translation.
 So the prop is **absent from the type**, never accepted and ignored: passing it
 is a compile error naming the package, which is the cheapest place to learn it.
 `expression` is unaffected and works in full, since a static pose bakes into the
-geometry before any renderer sees it; what is missing is the *morph* between
-poses, which was always the part that needed CSS.
+geometry before any renderer sees it. The **morph** between poses works too, as
+of `MorphingBlobatar`, see _Channel_, and needed none of the above: it is a
+one-shot transition on thirteen numbers, on a state change the consumer
+controls, rather than a loop or a stylesheet.
+_Avoid_: static-only adapter, which this was called while the morph was missing
+and which now describes only `Blobatar`, the still half of a package that has
+two.
 Like source-resolved, this is a property of the platform and not a tier. It owes
 the same equivalence row, the same exact-major peer, the same lockstep version.
 Its row simply reads `_marks` instead of markup, and the option matrix it is
 compared over is shared rather than restated (`packages/harness/test/cases.ts`).
 _Avoid_: limited adapter, partial adapter, v1 adapter. All three imply something
 that is coming; nothing here is waiting on work.
+
+**Channel**:
+One number a pose may move. `esy` is eye height, `edx` is convergence, `bdy`
+lifts or sinks the whole creature. Thirteen of them plus `heat`, listed once as
+the `Pose` struct in `src/morph.ts`, and a pose is nothing but a value for each.
+A channel is **not** a keyframe and not an animation. There are no
+per-expression keyframes anywhere: the morph between any two poses is what
+interpolating these numbers does, which is why the roster is data and adding an
+expression costs its numbers rather than a stylesheet.
+Every channel reaches the picture through one of exactly three renderings of the
+same composition, and they must agree: `bakePose` welds them into geometry for
+the static path, `poseTransforms` carries them as one transform per eye for a
+substrate that morphs them itself, and `.mo-eye` in `motion.css` is CSS's copy.
+The first two live in one file for that reason; `test/morph.test.ts` and
+`scripts/probe-compose.ts` are what hold all three together.
+`heat` is the exception worth knowing: it reaches no transform. Colour is
+resolved in TypeScript and travels as a fill between two finished values.
+_Avoid_: property (that is the CSS spelling, `--mo-esy`, and only one of the
+three renderings), knob, parameter.
 
 **Expression**:
 Which named pose a blobatar holds — `idle`, `happy`, `sad`, `mad`. Set by the

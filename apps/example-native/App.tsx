@@ -45,13 +45,29 @@
  *    at a different height than the same pose on the web, it is being applied
  *    twice.
  * 4. **The tinted pose.** `mad` recolours the head and leaves the eyes alone.
+ * 5. **The morph.** Tap through the poses. Every channel has to move together
+ *    over the same 300ms. If the eyes travel and the body snaps, or the tint
+ *    arrives instantly while the eyes ease, a channel is being applied outside
+ *    the interpolation. Tap two poses in quick succession: the second morph
+ *    must start from where the face is, not from the pose the first set out
+ *    from. And returning to idle is deliberately slower than adopting a pose,
+ *    which is the one difference to watch for rather than to correct.
  */
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { StatusBar } from "expo-status-bar";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { Blobatar } from "@blobatar/react-native";
-import { happy, mad } from "blobatar/expression";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Blobatar, MorphingBlobatar } from "@blobatar/react-native";
+import {
+  happy,
+  mad,
+  sad,
+  sleepy,
+  surprised,
+  thinking,
+  wink,
+  type Expression,
+} from "blobatar/expression";
 
 const SHAPES: [string, number][] = [
   ["round", 0.11],
@@ -65,6 +81,53 @@ const SHAPES: [string, number][] = [
   ["sun", 0.965],
   ["triangle", 0.99],
 ];
+
+/**
+ * The morph, which is the one thing on this screen a still screenshot cannot
+ * check. Deliberately large: at 64pt the eye channels are a couple of points of
+ * travel and a dropped one is invisible.
+ */
+const MORPHS: [string, Expression | undefined][] = [
+  ["idle", undefined],
+  ["happy", happy],
+  ["sad", sad],
+  ["mad", mad],
+  ["surprised", surprised],
+  ["wink", wink],
+  ["sleepy", sleepy],
+  ["thinking", thinking],
+];
+
+function Morph() {
+  const [i, setI] = useState(0);
+  return (
+    <View style={styles.section}>
+      <Text style={styles.heading}>
+        The morph: tap a pose, and tap two in a row to interrupt one
+      </Text>
+      <View style={styles.morph}>
+        <MorphingBlobatar
+          name="alain00"
+          size={160}
+          background="squircle"
+          expression={MORPHS[i]![1]}
+          title={`alain00, ${MORPHS[i]![0]}`}
+        />
+      </View>
+      <View style={styles.row}>
+        {MORPHS.map(([name], n) => (
+          <Pressable
+            key={name}
+            onPress={() => setI(n)}
+            style={[styles.chip, n === i && styles.chipOn]}
+          >
+            <Text style={styles.chipText}>{name}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -117,6 +180,8 @@ export default function App() {
         </View>
       </Section>
 
+      <Morph />
+
       <Section title="A crowd: every name a different creature">
         {Array.from({ length: 24 }, (_, i) => (
           <Blobatar key={i} name={`user-${i}`} size={44} title={`user-${i}`} />
@@ -133,4 +198,13 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "flex-start" },
   cell: { alignItems: "center", gap: 4 },
   caption: { fontSize: 11, opacity: 0.5 },
+  morph: { alignItems: "center", paddingVertical: 8 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.06)",
+  },
+  chipOn: { backgroundColor: "rgba(0,0,0,0.18)" },
+  chipText: { fontSize: 12 },
 });

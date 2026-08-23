@@ -61,14 +61,55 @@ ignored, so passing it is a compile error instead of a blobatar that silently
 sits still.
 
 `expression` works in full. A static pose bakes into the geometry, which is why
-it survives here for the same reason it survives in the string API. What is
-missing is only the *morph* between poses, which was always the part that needed
-CSS.
+it survives here for the same reason it survives in the string API. Setting a
+new one cuts to it.
 
 ```tsx
 import { happy } from "blobatar/expression";
 
 <Blobatar name="username" size={48} expression={happy} />;
+```
+
+## Morphing between expressions
+
+To animate the change from one expression to the next instead of cutting to it,
+use `MorphingBlobatar`. It takes exactly the same props.
+
+```tsx
+import { MorphingBlobatar } from "@blobatar/react-native";
+import { happy, sad } from "blobatar/expression";
+
+<MorphingBlobatar name="username" size={48} expression={busy ? sad : happy} />;
+```
+
+It is 300ms adopting an expression and 400ms returning to idle, on the same
+curve the web uses, and it interrupts cleanly: setting a new expression part way
+through the last one starts from wherever the face actually is. Nothing animates
+on mount.
+
+**It is a second component rather than a `morph` prop**, and the reason is
+bytes. The morph is about 1.1 kB gzipped, and a prop on one component is
+reachable from that component whether or not anybody passes it, so every app
+would carry it, including the grid of still avatars that is most of the usage.
+As a separate export a bundler drops all of it for an app that never names it.
+
+The idle layer is still absent, and this is not a step toward it. What moves
+here is the pose, which is thirteen numbers on a state change you control. The
+idle layer is six keyframe loops gated on `:hover`, and `:hover` has no meaning
+on a touch screen.
+
+### Reduced motion
+
+Render `Blobatar` instead. This package imports no React Native module at all,
+so it cannot read the setting itself, and your app already can:
+
+```tsx
+import { AccessibilityInfo } from "react-native";
+
+const reduce = AccessibilityInfo.useReduceMotionEnabled();
+const C = reduce ? Blobatar : MorphingBlobatar;
+
+<C name="username" size={48} expression={mood} />;
 ```
 
 ## Accessibility

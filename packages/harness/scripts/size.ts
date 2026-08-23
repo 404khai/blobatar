@@ -168,12 +168,46 @@ const ENTRIES: {
     // half talking to native code that was never linked for it. Its bytes are
     // not this package's to report. What is gated here is the JavaScript
     // blobatar itself ships.
+    // 4907 B now, against the 4804 the row measured before the morph existed.
+    // The 103 B is the price of splitting the component in two: the outer
+    // `<Svg>` and the option-splitting are shared functions rather than one
+    // inlined body, so the still path pays an indirection it used to inline.
+    // It buys ~1.1 kB, see the morph row below, and the alternative was two
+    // copies of the accessibility mapping, which is the part of this adapter
+    // most likely to be corrected once and left wrong in the other copy.
+    //
+    // This row's job is now also to say the still path stayed still. A change
+    // that moves it and the morph row together is core; a change that moves
+    // only the morph row is the morph; a change that moves only this one means
+    // something the morph needs became reachable from the component that does
+    // not.
     name: "@blobatar/react-native",
-    budget: 4860,
+    budget: 4960,
     external: ["react", "react/jsx-runtime", "react-native", "react-native-svg"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/react-native";
              globalThis.x = Blobatar;`,
+  },
+  {
+    // The morph, and the row that is the whole argument for it being a second
+    // component rather than a `morph` prop on the one above.
+    //
+    // 5904 B measured against that row's 4804, so the morph is ~1.1 kB gz: the
+    // pose interpolation, the per-eye transform composition and the colour
+    // fade in core, plus a bezier and a `requestAnimationFrame` loop here. As a
+    // prop it would have been reachable from the still component and every
+    // React Native consumer would have carried it, including the grid of
+    // avatars that is most of the usage. As a separate export a bundler drops
+    // all of it, which is what the row above is now asserting rather than
+    // assuming. The two rows are only meaningful together, and a change that
+    // moves both by the same amount is core getting bigger while a change that
+    // moves only this one is the morph getting bigger.
+    name: "@blobatar/react-native morph",
+    budget: 5860,
+    external: ["react", "react/jsx-runtime", "react-native", "react-native-svg"],
+    ext: "tsx",
+    source: `import { MorphingBlobatar } from "@blobatar/react-native";
+             globalThis.x = MorphingBlobatar;`,
   },
 
   // The two rows below are the only place the externals in each adapter's
@@ -235,12 +269,13 @@ const ENTRIES: {
              globalThis.x = Blobatar;`,
   },
   {
-    // 525 B measured. The row that would catch `react-native-svg` or
+    // 654 B measured, 525 before the split. The row that would catch
+    // `react-native-svg` or
     // `react-native` being bundled in, which on this platform is not a size
     // regression but a broken app, since the native halves are linked once and
     // a private JavaScript copy would be talking to nothing.
     name: "@blobatar/react-native alone",
-    budget: 560,
+    budget: 700,
     external: ["react", "react/jsx-runtime", "react-native", "react-native-svg", "blobatar", "blobatar/internal", "blobatar/uri"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/react-native";
