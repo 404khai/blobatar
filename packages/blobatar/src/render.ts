@@ -116,7 +116,7 @@ export interface Style<L> {
  * eight custom properties and the CSS composes it, so baking it into geometry as
  * well would apply it twice.
  */
-function posed<L>(l: L, opts: BlobatarOptions, animate?: unknown) {
+export function posed<L>(l: L, opts: BlobatarOptions, animate?: unknown) {
   const e = opts.expression;
   if (animate || !e) return { l, wrap: "" };
   return e.bake(l as L & Posable, e.p);
@@ -132,7 +132,7 @@ function posed<L>(l: L, opts: BlobatarOptions, animate?: unknown) {
  * puts them on. Same two colors, resolved once, serialized into whichever half
  * of the split can carry them.
  */
-const tinted = (p: Palette, e?: Expression) => (e?.tint ? e.tint(p, e.p) : p);
+export const tinted = (p: Palette, e?: Expression) => (e?.tint ? e.tint(p, e.p) : p);
 
 /** Wraps the body in the pose transform, when there is one. */
 const wrap = (body: string, t: string) =>
@@ -176,7 +176,7 @@ export interface Backdrop {
  * the motion root, so it cannot ride along in the innerHTML string that the
  * root `<g>` now owns.
  */
-function backdrop<L>(
+export function backdrop<L>(
   style: Style<L>,
   opts: BlobatarOptions,
   p: Palette,
