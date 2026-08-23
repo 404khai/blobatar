@@ -913,48 +913,103 @@ async function checkRock() {
 
   // Sampled across most of the 900ms period, so the window cannot land inside a
   // single direction of travel and read a seesaw as a drift.
+  const SAMPLES = 48;
+
   const track = async (root: SVGGElement) => {
     const eyes = [...root.querySelectorAll<SVGGElement>(".mo-eye")];
     const ys: number[][] = [[], []];
-    for (let i = 0; i < 48; i++) {
+    /*
+     * A frame the engine has not laid out yields `null` from `getScreenCTM()`,
+     * and Gecko does that for a frame or two mid-sample on a loaded runner. The
+     * `!` that used to be here is a TypeScript assertion with no runtime effect,
+     * so one null threw a bare TypeError, and because the runner wrapped every
+     * check in one `try`, it also took the eight checks after this one down
+     * unrun and unreported. CI showed `harness` and a line number in a bundle.
+     *
+     * A dropped sample is the same class of thing the step-based anticorrelation
+     * below already tolerates: the seesaw runs a 900ms period against a ~16ms
+     * frame, so a gap lengthens one step rather than inverting it. So nulls are
+     * skipped and counted rather than retried in place.
+     *
+     * Bounded at twice the sample count so an engine that never lays the eyes
+     * out ends the loop instead of spinning, and reports a short sample as a
+     * failed check. That path also covers a root with no `.mo-eye` under it,
+     * where nothing would ever be pushed.
+     */
+    let missed = 0;
+    for (let i = 0; i < SAMPLES * 2 && ys[0]!.length < SAMPLES; i++) {
       await frame();
-      eyes.forEach((e, k) => ys[k]!.push(e.getScreenCTM()!.f));
+      const ms = eyes.map((e) => e.getScreenCTM());
+      if (eyes.length !== 2 || ms.some((m) => !m)) {
+        missed++;
+        continue;
+      }
+      ms.forEach((m, k) => ys[k]!.push(m!.f));
     }
-    const span = (v: number[]) => Math.max(...v) - Math.min(...v);
+    // Guarded against an empty sample so a short run reports zeroes next to its
+    // `SHORT SAMPLE` note rather than `-Infinity`. Reading a zero as a pass is
+    // not possible: `enough` below gates the whole assertion on the count.
+    const span = (v: number[]) => (v.length ? Math.max(...v) - Math.min(...v) : 0);
     const [l, r] = ys as [number[], number[]];
     const mid = l.map((v, i) => (v + r[i]!) / 2);
     // Anticorrelation, measured on the steps rather than on the values, so a
     // slow frame shortens a step instead of inverting one.
     let dot = 0;
     for (let i = 1; i < l.length; i++) dot += (l[i]! - l[i - 1]!) * (r[i]! - r[i - 1]!);
-    return { travel: Math.min(span(l), span(r)), drift: span(mid), dot };
+    return { travel: Math.min(span(l), span(r)), drift: span(mid), dot, missed, n: l.length };
   };
 
   const busy = await track(roots[0]!);
   const calm = await track(roots[1]!);
 
+  // A short sample is a failure and not a silent pass. Reading a seesaw from
+  // half a period is exactly how this check would go green while measuring
+  // nothing, which is worse than the throw it replaces.
+  const enough = busy.n === SAMPLES && calm.n === SAMPLES;
+  const dropped = busy.missed + calm.missed;
+
   report(
     "I the seesaw trades the eyes' heights and moves nothing else",
-    busy.travel > 1 && busy.dot < 0 && busy.drift < 0.5 && calm.travel < 0.01,
+    enough && busy.travel > 1 && busy.dot < 0 && busy.drift < 0.5 && calm.travel < 0.01,
     `thinking: each eye travels ${busy.travel.toFixed(1)}px of ${SIZE}, ` +
       `midpoint ${busy.drift.toFixed(3)}px, steps anticorrelated (${busy.dot.toFixed(1)}); ` +
-      `happy ${calm.travel.toFixed(3)}px`,
+      `happy ${calm.travel.toFixed(3)}px` +
+      (dropped ? `; ${dropped} unlaid frames skipped` : "") +
+      (enough ? "" : `; SHORT SAMPLE ${busy.n}/${SAMPLES} and ${calm.n}/${SAMPLES}`),
   );
 }
 
+/**
+ * Each check runs on its own, and a thrower names itself.
+ *
+ * One `try` around the whole sequence used to be the shape here, and it hid
+ * more than it caught. When `checkRock` threw in Gecko, the run reported
+ * `harness` plus a line number in a bundle, the eight checks after it never
+ * ran, and nothing in the output said so. A gate whose failure mode is "most of
+ * the gate silently did not execute" is not reporting what it measured.
+ *
+ * Isolating them is safe because they already are: every check builds its own
+ * host element and its own React root, and none reads another's state.
+ */
+const CHECKS: [string, () => Promise<void>][] = [
+  ["checkGeometry", checkGeometry],
+  ["checkRock", checkRock],
+  ["checkBlink", checkBlink],
+  ["checkLive", checkLive],
+  ["checkDirections", checkDirections],
+  ["checkTint", checkTint],
+  ["checkContinuity", checkContinuity],
+  ["checkShake", checkShake],
+  ["checkPacing", checkPacing],
+];
+
 (async () => {
-  try {
-    await checkGeometry();
-    await checkRock();
-    await checkBlink();
-    await checkLive();
-    await checkDirections();
-    await checkTint();
-    await checkContinuity();
-    await checkShake();
-    await checkPacing();
-  } catch (err) {
-    report("harness", false, String((err as Error)?.stack ?? err));
+  for (const [name, check] of CHECKS) {
+    try {
+      await check();
+    } catch (err) {
+      report(`harness ${name} threw`, false, String((err as Error)?.stack ?? err));
+    }
   }
   // Posted back rather than read out of the browser, which is what lets the
   // driver run this in Gecko as well as Blink without speaking two debugging
