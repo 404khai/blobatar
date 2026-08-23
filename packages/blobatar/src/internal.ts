@@ -28,6 +28,22 @@
  * to build markup, `blobatar()` and `blobatarUri()` are the public answers and
  * they are not going to move under you.
  *
+ * `_posed`, `poseTransforms`, `lerpPose` and `fadeHex` are the morph, and they
+ * are four exports rather than one because the pieces belong to three different
+ * modules and none of them may be welded to the others. `_posed` is the figure
+ * with the pose left as numbers; `poseTransforms` is the composition, which
+ * lives beside `bakePose` because the two must be read together; `lerpPose` is
+ * the interpolation a substrate without CSS transitions has to do itself; and
+ * `fadeHex` is the colour travel, which lives with the rest of the colour code.
+ * An adapter assembles them and adds nothing of its own, which is ADR-0009's
+ * rule and the reason the composition is not in the adapter where it would be
+ * more convenient.
+ *
+ * Exporting them from here does not put them in a static adapter's bundle. Each
+ * is a plain function declaration in a module whose top level is literals, so
+ * `@blobatar/react-native`'s static path drops all four; `packages/harness`
+ * gates that.
+ *
  * `_marks` is the newest of the three and the only one added since the split.
  * It is here rather than in a public entry point for the same reason as the
  * other two, since its shape is the adapters' business, and it was addable at all
@@ -38,9 +54,12 @@
 
 import { serializeVars as serialize } from "./animate";
 
-export { _layout, _marks, _parts } from "./blobatar";
+export { _layout, _marks, _parts, _posed } from "./blobatar";
 export type { Animate, BlobatarOptions, Expression, Mark } from "./blobatar";
+export { fadeHex } from "./color";
 export type { Palette } from "./color";
+export { lerpPose, poseTransforms } from "./morph";
+export type { Pose, Posable } from "./morph";
 export type { TraitOverrides, Traits } from "./traits";
 
 /**

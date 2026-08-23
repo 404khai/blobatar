@@ -193,6 +193,36 @@ export const mixHex = (a: string, b: string, t: number) =>
   toHex(mix(fromHex(a), fromHex(b), t));
 
 /**
+ * The other blend, and it is deliberately not the one above.
+ *
+ * `mixHex` is where a tinting pose *lands*: `heat` picks a point on the OKLab
+ * walk and the result is a finished endpoint. This is how a fill *travels*
+ * between two finished colors while a pose morphs, and on the web that travel
+ * is not this module's at all. It is `transition: fill`, which CSS runs in
+ * sRGB, on the two hex values `--mo-head` and `--mo-eye` already hold.
+ *
+ * So a substrate with no transitions has to reproduce sRGB, not OKLab. Using
+ * `mixHex` here instead would be the better colour space and the wrong answer:
+ * it would put a React Native blobatar on a visibly different path between the
+ * same two endpoints than a web one, which is the drift every other part of
+ * this repo is arranged to prevent. The endpoints agree because `mixHex` sets
+ * them; the path between them agrees because of this.
+ *
+ * Byte-level rather than through `Oklch`, since sRGB is what the channels
+ * already are once parsed.
+ */
+export function fadeHex(a: string, b: string, t: number): string {
+  let out = "#";
+  for (let i = 1; i < 7; i += 2) {
+    const from = parseInt(a.slice(i, i + 2), 16);
+    const to = parseInt(b.slice(i, i + 2), 16);
+    const v = Math.round(from + (to - from) * t);
+    out += (v < 16 ? "0" : "") + v.toString(16);
+  }
+  return out;
+}
+
+/**
  * Where a tinting pose is heading.
  *
  * Four numbers rather than an authored colour, because the endpoint has to be
