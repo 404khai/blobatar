@@ -16,6 +16,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./animated": {
+      "types": "./dist/animated.d.ts",
+      "default": "./dist/animated.js"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -34,15 +38,32 @@
     "blobatar": "2.x",
     "react": ">=18",
     "react-native": ">=0.76",
-    "react-native-svg": ">=15"
+    "react-native-reanimated": ">=4",
+    "react-native-svg": ">=15",
+    "react-native-worklets": ">=0.5"
+  },
+  "//peerDependenciesMeta": "Reanimated and worklets are optional because only `@blobatar/react-native/animated` imports them. A consumer drawing still or morphing blobatars installs neither, which is the whole reason the idle layer sits behind a subpath rather than at the package root. They are a pair rather than one dependency: Reanimated 4 moved worklets into their own package, and the Babel plugin that compiles them lives in the second one.",
+  "peerDependenciesMeta": {
+    "react-native-reanimated": {
+      "optional": true
+    },
+    "react-native-worklets": {
+      "optional": true
+    }
   },
   "//devDependencies": "`react-native` is pinned to the exact version Expo SDK 54 ships, and the pin is not cosmetic: `apps/example-native` declares that version, and a floating range here resolves higher, hoists over it, and hands Metro a React Native whose internals do not match the one the app was built against. The peer range above stays open, because a consumer's React Native is their business. Both are here for types only and never load: `SvgProps` extends `ViewProps`, so `react-native-svg`'s declarations reach into `react-native` and `tsc` needs it on disk, but that package's own entry point is Flow-typed source Bun cannot parse, which is why `packages/harness` renders this adapter through a stub rather than the real components. `react` is deliberately NOT pinned the same way: it is a single version across the whole workspace, and forcing it down here drags every other app with it while `react-dom` stays put, which React itself rejects at runtime. The duplicate-React hazard that pin was trying to solve belongs to the example app and is solved in its `metro.config.js`.",
   "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-react": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "@types/babel__core": "^7.20.5",
     "@types/react": "^19",
     "blobatar": "workspace:*",
     "react": "^19",
     "react-native": "0.81.4",
-    "react-native-svg": "^15.15.5"
+    "react-native-reanimated": "~4.1.0",
+    "react-native-svg": "^15.15.5",
+    "react-native-worklets": "~0.6.0"
   },
   "keywords": [
     "blobatar",

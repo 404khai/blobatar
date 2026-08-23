@@ -35,7 +35,8 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AnimatedBlobatar, Blobatar, MorphingBlobatar } from "@blobatar/react-native";
+import { Blobatar, MorphingBlobatar } from "@blobatar/react-native";
+import { AnimatedBlobatar } from "@blobatar/react-native/animated";
 import {
   happy,
   love,
@@ -376,12 +377,19 @@ describe("it takes the same options the still one does", () => {
  */
 describe("AnimatedBlobatar", () => {
   test("it draws the whole nest, not a flattened one", () => {
-    // Six levels: root, breathe, bob, the eye pair, each eye, each eye's own
-    // path. Every one of them has a different origin or a different clock, and
-    // collapsing two is how the eye-scale bug in `motion.css`'s own history
-    // happened. An eye path sits under all six, so its depth is the count.
+    // Seven levels: root, breathe, bob, the eye pair, the seesaw, the pose, and
+    // each eye's own path. Every one of them has a different origin or a
+    // different clock, and collapsing two is how the eye-scale bug in
+    // `motion.css`'s own history happened.
+    //
+    // Seven rather than the stylesheet's six, and the extra one is the seesaw.
+    // The pose is computed on the JS thread and the loops on the UI thread, so
+    // the phase cannot be folded into the pose the way core folds it; it rides
+    // outside as its own translate instead. That is what keeps
+    // `poseTransforms`, the subtlest arithmetic in the library, out of a
+    // worklet. See `rockT`.
     const prims = render(AnimatedBlobatar, { name: "alain", size: 40, animate: true });
-    expect(Math.max(...prims.map(p => p.depth))).toBe(6);
+    expect(Math.max(...prims.map(p => p.depth))).toBe(7);
     // …and the body is inside the ambient layers but outside the eye ones.
     const body = prims.filter(p => p.depth === 3);
     expect(body.length).toBeGreaterThan(0);

@@ -231,11 +231,29 @@ const ENTRIES: {
     // moves a smaller row is a tier leaking into the one below, which is the
     // failure the whole three-component shape exists to prevent and which the
     // keyframe tables caused twice before landing on their own entry point.
+    // 9880 B, against 7360 for the same component on a `requestAnimationFrame`
+    // driver. The ~2.5 kB is Reanimated's, and it is not overhead that can be
+    // optimised away: the worklets plugin embeds each worklet's *source* as a
+    // string, because that is how a function reaches the UI runtime. Twenty-one
+    // worklets means twenty-one copies of their own text.
+    //
+    // Bought deliberately. The loops run off the JS thread, which is the only
+    // way a sidebar of agents animating at once stays smooth, and that is what
+    // this component is for. A consumer who does not want the bytes or the
+    // native dependency imports one of the two rows above and links none of it,
+    // which is why this lives behind `/animated` rather than at the root.
     name: "@blobatar/react-native animated",
-    budget: 7420,
-    external: ["react", "react/jsx-runtime", "react-native", "react-native-svg"],
+    budget: 10_000,
+    // Reanimated and worklets are external for the reason the native modules
+    // already here are: they are a JavaScript half bolted to a native half that
+    // the consumer's app links once. Their bytes are not this package's to
+    // report, and bundling a private copy would not be waste but a broken app.
+    external: [
+      "react", "react/jsx-runtime", "react-native", "react-native-svg",
+      "react-native-reanimated", "react-native-worklets",
+    ],
     ext: "tsx",
-    source: `import { AnimatedBlobatar } from "@blobatar/react-native";
+    source: `import { AnimatedBlobatar } from "@blobatar/react-native/animated";
              globalThis.x = AnimatedBlobatar;`,
   },
   {

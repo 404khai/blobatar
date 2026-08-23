@@ -39,7 +39,7 @@ function Avatar() {
 | `contrast` | `boolean` | Enforce the contrast guarantee. |
 | `title` | `string` | Accessible label. |
 | `expression` | `Expression` | Pose to render. |
-| `animate` | `boolean` | **`AnimatedBlobatar` only.** Run the idle layer. Defaults to false. |
+| `animate` | `boolean` | **`AnimatedBlobatar` only**, from `@blobatar/react-native/animated`. Run the idle layer. Defaults to false. |
 | `traits` | `TraitOverrides` | Override specific traits. |
 
 Anything else lands on the underlying `<Svg>`, and wins over what the props
@@ -112,7 +112,7 @@ blink, the glance, and the two loops that belong to an expression rather than to
 the ambient layer, `thinking`'s seesaw and `mad`'s tremor.
 
 ```tsx
-import { AnimatedBlobatar } from "@blobatar/react-native";
+import { AnimatedBlobatar } from "@blobatar/react-native/animated";
 
 // a profile header, one large avatar
 <AnimatedBlobatar name="ada" size={120} animate />
@@ -133,13 +133,28 @@ It defaults to false, so an `AnimatedBlobatar` nobody has told to animate is a
 still blobatar, exactly. Turning it on or off ramps over 400ms rather than
 switching, which is the stylesheet's own transition.
 
-Every animating blobatar re-renders each frame on the JS thread. That is what
-makes `animate` being yours the important part: your app is the only thing that
-knows how many need to be live at once. Reanimated would move this to the UI
-thread, and it is deliberately not used here, because a library has to ship
-worklets pre-compiled and a worklet cannot call core's composition, so the
-motion would exist twice in two languages. That is the drift ADR-0009 exists to
-prevent.
+**It runs on the UI thread.** The loops are Reanimated worklets, so a sidebar
+full of agents all animating at once does not put a React render per blobatar
+per frame on the JS thread. That is the case this is built for.
+
+It is a separate entry point, `@blobatar/react-native/animated`, and that is
+what keeps the dependency optional:
+
+```sh
+npm install react-native-reanimated react-native-worklets
+```
+
+Only this subpath needs them. `Blobatar` and `MorphingBlobatar` come from the
+package root and link neither, so an app drawing still avatars in a list
+installs no native animation library at all.
+
+The cost is real and worth stating: the loops now exist twice, once in
+`blobatar/idle` and once as worklets in the adapter, because a worklet cannot
+call an imported function. `packages/harness` runs both over a wide sweep and
+asserts they agree exactly, so a transcription error is a failing test rather
+than something you notice on a device. The pose composition is deliberately
+*not* duplicated: it stays in core and runs in JavaScript, since a morph is a
+one-shot 300ms transition rather than a loop.
 
 The seeded timings are the same ones the stylesheet reads, so a blobatar
 breathes on the same offset on both platforms, and a grid of them is a crowd

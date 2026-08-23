@@ -45,8 +45,17 @@
  *    at a different height than the same pose on the web, it is being applied
  *    twice.
  * 4. **The tinted pose.** `mad` recolours the head and leaves the eyes alone.
- * 5. **The morph.** It cycles through the roster on its own, so this one shows
- *    itself. Every channel has to move together over the same 300ms. If the
+ * 5. **Motion.** Two blobatars, running the idle layer and cycling through the
+ *    roster. Two rather than one because the single most load-bearing property
+ *    in the whole motion layer is that a grid does not move in unison: if these
+ *    two breathe together, the seeded phase is not reaching the loops.
+ *    Watch one for a while. It breathes and bobs on two periods that drift
+ *    against each other, blinks every few seconds, and glances somewhere and
+ *    holds before glancing again. Eyes jump and settle; anything that drifts
+ *    smoothly between fixations is wrong. Select `thinking` and its eyes
+ *    seesaw continuously; select `mad` and it trembles. Those two are pose
+ *    loops rather than ambient ones, so they run off the expression.
+ *    The morph itself is the change between poses. Every channel has to move together over the same 300ms. If the
  *    eyes travel and the body snaps, or the tint arrives instantly while the
  *    eyes ease, a channel is being applied outside the interpolation. Returning
  *    to idle is deliberately slower than adopting a pose, which is the one
@@ -55,17 +64,8 @@
  *    morph must start from where the face is, not from the pose the first set
  *    out from.
  *
- * 6. **The idle layer.** Four blobatars, and the first two are the check that
- *    matters: they must *not* breathe in unison. If they do, the seeded phase
- *    is not reaching the loops and a grid will read as a heartbeat rather than
- *    as a crowd. Then watch one for a while: it breathes and bobs on two
- *    periods that drift against each other, blinks every few seconds, and
- *    glances somewhere and holds before glancing again. Eyes jump and settle;
- *    anything that drifts smoothly between fixations is wrong.
- *    The last two carry the loops that belong to an expression rather than to
- *    the ambient layer: `thinking` seesaws its eyes, `mad` trembles. Toggling
- *    to still has to ramp the motion out over 400ms rather than cutting it,
- *    and has to land on exactly the still blobatar.
+ *    Toggling to still has to ramp the motion out over 400ms rather than
+ *    cutting it, and has to land on exactly the still blobatar.
  *
  * Everything written on this screen is drawn in a colour derived from the
  * device theme. It is not decoration. React Native gives `<Text>` no colour of
@@ -83,7 +83,8 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { AnimatedBlobatar, Blobatar, MorphingBlobatar } from "@blobatar/react-native";
+import { Blobatar } from "@blobatar/react-native";
+import { AnimatedBlobatar } from "@blobatar/react-native/animated";
 import {
   happy,
   mad,
@@ -162,6 +163,7 @@ const HOLD = 1400;
 function Morph() {
   const ink = useInk();
   const [i, setI] = useState(0);
+  const [live, setLive] = useState(true);
   // Running by default, because the morph is the only thing on this screen a
   // still frame cannot show, and a device check that needs a tap before it
   // shows anything is a device check somebody skips.
@@ -176,16 +178,26 @@ function Morph() {
   return (
     <View style={styles.section}>
       <Text style={[styles.heading, { color: ink.fg }]}>
-        The morph: it cycles on its own, and tapping a pose takes over
+        Motion: the loops run, and the pose cycles until you tap one
       </Text>
       <View style={styles.morph}>
-        <MorphingBlobatar
-          name="alain00"
-          size={160}
-          background="squircle"
-          expression={MORPHS[i]![1]}
-          title={`alain00, ${MORPHS[i]![0]}`}
-        />
+        {/*
+          Two of them, because the single most load-bearing property in the
+          whole motion layer is that a grid does not move in unison. One
+          creature breathing proves the loop runs; two creatures breathing on
+          different offsets proves the crowd is a crowd.
+        */}
+        {["alain00", "ada"].map(n => (
+          <AnimatedBlobatar
+            key={n}
+            name={n}
+            size={140}
+            background="squircle"
+            expression={MORPHS[i]![1]}
+            title={`${n}, ${MORPHS[i]![0]}`}
+            animate={live}
+          />
+        ))}
       </View>
       <View style={styles.row}>
         <Pressable
@@ -194,6 +206,17 @@ function Morph() {
         >
           <Text style={[styles.chipText, { color: ink.fg }]}>
             {playing ? "pause" : "play"}
+          </Text>
+        </Pressable>
+        {/* The idle layer's own switch, separate from the pose cycle: one is
+            what the creature is doing, the other is what this screen is doing
+            to it. */}
+        <Pressable
+          onPress={() => setLive(v => !v)}
+          style={[styles.chip, { backgroundColor: live ? ink.chipOn : ink.chip }]}
+        >
+          <Text style={[styles.chipText, { color: ink.fg }]}>
+            {live ? "animating" : "still"}
           </Text>
         </Pressable>
         {MORPHS.map(([name], n) => (
@@ -215,48 +238,6 @@ function Morph() {
             <Text style={[styles.chipText, { color: ink.fg }]}>{name}</Text>
           </Pressable>
         ))}
-      </View>
-    </View>
-  );
-}
-
-/**
- * The idle layer, which is the other thing on this screen no still frame can
- * check, and the one with the most ways to be subtly wrong.
- *
- * Two blobatars side by side rather than one, because the single most
- * load-bearing property in the whole motion layer is that a grid does not move
- * in unison. One creature breathing proves the loop runs; two creatures
- * breathing on different offsets proves the crowd is a crowd.
- */
-function Idle() {
-  const ink = useInk();
-  const [on, setOn] = useState(true);
-  return (
-    <View style={styles.section}>
-      <Text style={[styles.heading, { color: ink.fg }]}>
-        The idle layer: breathe, bob, blink, glance
-      </Text>
-      <View style={styles.row}>
-        {["alain00", "ada"].map(n => (
-          <AnimatedBlobatar key={n} name={n} size={110} background="squircle" animate={on} />
-        ))}
-        {/* `thinking` seesaws and `mad` trembles. Both are pose channels
-            rather than ambient ones, so they run off the expression rather
-            than off the amplitude, and they are the two that were missing
-            while only the morph existed. */}
-        <AnimatedBlobatar name="alain00" size={110} background="squircle" expression={thinking} animate={on} />
-        <AnimatedBlobatar name="alain00" size={110} background="squircle" expression={mad} animate={on} />
-      </View>
-      <View style={styles.row}>
-        <Pressable
-          onPress={() => setOn(p => !p)}
-          style={[styles.chip, { backgroundColor: on ? ink.chipOn : ink.chip }]}
-        >
-          <Text style={[styles.chipText, { color: ink.fg }]}>
-            {on ? "animating" : "still"}
-          </Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -321,8 +302,6 @@ export default function App() {
       </Section>
 
       <Morph />
-
-      <Idle />
 
       <Section title="A crowd: every name a different creature">
         {Array.from({ length: 24 }, (_, i) => (

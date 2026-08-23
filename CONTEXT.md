@@ -231,12 +231,24 @@ export so a bundler drops the ones an app never names: `Blobatar` is still,
 layer and is the only one that takes `animate`. `packages/harness/scripts/size.ts`
 holds one row per tier, and a change that moves a smaller row is a tier leaking
 into the one below.
-None of it is Reanimated. A library has to ship worklets pre-compiled, which
-means a Babel pass over a package built with Bun and a copy of the composition
-inside the worklet, since a worklet cannot call core's `idleTransforms`. That
-copy is the drift ADR-0009 exists to prevent, so the driver is
-`requestAnimationFrame` and the cost is a React render per frame per animating
-blobatar. Caller-gated is what makes that affordable.
+The idle layer runs on the UI thread, as Reanimated worklets, because the
+product this is for is a sidebar of agents all animating at once and a React
+render per blobatar per frame is what makes that stutter. A library has to ship
+worklets pre-compiled, so the adapter's build runs a Babel pass and then counts
+the worklets in its own output: an untransformed `'worklet'` directive is an
+ordinary function that silently runs on the JS thread, which looks exactly like
+success. `react-native-reanimated` and `react-native-worklets` are **optional
+peers**, reachable only through `@blobatar/react-native/animated`, so the two
+smaller tiers link no native animation library.
+That buys one exception to ADR-0009: the loops exist twice, in `blobatar/idle`
+and as worklets, because a worklet cannot call an imported function. The
+exception is paid for rather than waived. `packages/harness` runs both over a
+sweep and asserts they agree exactly, so a transcription error is a failing test
+rather than a device somebody has to notice. The pose composition is *not*
+duplicated, and that is the line: it is the subtlest arithmetic in the library
+and the one a real browser is used to check, so it stays in core and runs in
+JavaScript, with the seesaw reaching it as an outer translate that composes
+exactly.
 _Avoid_: static-only adapter and idle-less adapter. Both were true in turn and
 neither is now; the first describes only `Blobatar`.
 Like source-resolved, this is a property of the platform and not a tier. It owes
