@@ -64,6 +64,54 @@
 
 import { plugin } from "bun";
 
+/**
+ * The second stub, and it proves less than the first one does.
+ *
+ * `@blobatar/react-native/animated` drives its loops through
+ * `react-native-reanimated`, which is a native module and cannot load here for
+ * the same reason `react-native` cannot. What is replaced below is the shape of
+ * its API: shared values are plain boxes, derived values and animated props are
+ * evaluated once, and the frame callback never fires.
+ *
+ * So this can say nothing whatever about the UI thread, which is the entire
+ * reason Reanimated is used. What it *can* say is the thing worth asserting
+ * from a server render anyway: with no frame callback and no timing, the clock
+ * sits at zero and the amplitude sits where it was initialised, so an animated
+ * blobatar that has not been told to animate must render as exactly the still
+ * one. Every ambient layer is multiplied by that amplitude, and a missed `*
+ * amp` is invisible on a device and obvious here.
+ *
+ * The loops themselves are checked without any of this, in
+ * `react-native-worklets.test.ts`, by running the worklet copy against core's
+ * original as plain functions. Between the two, what is left unproven is
+ * whether the worklets actually reach the UI thread, and the only honest place
+ * to see that is `apps/example-native` on a device.
+ */
+plugin({
+  name: "react-native-reanimated stub",
+  setup(build) {
+    build.module("react-native-reanimated", () => ({
+      loader: "js",
+      contents: `
+        import { createElement } from "react";
+        export const useSharedValue = (v) => ({ value: v });
+        export const useDerivedValue = (fn) => ({ value: fn() });
+        export const useAnimatedProps = (fn) => fn();
+        export const useFrameCallback = () => {};
+        export const withTiming = (v) => v;
+        export const Easing = { bezier: () => (x) => x };
+        const createAnimatedComponent = (C) => {
+          const A = ({ animatedProps, ...rest }) =>
+            createElement(C, { ...rest, ...animatedProps });
+          A.displayName = "Animated(" + (C.displayName || "C") + ")";
+          return A;
+        };
+        export default { createAnimatedComponent };
+      `,
+    }));
+  },
+});
+
 plugin({
   name: "react-native-svg stub",
   setup(build) {

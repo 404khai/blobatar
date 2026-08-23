@@ -427,6 +427,14 @@
  * *shape* of the curve at fractions of whatever duration is set here, so it
  * catches a front-loaded curve and a dead start without pinning the speed —
  * duration is a taste dial and the gate deliberately does not own it.
+ *
+ * **These two numbers and this curve exist in one other place**, and nothing
+ * can make them share a constant: `packages/react-native/src/index.tsx` runs
+ * the same morph against a substrate with no stylesheet, so it carries `IN` and
+ * `OUT` transcribed from here, with `ease-in-out` spelled as the bezier it
+ * stands for. Change them together. Nothing fails if you do not: the two
+ * platforms simply stop agreeing about how long an expression takes to arrive,
+ * which is the kind of drift only somebody holding both devices would notice.
  */
 .mo-root.mo-expr {
   --mo-morph: calc(300ms * var(--mo-rate, 1));

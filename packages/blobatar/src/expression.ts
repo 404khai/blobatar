@@ -35,171 +35,15 @@ import {
   type Palette,
   type Tint,
 } from "./color";
+import { IDENT, bakePose, r3, type Pose, type Posable } from "./morph";
 
 /**
- * The channels a pose may touch, and nothing else.
- *
- * Petals are excluded on purpose: a sun's nine petals are silhouette, and moving
- * them independently reads as wind or as the creature coming apart. Path data is
- * excluded because interpolating it puts geometry on the main thread every frame.
- *
- * **The body deforms for nothing, so it no longer deforms.** `bsx`, `bsy` and
- * `skew` used to scale and lean the whole creature and have been removed. Three
- * things settled it. They rank fourth of five for legibility in the first place;
- * they are the only channels with no headroom, since frame containment binds at
- * roughly `bsx: 1.08` and a 3° lean puts a body outside the viewBox — so they
- * break the frame before they get loud enough to read; and in this variant the
- * silhouette *is* the identity. Six shapes, a seeded lopsidedness and a seeded
- * lean are what make a grid read as a crowd, and squashing that per-expression
- * is the one move that makes a blobatar stop looking like itself.
- *
- * `bdy` survives because it is a rigid translate. It moves the creature without
- * distorting it, which is what `happy`'s lift and `sad`'s sink actually needed.
- *
- * Units: scales are factors, `tilt` is degrees, offsets are viewBox units, and
- * `heat`, `shake` and `rock` are 0–1 amounts. `tilt` and `edx` are mirrored per
- * side.
- *
- * The `*2` channels are the **second eye's differential**, not its value: they
- * add to the shared channel on the right eye only, so an identity of 0 is a
- * symmetric face and every existing pose keeps emitting exactly what it did.
- * Expressed as deltas rather than as a second endpoint for precisely that
- * reason — a pair of endpoints would force every symmetric pose to state both.
+ * Re-exported so `blobatar/expression` stays the one place a consumer of
+ * expressions has to look. The machinery lives in `./morph`, for the bundling
+ * reason that file's header gives, and that split is this package's business
+ * rather than a caller's.
  */
-export interface Pose {
-  /** Eye width, about each eye's own center. */
-  esx: number;
-  /** Eye height, about each eye's own center. */
-  esy: number;
-  /**
-   * Eye tilt, mirrored per side: the left eye rotates by `-tilt`, the right by
-   * `+tilt`.
-   *
-   * **What that reads as depends on the eye's orientation, and the sign flips
-   * when it changes.** On a *portrait* capsule — the natural shape here, median
-   * aspect 2.55:1 — a positive tilt leans both tops outward and brings the inner
-   * edges down, which is the angry direction. Flatten the capsule past square
-   * with `esy` and the same rotation raises the inner ends instead: on a
-   * *landscape* bar, **negative** tilt is the angry `\ /` and positive is the
-   * sad `/ \`.
-   *
-   * This is not a quirk of the implementation, it is what rotating a bar does,
-   * and it is invisible to every test in the suite — clearance, containment and
-   * the composition gate are all sign-blind. It cost a full roster of poses
-   * wearing each other's brows to notice. **Look at the render.**
-   */
-  tilt: number;
-  /** Eye pair offset, positive = down. */
-  edy: number;
-  /** Eye convergence, positive = apart. */
-  edx: number;
-  /** Extra width on the right eye only. */
-  esx2: number;
-  /** Extra height on the right eye only. */
-  esy2: number;
-  /** Extra tilt on the right eye only, before the per-side mirroring. */
-  tilt2: number;
-  /**
-   * Extra vertical offset on the right eye only, positive = down.
-   *
-   * The differential the first three rosters never needed. There is one for
-   * width, one for height and one for tilt, and none for *position*, because
-   * every pose up to `thinking` said its asymmetry with shape — `wink` closes an
-   * eye, `unsure` shrinks one. A pair of eyes at two **heights** is a sentence
-   * none of those can make, and it is the one that reads as attention pointed
-   * somewhere other than at you.
-   *
-   * It is also the static half of `rock`, and the reason a `thinking` blobatar
-   * still reads with the stylesheet missing or the loop stopped for reduced
-   * motion: what is left on the face is one frame of the seesaw rather than
-   * nothing at all.
-   */
-  edy2: number;
-  /**
-   * How much of the **seeded** eye lean the pose overrides, 0–1. At 0 the pose's
-   * `tilt` adds to whatever lean the seed drew; at 1 the seeded lean is cancelled
-   * and the eyes sit at exactly the angle the pose names.
-   *
-   * It exists because `tilt` is a *brow*, and a brow is an absolute direction.
-   * `styles/blob.ts` leans each eye by up to 12° in a single seeded direction —
-   * identity, and good identity, on an idle face. Added to a pose it is not
-   * identity, it is noise on the one channel that carries the meaning: `mad`'s
-   * `\ /` at −33° meets a +12° seed and comes out `\ \`, a pair of parallel bars
-   * that read as bored rather than angry, while the seed 12° the other way gets
-   * an unusually furious `mad`. The reference renders are unambiguous about which
-   * of those is wanted.
-   *
-   * So the loud poses take their tilt absolute and the seeded lean returns intact
-   * the moment the expression clears — the identity is in the idle face, not in a
-   * per-seed discount on the expression. This is the same rule `esx`/`esy` already
-   * follow by being factors on a shape the pose flattens nearly out of existence:
-   * every blobatar wears the same strength of a given expression.
-   *
-   * Interpolates like every other channel, so the lean eases out over the morph
-   * rather than snapping.
-   */
-  lock: number;
-  /** How far the palette shifts toward its hot pair, 0–1. */
-  heat: number;
-  /** Tremor amplitude, 0–1. Held, not fired — see `@keyframes mo-shake`. */
-  shake: number;
-  /**
-   * Seesaw amplitude, 0–1. Held, not fired — see `@keyframes mo-rock`.
-   *
-   * The second channel whose content is a *duration* rather than a shape, and
-   * built the way `shake` is for the same reason: an expression is set and held,
-   * with no timers, no self-termination and no notion of firing again, so a
-   * repeating motion has to be an amplitude on a loop that always runs and
-   * resolves to the identity at 0. `shake` made that argument once; this is the
-   * evidence it generalises past a tremor.
-   *
-   * What it drives is **antiphase**: the left eye rises as the right one falls,
-   * on `--mo-wrap`'s sign, so the pair trades heights and the mean stays put. A
-   * bounce — both eyes dipping together — would be `mo-bob` at a second period
-   * and would beat against it. A trade cannot.
-   *
-   * The swing is `edy2` wide, which is what makes the static bake exactly frame
-   * zero of the loop rather than an approximation of it. See `bakePose`.
-   *
-   * What the number means, precisely: it is how much of the stagger *takes part*
-   * in the swing. At 1 the pair fully inverts every half cycle; at 0.7 it swings
-   * through level and comes back out 40% inverted, about the same mean. So the
-   * two extremes are not mirror images, and that is the intent — the pose the
-   * consumer set stays the one the face spends most of its time near, and the
-   * loop breathes around it rather than replacing it half the time.
-   */
-  rock: number;
-  /** Whole-creature offset, positive = down. */
-  bdy: number;
-}
-
-/**
- * The identity pose, and the key list — every channel's custom property is its
- * own name prefixed, so no lookup table is needed. Iterating this is what lets
- * `poseVars` skip channels a pose leaves alone, which is why `idle` emits
- * nothing at all.
- */
-const IDENT: Pose = {
-  esx: 1,
-  esy: 1,
-  tilt: 0,
-  edy: 0,
-  edx: 0,
-  esx2: 0,
-  esy2: 0,
-  tilt2: 0,
-  edy2: 0,
-  lock: 0,
-  heat: 0,
-  shake: 0,
-  rock: 0,
-  bdy: 0,
-};
-
-/** What `bakePose` needs of a layout. Structural, so this module imports no variant. */
-export interface Posable {
-  eyes: { cx: number; cy: number; rx: number; ry: number; rot: number }[];
-}
+export { bakePose, type Pose, type Posable };
 
 /**
  * A pose plus the two ways to apply it.
@@ -221,8 +65,6 @@ export interface Expression {
    */
   readonly tint?: (pal: Palette, p: Pose) => Palette;
 }
-
-const r3 = (v: number) => String(Math.round(v * 1000) / 1000);
 
 /**
  * The animated path: pose as registered custom properties.
@@ -291,73 +133,6 @@ export function tintWith(pal: Palette, p: Pose, t: Tint): Palette {
  * imported or not. A function expression is.
  */
 export const heatTint = (pal: Palette, p: Pose) => tintWith(pal, p, HOT);
-
-/**
- * The static path: eye channels baked into geometry, body channels handed back
- * as one `transform` attribute for the caller to wrap.
- *
- * Baking is exact rather than approximate, because the CSS composes in the same
- * order the geometry does. `superellipse` scales by `rx`/`ry` and *then* rotates,
- * and `.mo-eye` applies the pose scale innermost (in `@keyframes mo-blink`) and
- * the tilt outside it (in `mo-wrap`'s `rotate`). The offsets commute with both,
- * since the rotation and scale are about each eye's own center —
- * `transform-box: fill-box` on the animated side, the eye's own `cx`/`cy` here.
- *
- * The body half of that attribute used to be a three-transform chain derived
- * from the CSS — a scale about (50, 50), an offset, and a lean — and needed a
- * `translate(50 50) … translate(-50 -50)` sandwich to put the origin in the
- * right place. With the deforming channels gone it is one rigid translate, which
- * commutes with everything and needs no origin at all. The whole apparatus that
- * kept it honest, including the divergence the composition gate measured, was in
- * service of the two channels that are no longer here.
- *
- * The eye channels stay out of that attribute: baking them costs nothing, where
- * a per-eye transform would need its own origin round-trip and ~85 B per eye.
- */
-export function bakePose<L extends Posable>(
-  l: L,
-  p: Pose,
-): { l: L; wrap: string } {
-  return {
-    l: {
-      ...l,
-      eyes: l.eyes.map((e, i) => ({
-        ...e,
-        // `--mo-wrap`'s sign, spelled out: -1 on the left eye, +1 on the right,
-        // so a positive tilt leans both tops outward and brings the inner edges
-        // down. That asymmetry is the entire brow vocabulary available here.
-        cx: e.cx + p.edx * (i ? 1 : -1),
-        // `edy2` lands on the right eye only, like every other differential —
-        // and unlike them it has a moving counterpart, which is what decides the
-        // shape of `--mo-ph` on the animated side rather than the other way
-        // round. The seesaw swings the pair symmetrically about its own centre,
-        // so its share of the differential is `(1 + wrap·phase) / 2`; that
-        // expression *is* `--mo-sel` at phase +1, on both eyes, because `wrap`
-        // is ±1. So the stagger baked here is exactly the loop's own extreme,
-        // with no compensating term anywhere and nothing to keep in step by
-        // hand. `probe-compose.ts` check A measures the two against each other.
-        cy: e.cy + p.edy + (i ? p.edy2 : 0),
-        // The `*2` differential lands on the right eye only, which is
-        // `--mo-sel`'s job on the animated side. It is added *before* the
-        // mirroring on `tilt`, matching `calc(var(--mo-t) * var(--mo-wrap))` —
-        // adding it after would flip its sign on the left eye and turn a
-        // one-sided brow into a symmetric one.
-        rx: e.rx * (p.esx + (i ? p.esx2 : 0)),
-        ry: e.ry * (p.esy + (i ? p.esy2 : 0)),
-        // `lock` fades the seeded lean out rather than switching it off, which
-        // is what lets it interpolate on the animated side. At 0 this is the
-        // plain sum it always was.
-        //
-        // The animated path cannot bake it away — the lean is already in the
-        // path's coordinates — so it subtracts the same amount on `.mo-eye`'s
-        // `rotate` instead. Both resolve to R(tilt·wrap) · scale about the eye's
-        // own centre; `probe-compose.ts` check A measures that they agree.
-        rot: e.rot * (1 - p.lock) + (p.tilt + (i ? p.tilt2 : 0)) * (i ? 1 : -1),
-      })),
-    },
-    wrap: p.bdy !== 0 ? `translate(0 ${r3(p.bdy)})` : "",
-  };
-}
 
 /**
  * The roster. Frozen per major, exactly like the shape thresholds and the tone

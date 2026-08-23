@@ -120,7 +120,7 @@ const APPLICATION = {
   name: "blobatar",
   url: absolute("/"),
   description:
-    "Deterministic geometric blobatars from any string. A zero-dependency library for JavaScript, React, Vue, Svelte, Solid and Preact, plus an HTTP endpoint that renders one as SVG.",
+    "Deterministic geometric blobatars from any string. A zero-dependency library for JavaScript, React, Vue, Svelte, Solid, Preact and React Native, plus an HTTP endpoint that renders one as SVG.",
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Any",
   softwareVersion: VERSION,

@@ -98,6 +98,11 @@ Reached through `blobatar/internal` (`_marks`), and it exists for one reason:
 `react-native-svg` has no `innerHTML`, so an adapter there builds real elements
 or it builds nothing, and serializing here to parse there would put an XML
 parser between the renderer and the screen.
+Marks come back two ways, and the pair is the point: `_marks` is the figure with
+the pose already welded into it, which is what a still blobatar wants, and
+`_posed` is the same figure before the pose touched it with the pose handed back
+as channels, which is what a morph needs (see _Channel_). Neither is a mode on
+the other, so a consumer of one links none of the other.
 A mark carries its own fill, where the string groups by fill with `<g fill>`.
 Attribute inheritance is cheaper on the wire and means nothing to a renderer
 that never reads a group.
@@ -210,24 +215,67 @@ rather than a file it cannot execute, which is not.
 _Avoid_: unbuilt, raw, uncompiled. All three suggest something unfinished; the
 source _is_ the artifact. See ADR-0010.
 
-**Static-only adapter**:
-`@blobatar/react-native`, and so far only it. Every other adapter honors
-`animate`; this one has no such prop, because the idle motion is a stylesheet
-(`motion.css`, a root class, a dozen seeded custom properties) and React Native
-has no stylesheet, no custom properties and no CSS transitions. Re-expressing
-the motion spec against Reanimated would make it exist twice, in two languages,
-drifting.
-So the prop is **absent from the type**, never accepted and ignored: passing it
-is a compile error naming the package, which is the cheapest place to learn it.
-`expression` is unaffected and works in full, since a static pose bakes into the
-geometry before any renderer sees it; what is missing is the *morph* between
-poses, which was always the part that needed CSS.
+**Caller-gated motion**:
+`@blobatar/react-native`, and so far only it. Every other adapter takes
+`animate` as a *mode*, `"hover"` or `"always"`, because the idle motion is a
+stylesheet (`motion.css`, a root class, a dozen seeded custom properties) and
+hover is what gates it. There is no hover on a touch screen, and `motion.css`
+says so itself by pausing every loop under `@media not ((hover: hover) and
+(pointer: fine))`. So the only mode this platform has is the always-on one, and
+`animate` is a **boolean the caller drives** instead: screen focus, list
+viewability, a user setting, the OS reduced-motion flag. All things an app knows
+and a component drawn into a scroll view does not.
+Motion is three components rather than three props, and each tier is a separate
+export so a bundler drops the ones an app never names: `Blobatar` is still,
+`MorphingBlobatar` travels between expressions, `AnimatedBlobatar` adds the idle
+layer and is the only one that takes `animate`. `packages/harness/scripts/size.ts`
+holds one row per tier, and a change that moves a smaller row is a tier leaking
+into the one below.
+The idle layer runs on the UI thread, as Reanimated worklets, because the
+product this is for is a sidebar of agents all animating at once and a React
+render per blobatar per frame is what makes that stutter. A library has to ship
+worklets pre-compiled, so the adapter's build runs a Babel pass and then counts
+the worklets in its own output: an untransformed `'worklet'` directive is an
+ordinary function that silently runs on the JS thread, which looks exactly like
+success. `react-native-reanimated` and `react-native-worklets` are **optional
+peers**, reachable only through `@blobatar/react-native/animated`, so the two
+smaller tiers link no native animation library.
+That buys one exception to ADR-0009: the loops exist twice, in `blobatar/idle`
+and as worklets, because a worklet cannot call an imported function. The
+exception is paid for rather than waived. `packages/harness` runs both over a
+sweep and asserts they agree exactly, so a transcription error is a failing test
+rather than a device somebody has to notice. The pose composition is *not*
+duplicated, and that is the line: it is the subtlest arithmetic in the library
+and the one a real browser is used to check, so it stays in core and runs in
+JavaScript, with the seesaw reaching it as an outer translate that composes
+exactly.
+_Avoid_: static-only adapter and idle-less adapter. Both were true in turn and
+neither is now; the first describes only `Blobatar`.
 Like source-resolved, this is a property of the platform and not a tier. It owes
 the same equivalence row, the same exact-major peer, the same lockstep version.
 Its row simply reads `_marks` instead of markup, and the option matrix it is
 compared over is shared rather than restated (`packages/harness/test/cases.ts`).
 _Avoid_: limited adapter, partial adapter, v1 adapter. All three imply something
 that is coming; nothing here is waiting on work.
+
+**Channel**:
+One number a pose may move. `esy` is eye height, `edx` is convergence, `bdy`
+lifts or sinks the whole creature. Thirteen of them plus `heat`, listed once as
+the `Pose` struct in `src/morph.ts`, and a pose is nothing but a value for each.
+A channel is **not** a keyframe and not an animation. There are no
+per-expression keyframes anywhere: the morph between any two poses is what
+interpolating these numbers does, which is why the roster is data and adding an
+expression costs its numbers rather than a stylesheet.
+Every channel reaches the picture through one of exactly three renderings of the
+same composition, and they must agree: `bakePose` welds them into geometry for
+the static path, `poseTransforms` carries them as one transform per eye for a
+substrate that morphs them itself, and `.mo-eye` in `motion.css` is CSS's copy.
+The first two live in one file for that reason; `test/morph.test.ts` and
+`scripts/probe-compose.ts` are what hold all three together.
+`heat` is the exception worth knowing: it reaches no transform. Colour is
+resolved in TypeScript and travels as a fill between two finished values.
+_Avoid_: property (that is the CSS spelling, `--mo-esy`, and only one of the
+three renderings), knob, parameter.
 
 **Expression**:
 Which named pose a blobatar holds — `idle`, `happy`, `sad`, `mad`. Set by the

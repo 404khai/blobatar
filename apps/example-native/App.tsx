@@ -45,13 +45,80 @@
  *    at a different height than the same pose on the web, it is being applied
  *    twice.
  * 4. **The tinted pose.** `mad` recolours the head and leaves the eyes alone.
+ * 5. **Motion.** Two blobatars, running the idle layer and cycling through the
+ *    roster. Two rather than one because the single most load-bearing property
+ *    in the whole motion layer is that a grid does not move in unison: if these
+ *    two breathe together, the seeded phase is not reaching the loops.
+ *    Watch one for a while. It breathes and bobs on two periods that drift
+ *    against each other, blinks every few seconds, and glances somewhere and
+ *    holds before glancing again. Eyes jump and settle; anything that drifts
+ *    smoothly between fixations is wrong. Select `thinking` and its eyes
+ *    seesaw continuously; select `mad` and it trembles. Those two are pose
+ *    loops rather than ambient ones, so they run off the expression.
+ *    The morph itself is the change between poses. Every channel has to move together over the same 300ms. If the
+ *    eyes travel and the body snaps, or the tint arrives instantly while the
+ *    eyes ease, a channel is being applied outside the interpolation. Returning
+ *    to idle is deliberately slower than adopting a pose, which is the one
+ *    difference to watch for rather than to correct.
+ *    Then tap two poses in quick succession, which stops the loop: the second
+ *    morph must start from where the face is, not from the pose the first set
+ *    out from.
+ *
+ *    Toggling to still has to ramp the motion out over 400ms rather than
+ *    cutting it, and has to land on exactly the still blobatar.
+ *
+ * Everything written on this screen is drawn in a colour derived from the
+ * device theme. It is not decoration. React Native gives `<Text>` no colour of
+ * its own, so this app's first release was entirely unreadable on a dark-mode
+ * phone, controls included. See `useInk`.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { StatusBar } from "expo-status-bar";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from "react-native";
 import { Blobatar } from "@blobatar/react-native";
-import { happy, mad } from "blobatar/expression";
+import { AnimatedBlobatar } from "@blobatar/react-native/animated";
+import {
+  happy,
+  mad,
+  sad,
+  sleepy,
+  surprised,
+  thinking,
+  wink,
+  type Expression,
+} from "blobatar/expression";
+
+/**
+ * Colours for the chrome around the blobatars, in whichever theme the device is
+ * in.
+ *
+ * React Native gives `<Text>` no colour of its own, so an unstyled label is
+ * black, and this app spent its first release with every heading, caption and
+ * control invisible on a dark-mode phone. Nothing was wrong with the blobatars,
+ * which carry their own backdrops and were the only thing on screen: the labels
+ * were being drawn in black on black. That is worth a hook rather than a
+ * constant, because a device switching theme while the app is open should not
+ * be the thing that hides the controls again.
+ *
+ * The blobatars themselves are untouched by this. Their palette comes from the
+ * seed and is the library's business; nothing here may tint one.
+ */
+function useInk() {
+  const dark = useColorScheme() === "dark";
+  return {
+    fg: dark ? "#f4f4f5" : "#111113",
+    chip: dark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.06)",
+    chipOn: dark ? "rgba(255,255,255,0.34)" : "rgba(0,0,0,0.18)",
+  };
+}
 
 const SHAPES: [string, number][] = [
   ["round", 0.11],
@@ -66,13 +133,130 @@ const SHAPES: [string, number][] = [
   ["triangle", 0.99],
 ];
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * The morph, which is the one thing on this screen a still screenshot cannot
+ * check. Deliberately large: at 64pt the eye channels are a couple of points of
+ * travel and a dropped one is invisible.
+ */
+const MORPHS: [string, Expression | undefined][] = [
+  ["idle", undefined],
+  ["happy", happy],
+  ["sad", sad],
+  ["mad", mad],
+  ["surprised", surprised],
+  ["wink", wink],
+  ["sleepy", sleepy],
+  ["thinking", thinking],
+];
+
+/**
+ * How long each pose is held while the loop is running.
+ *
+ * Longer than the morph itself on purpose. At 400ms back to idle, anything
+ * under about a second runs the next morph into the tail of the last one, and
+ * every pose is then seen mid-travel and never settled, which makes the loop
+ * useless for the one thing it is for: judging whether a pose *arrives*
+ * correctly. Interrupting is worth watching too, which is what tapping is for.
+ */
+const HOLD = 1400;
+
+function Morph() {
+  const ink = useInk();
+  const [i, setI] = useState(0);
+  const [live, setLive] = useState(true);
+  // Running by default, because the morph is the only thing on this screen a
+  // still frame cannot show, and a device check that needs a tap before it
+  // shows anything is a device check somebody skips.
+  const [playing, setPlaying] = useState(true);
+
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => setI(n => (n + 1) % MORPHS.length), HOLD);
+    return () => clearInterval(id);
+  }, [playing]);
+
   return (
     <View style={styles.section}>
-      <Text style={styles.heading}>{title}</Text>
+      <Text style={[styles.heading, { color: ink.fg }]}>
+        Motion: the loops run, and the pose cycles until you tap one
+      </Text>
+      <View style={styles.morph}>
+        {/*
+          Two of them, because the single most load-bearing property in the
+          whole motion layer is that a grid does not move in unison. One
+          creature breathing proves the loop runs; two creatures breathing on
+          different offsets proves the crowd is a crowd.
+        */}
+        {["alain00", "ada"].map(n => (
+          <AnimatedBlobatar
+            key={n}
+            name={n}
+            size={140}
+            background="squircle"
+            expression={MORPHS[i]![1]}
+            title={`${n}, ${MORPHS[i]![0]}`}
+            animate={live}
+          />
+        ))}
+      </View>
+      <View style={styles.row}>
+        <Pressable
+          onPress={() => setPlaying(p => !p)}
+          style={[styles.chip, { backgroundColor: playing ? ink.chipOn : ink.chip }]}
+        >
+          <Text style={[styles.chipText, { color: ink.fg }]}>
+            {playing ? "pause" : "play"}
+          </Text>
+        </Pressable>
+        {/* The idle layer's own switch, separate from the pose cycle: one is
+            what the creature is doing, the other is what this screen is doing
+            to it. */}
+        <Pressable
+          onPress={() => setLive(v => !v)}
+          style={[styles.chip, { backgroundColor: live ? ink.chipOn : ink.chip }]}
+        >
+          <Text style={[styles.chipText, { color: ink.fg }]}>
+            {live ? "animating" : "still"}
+          </Text>
+        </Pressable>
+        {MORPHS.map(([name], n) => (
+          <Pressable
+            key={name}
+            // Tapping is also how you stop the loop, rather than through a
+            // separate control: reaching for a pose while it cycles means you
+            // want that pose, and having it advance out from under you a second
+            // later is the loop fighting the person using it.
+            onPress={() => {
+              setPlaying(false);
+              setI(n);
+            }}
+            style={[
+              styles.chip,
+              { backgroundColor: n === i && !playing ? ink.chipOn : ink.chip },
+            ]}
+          >
+            <Text style={[styles.chipText, { color: ink.fg }]}>{name}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  const ink = useInk();
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.heading, { color: ink.fg }]}>{title}</Text>
       <View style={styles.row}>{children}</View>
     </View>
   );
+}
+
+/** A label under a blobatar, in a colour the device can actually show. */
+function Caption({ children }: { children: ReactNode }) {
+  const ink = useInk();
+  return <Text style={[styles.caption, { color: ink.fg }]}>{children}</Text>;
 }
 
 export default function App() {
@@ -84,7 +268,7 @@ export default function App() {
         {SHAPES.map(([name, v]) => (
           <View key={name} style={styles.cell}>
             <Blobatar name="alain00" size={64} traits={{ shape: v }} />
-            <Text style={styles.caption}>{name}</Text>
+            <Caption>{name}</Caption>
           </View>
         ))}
       </Section>
@@ -93,29 +277,31 @@ export default function App() {
         {(["square", "circle", "squircle"] as const).map(bg => (
           <View key={bg} style={styles.cell}>
             <Blobatar name="alain00" size={64} background={bg} />
-            <Text style={styles.caption}>{bg}</Text>
+            <Caption>{bg}</Caption>
           </View>
         ))}
         <View style={styles.cell}>
           <Blobatar name="alain00" size={64} background={false} />
-          <Text style={styles.caption}>none</Text>
+          <Caption>none</Caption>
         </View>
       </Section>
 
       <Section title="Poses: happy lifts the body, mad tints the head only">
         <View style={styles.cell}>
           <Blobatar name="alain00" size={64} background="squircle" />
-          <Text style={styles.caption}>idle</Text>
+          <Caption>idle</Caption>
         </View>
         <View style={styles.cell}>
           <Blobatar name="alain00" size={64} background="squircle" expression={happy} />
-          <Text style={styles.caption}>happy</Text>
+          <Caption>happy</Caption>
         </View>
         <View style={styles.cell}>
           <Blobatar name="alain00" size={64} background="squircle" expression={mad} />
-          <Text style={styles.caption}>mad</Text>
+          <Caption>mad</Caption>
         </View>
       </Section>
+
+      <Morph />
 
       <Section title="A crowd: every name a different creature">
         {Array.from({ length: 24 }, (_, i) => (
@@ -133,4 +319,20 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: 12, alignItems: "flex-start" },
   cell: { alignItems: "center", gap: 4 },
   caption: { fontSize: 11, opacity: 0.5 },
+  // Side by side rather than stacked, because the thing this pair exists to
+  // show is a *difference* between two loops, and two creatures a screen-height
+  // apart are two things you compare from memory. Level with each other, a
+  // breath that is out of step is visible without looking twice.
+  morph: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 8,
+  },
+  // No colours here. Every one of them depends on the device's theme and is
+  // set at the element, which is what `useInk` is for.
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  chipText: { fontSize: 12 },
 });

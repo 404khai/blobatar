@@ -85,11 +85,15 @@ export function _parts(name: string, opts: BlobatarOptions = {}) {
  * `_layout`: reachable through `blobatar/internal`, whose shape changes only on
  * a major together with every adapter.
  *
- * Static only, and that is not a gap in this function. The whole motion layer
+ * Baked, and that is not a gap in this function. The whole *idle* motion layer
  * is CSS (a stylesheet, custom properties and a class), so there is nothing
  * for `animate` to mean on a substrate that has none of the three, and a mark
  * carries no motion grouping. `expression` *does* work, because a static pose
  * bakes into the geometry before it gets here.
+ *
+ * A renderer that needs to *morph* between two poses wants the other half of
+ * that: `_posed` below, which hands the figure back before the pose touched it
+ * and the pose back as numbers.
  *
  * `transform` is the pose's body wrap, and it is load-bearing rather than
  * decorative: `expression.bake` returns a `translate(0 N)` for any pose that
@@ -112,6 +116,87 @@ export function _marks(name: string, opts: BlobatarOptions = {}): {
     bg: backdrop(style, opts, p),
     transform: pose.wrap,
     marks: marks(pose.l as Layout, p),
+  };
+}
+
+/**
+ * The figure *unbaked*, with the pose left as numbers, for a renderer that has
+ * to morph between two poses itself.
+ *
+ * The sibling of `_marks` rather than a mode on it, and the split is the point.
+ * `_marks` welds the pose into the geometry, which is exactly right for drawing
+ * one pose and exactly wrong for travelling between two: a morph that re-bakes
+ * regenerates every eye path per frame. So this returns the figure as it was
+ * drawn, before any pose touched it, and hands the pose back as the thirteen
+ * channels `poseTransforms` turns into one transform per eye. What changes
+ * during a morph is those strings and nothing else.
+ *
+ * Static consumers pay nothing for it. They keep calling `_marks`, whose shape
+ * and cost are untouched, and this whole function tree-shakes out of a bundle
+ * that never mentions it, which a mode with a branch inside `_marks` could not
+ * have offered.
+ *
+ * ## What comes back
+ *
+ * `marks` and `eyes` are the same list `_marks` returns, split in two, because
+ * the eyes are the only marks a pose moves and each needs a group of its own.
+ * They are already in draw order: everything in `marks`, then everything in
+ * `eyes`, which is where `marks()` puts them.
+ *
+ * `eyeFrames` is what `poseTransforms` needs, and it is deliberately the *drawn*
+ * centres and lean rather than anything posed: the transforms are built against
+ * the geometry as emitted, so a caller cannot accidentally compose a pose onto a
+ * figure that already wears one.
+ *
+ * `fill` and `hot` are the two ends of the colour travel. `hot` is `null` on
+ * every pose that does not tint, which is most of them, and it is a finished
+ * colour rather than a target, the mix at the pose's own `heat`, so a morph
+ * fades between two hex values exactly as `transition: fill` does on the web.
+ * See `fadeHex`.
+ *
+ * `pose` is `undefined` for no expression, which `lerpPose` reads as idle.
+ *
+ * `expr` is the `.mo-expr` predicate, computed here rather than by the caller
+ * because there is already a copy of it in `motion` above and two would drift.
+ * It answers "is the blobatar wearing an expression at all", which is what
+ * picks the morph's clock: adopting one is quick and returning to idle is
+ * slower, and a renderer with no stylesheet has to make that choice itself. It
+ * goes through `e.vars` for the same reason `motion` does, since an expression
+ * that moves nothing *is* idle and a tint alone is enough to be non-idle.
+ *
+ * Underscored on the same terms as `_marks`, `_parts` and `_layout`.
+ */
+export function _posed(name: string, opts: BlobatarOptions = {}) {
+  const { t, palette } = resolve(name, opts);
+  const l = style.layout(t) as Layout;
+  // Drawn with the *base* palette, because these fills are the start of the
+  // travel and not its end. A tinting pose's endpoint rides in `hot`, and a
+  // renderer that ignores the morph entirely and draws these gets an untinted
+  // blobatar wearing no expression, which is the honest static answer for a
+  // figure whose pose has not been applied to it.
+  const all = marks(l, palette);
+  const e = opts.expression;
+  const hot = e?.tint ? e.tint(palette, e.p) : null;
+  // The eyes are the tail of the list, and `test/morph.test.ts` holds `marks()`
+  // to that rather than leaving it as an assumption two files apart.
+  const cut = all.length - l.eyes.length;
+  return {
+    // Outside everything, matching `_marks` and `makeBlobatar`. A tint moves
+    // `head` and `eye` and never `bg`, so the base palette is the right one
+    // here whether or not the pose is hot.
+    bg: backdrop(style, opts, palette),
+    marks: all.slice(0, cut),
+    // Narrowed rather than left as `Mark`, because every eye in gen2 is a
+    // `superellipse` and therefore a path, and a caller that has to re-check
+    // that per eye writes a branch with no second arm. The cast is what the
+    // test above it asserts: `test/morph.test.ts` holds `marks()` to drawing
+    // the eyes last and to drawing them as paths.
+    eyes: all.slice(cut) as Extract<Mark, { kind: "path" }>[],
+    eyeFrames: l.eyes.map(({ cx, cy, rx, ry, rot }) => ({ cx, cy, rx, ry, rot })),
+    pose: e?.p,
+    expr: !!e && (!!Object.keys(e.vars(e.p)).length || !!e.tint),
+    fill: { head: palette.head!, eye: palette.eye! },
+    hot: hot ? { head: hot.head!, eye: hot.eye! } : null,
   };
 }
 

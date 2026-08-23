@@ -56,10 +56,22 @@ const manifest = (pkg: string) =>
  * source-resolved package grows a file by someone adding one, and a list here
  * would go stale silently — which is the failure mode this whole file exists to
  * refuse.
+ *
+ * A built package is read the same way but through its `exports` map, because
+ * an adapter can publish more than one entry and the extra one is where the
+ * interesting imports are. `@blobatar/react-native` is the first:
+ * `./animated` is the only part that touches Reanimated, which is the whole
+ * reason it is a subpath, and reading `.` alone would leave the entry with the
+ * optional peers in it as the one nothing checks.
  */
 const read = (pkg: string): string => {
   const entry = sourceEntry(pkg);
-  if (!entry) return readFileSync(require_.resolve(pkg), "utf8");
+  if (!entry) {
+    return Object.keys(manifest(pkg).exports ?? { ".": {} })
+      .filter((e) => e !== "./package.json")
+      .map((e) => readFileSync(require_.resolve(join(pkg, e)), "utf8"))
+      .join("\n");
+  }
 
   const src = join(dir(pkg), dirname(entry));
   return readdirSync(src)
@@ -83,6 +95,24 @@ const ADAPTERS: [string, string[]][] = [
   ["@blobatar/solid", ["blobatar", "blobatar/internal", "blobatar/uri", "solid-js", "solid-js/web"]],
   ["@blobatar/preact", ["blobatar", "blobatar/internal", "blobatar/uri", "preact", "preact/hooks", "preact/jsx-runtime"]],
   ["@blobatar/svelte", ["blobatar", "blobatar/internal", "blobatar/uri", "svelte", "svelte/elements"]],
+  // Two entries, and the second one's imports are the point: `blobatar/idle`
+  // and `react-native-reanimated` are reachable only from `./animated`, which
+  // is exactly the promise that subpath makes: a consumer drawing a still
+  // avatar in a list links neither.
+  [
+    "@blobatar/react-native",
+    [
+      "blobatar",
+      "blobatar/idle",
+      "blobatar/internal",
+      "blobatar/uri",
+      "react",
+      "react/jsx-runtime",
+      "react-native-svg",
+      "react-native-reanimated",
+      "react-native-worklets",
+    ],
+  ],
 ];
 
 const DEV_ONLY: [string, string][] = [

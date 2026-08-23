@@ -7,8 +7,8 @@ import { FRAMEWORKS, type Framework } from "@/frameworks";
 /**
  * The hero's snippet is the landing page's whole argument — "this is four lines
  * you can paste" — so it has the same correctness property the editor's does,
- * and now the same reason to be checked across five flavors: one emitter serves
- * all of them, which is exactly the shape that can be quietly wrong for four.
+ * and now the same reason to be checked across six flavors: one emitter serves
+ * all of them, which is exactly the shape that can be quietly wrong for five.
  *
  * What is *not* re-tested here is the spelling rules themselves. Those live in
  * `@/frameworks` and are pinned by `src/editor/snippet.test.ts`; repeating them
@@ -27,9 +27,37 @@ const tuned = (fw: Framework) =>
 describe("the hero snippet", () => {
   test("imports the adapter you are reading, in every framework", () => {
     for (const id of IDS) {
-      expect(tuned(id)).toContain(`import { Blobatar } from "@blobatar/${id}";`);
+      const code = tuned(id);
+      expect(code).toContain(`from "@blobatar/${id}`);
       for (const other of IDS.filter(o => o !== id))
-        expect(tuned(id)).not.toContain(`@blobatar/${other}`);
+        // The specifier and not a substring of it. `@blobatar/react` is a
+        // prefix of `@blobatar/react-native`, so a plain `not.toContain` reads
+        // the React Native snippet as importing React's and fails on a snippet
+        // that is correct, which is what it did the first time this list grew.
+        expect(code).not.toMatch(
+          new RegExp(`@blobatar/${other}(?![\\w-])`),
+        );
+    }
+  });
+
+  test("React Native imports the animated component, and the rest do not", () => {
+    // This snippet always animates, so the platform without a stylesheet is the
+    // one that reaches for a second entry point rather than a second import.
+    const code = tuned("react-native");
+    expect(code).toContain(`import { AnimatedBlobatar } from "@blobatar/react-native/animated";`);
+    expect(code).toContain("<AnimatedBlobatar");
+    expect(code).not.toContain("motion.css");
+    // A boolean the app drives, because there is no `:hover` to key off.
+    expect(code).toContain("animate");
+    expect(code).not.toContain(`animate="hover"`);
+    // Required rather than defaulted: no CSS box to inherit a size from.
+    expect(code).toContain("size={48}");
+
+    for (const id of IDS.filter(i => i !== "react-native")) {
+      const web = tuned(id);
+      expect(web).toContain("motion.css");
+      expect(web).not.toContain("AnimatedBlobatar");
+      expect(web).not.toContain("size=");
     }
   });
 
@@ -45,7 +73,7 @@ describe("the hero snippet", () => {
   });
 
   test("the expression import is core's, never an adapter's", () => {
-    // An expression is a value from `blobatar/expression` in all five — the one
+    // An expression is a value from `blobatar/expression` in all six — the one
     // import line that does not move with the framework.
     for (const id of IDS)
       expect(tuned(id)).toContain(`import { happy } from "blobatar/expression";`);
@@ -83,8 +111,8 @@ describe("the hero snippet", () => {
 });
 
 /**
- * The shadcn manager's snippet, which is a different document from the five
- * above rather than a sixth flavor of them — see `shadcnSnippet`. What is worth
+ * The shadcn manager's snippet, which is a different document from the six
+ * above rather than a seventh flavor of them — see `shadcnSnippet`. What is worth
  * pinning is exactly the three things that make it different, because each of
  * them is a silent failure: an adapter import would send a reader to a package
  * the item did not install, a flat prop would be dropped on the floor by a
@@ -96,7 +124,7 @@ describe("the shadcn snippet", () => {
 
   test("imports the file the item writes, never an adapter", () => {
     expect(tuned()).toContain(`import { Blobatar } from "@/components/ui/blobatar";`);
-    for (const id of IDS) expect(tuned()).not.toContain(`@blobatar/${id}`);
+    for (const id of IDS) expect(tuned()).not.toContain(`@blobatar/${id}"`);
   });
 
   test("the expression import is still core's", () => {
