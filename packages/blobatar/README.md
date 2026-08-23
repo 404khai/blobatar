@@ -28,6 +28,30 @@ import { Blobatar } from "@blobatar/vue";
 </template>
 ```
 
+Svelte, Solid and Preact ship the same component as `@blobatar/svelte`,
+`@blobatar/solid` and `@blobatar/preact`. Same props, same behavior; each is
+compiled by its own framework rather than re-using React's, so its runtime
+behaves as that framework's users expect.
+
+```sh
+bun add blobatar @blobatar/react-native
+npx expo install react-native-svg          # or bun add react-native-svg
+```
+
+```tsx
+import { Blobatar } from "@blobatar/react-native";
+
+<Blobatar name={user.email} size={48} />;
+```
+
+React Native builds real `react-native-svg` elements rather than markup, since
+the platform has no `innerHTML` and its `<Image>` does not decode SVG. Two
+things follow, and both are the platform rather than the package: `size` is
+required, because there is no CSS box to inherit one from, and the motion layer
+is a separate component (see below) rather than a prop and a stylesheet. An
+Expo app is a React Native app and `react-native-svg` is the same library in
+both, so there is no `@blobatar/expo` and there is not going to be one.
+
 ```sh
 npx shadcn@latest registry add @blobatar=https://blobatar.dev/r/{name}.json
 npx shadcn@latest add @blobatar/avatar
@@ -237,12 +261,33 @@ pixel. It is worth the most on a profile header, which is what `"always"` is
 for. Eyes may cross outside the body outline on a hard glance; that is intended,
 and reads as a face turning rather than as a bug.
 
-Currently `@blobatar/react` and `@blobatar/vue` only. The string API still returns static markup:
-supporting `animate` there means every consumer of `blobatar()` carries the motion
-code whether they animate or not, which is a real cost for a feature most
-callers will never use. If you need animated markup without either framework,
-open an issue — it wants its own entry point rather than a branch inside
-`blobatar()`.
+Every web adapter takes `animate`: React, Vue, Svelte, Solid and Preact. The
+string API does not, and still returns static markup. Supporting it there means
+every consumer of `blobatar()` carries the motion code whether they animate or
+not, which is a real cost for a feature most callers will never use. If you need
+animated markup without a framework, open an issue: it wants its own entry point
+rather than a branch inside `blobatar()`.
+
+### React Native
+
+There is no stylesheet on this platform and no `:hover` for one to key off, so
+the motion layer is a second component rather than a prop:
+
+```tsx
+import { AnimatedBlobatar } from "@blobatar/react-native/animated";
+
+<AnimatedBlobatar name={user.email} size={48} animate />;
+```
+
+`animate` is a boolean the app drives, defaulting to false. The always-on mode
+is the only one a touch screen has, and *when* to run it is a question the app
+can answer and a component drawn into a scroll view cannot. Turning it on or off
+ramps over 400ms rather than cutting, and lands on exactly the still blobatar.
+
+The loops are Reanimated worklets, so a screen full of blobatars animating at
+once costs no React render per frame. `react-native-reanimated` and
+`react-native-worklets` are optional peer dependencies needed only by that
+subpath: `Blobatar` stays at the package root and links neither.
 
 ## Expressions
 
