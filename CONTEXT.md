@@ -215,25 +215,30 @@ rather than a file it cannot execute, which is not.
 _Avoid_: unbuilt, raw, uncompiled. All three suggest something unfinished; the
 source _is_ the artifact. See ADR-0010.
 
-**Idle-less adapter**:
-`@blobatar/react-native`, and so far only it. Every other adapter honors
-`animate`; this one has no such prop, because the **idle** motion is a
+**Caller-gated motion**:
+`@blobatar/react-native`, and so far only it. Every other adapter takes
+`animate` as a *mode*, `"hover"` or `"always"`, because the idle motion is a
 stylesheet (`motion.css`, a root class, a dozen seeded custom properties) and
-React Native has no stylesheet, no custom properties and no CSS transitions.
-Re-expressing the motion spec against Reanimated would make it exist twice, in
-two languages, drifting. `animate="hover"` is the recommended default for a
-grid on the web and has no trigger at all on a touch screen, so porting it is a
-new design question rather than a translation.
-So the prop is **absent from the type**, never accepted and ignored: passing it
-is a compile error naming the package, which is the cheapest place to learn it.
-`expression` is unaffected and works in full, since a static pose bakes into the
-geometry before any renderer sees it. The **morph** between poses works too, as
-of `MorphingBlobatar`, see _Channel_, and needed none of the above: it is a
-one-shot transition on thirteen numbers, on a state change the consumer
-controls, rather than a loop or a stylesheet.
-_Avoid_: static-only adapter, which this was called while the morph was missing
-and which now describes only `Blobatar`, the still half of a package that has
-two.
+hover is what gates it. There is no hover on a touch screen, and `motion.css`
+says so itself by pausing every loop under `@media not ((hover: hover) and
+(pointer: fine))`. So the only mode this platform has is the always-on one, and
+`animate` is a **boolean the caller drives** instead: screen focus, list
+viewability, a user setting, the OS reduced-motion flag. All things an app knows
+and a component drawn into a scroll view does not.
+Motion is three components rather than three props, and each tier is a separate
+export so a bundler drops the ones an app never names: `Blobatar` is still,
+`MorphingBlobatar` travels between expressions, `AnimatedBlobatar` adds the idle
+layer and is the only one that takes `animate`. `packages/harness/scripts/size.ts`
+holds one row per tier, and a change that moves a smaller row is a tier leaking
+into the one below.
+None of it is Reanimated. A library has to ship worklets pre-compiled, which
+means a Babel pass over a package built with Bun and a copy of the composition
+inside the worklet, since a worklet cannot call core's `idleTransforms`. That
+copy is the drift ADR-0009 exists to prevent, so the driver is
+`requestAnimationFrame` and the cost is a React render per frame per animating
+blobatar. Caller-gated is what makes that affordable.
+_Avoid_: static-only adapter and idle-less adapter. Both were true in turn and
+neither is now; the first describes only `Blobatar`.
 Like source-resolved, this is a property of the platform and not a tier. It owes
 the same equivalence row, the same exact-major peer, the same lockstep version.
 Its row simply reads `_marks` instead of markup, and the option matrix it is

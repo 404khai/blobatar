@@ -311,13 +311,16 @@ export function bakePose<L extends Posable>(
  * those three are not positions.
  *
  * `shake` is the amplitude of `mad`'s tremor and `rock` is the amplitude of
- * `thinking`'s seesaw. Both are read by keyframe loops in `motion.css` and by
- * nothing else, so on a substrate with no loops they are carried through the
- * interpolation and land nowhere. What survives is what survives in the static
- * renderer: `thinking`'s `edy2` still staggers the pair, which is frame zero of
- * the seesaw rather than an approximation of it, and `mad` is still a tinted
- * head over flat tilted bars with no tremor on it. A caller who wants the loops
- * wants the idle layer, which is a different piece of work and a larger one.
+ * `thinking`'s seesaw. Both are read by loops rather than by a composition, so
+ * they are carried through the interpolation here and land nowhere. What
+ * survives is what survives in the static renderer: `thinking`'s `edy2` still
+ * staggers the pair, which is frame zero of the seesaw rather than an
+ * approximation of it, and `mad` is still a tinted head over flat tilted bars
+ * with no tremor on it.
+ *
+ * A caller who wants the loops wants `src/idle.ts`, which evaluates them and
+ * feeds `rockp` back into this function. `poseTransforms` is the still frame of
+ * a moving picture; `idleTransforms` is the picture.
  *
  * `heat` is spent before a frame is drawn: colour is resolved in TypeScript and
  * travels as a fill between two finished values.
