@@ -1,12 +1,15 @@
 import { motionVars, rootClass, type Animate } from "./animate";
 import type { Palette } from "./color";
 import type { Expression } from "./expression";
-import { makeBlobatar, makeParts, resolve, type BlobatarOptions } from "./render";
+import {
+  backdrop, makeBlobatar, makeParts, posed, resolve, tinted,
+  type BlobatarOptions,
+} from "./render";
 import { style } from "./styles/blob";
-import type { Layout } from "./styles/compose";
+import { marks, type Layout, type Mark } from "./styles/compose";
 import type { Traits } from "./traits";
 
-export type { BlobatarOptions, Animate, Expression };
+export type { BlobatarOptions, Animate, Expression, Mark };
 
 /**
  * Renders a deterministic blobatar as SVG markup.
@@ -71,6 +74,45 @@ export function _parts(name: string, opts: BlobatarOptions = {}) {
     opts,
     opts.animate && motion(opts.animate, opts.expression),
   );
+}
+
+/**
+ * The figure as drawing primitives, for a renderer with no markup to hand a
+ * string to.
+ *
+ * For `@blobatar/react-native`, where the substrate is `react-native-svg` and
+ * there is no `innerHTML`. Underscored on the same terms as `_parts` and
+ * `_layout`: reachable through `blobatar/internal`, whose shape changes only on
+ * a major together with every adapter.
+ *
+ * Static only, and that is not a gap in this function. The whole motion layer
+ * is CSS (a stylesheet, custom properties and a class), so there is nothing
+ * for `animate` to mean on a substrate that has none of the three, and a mark
+ * carries no motion grouping. `expression` *does* work, because a static pose
+ * bakes into the geometry before it gets here.
+ *
+ * `transform` is the pose's body wrap, and it is load-bearing rather than
+ * decorative: `expression.bake` returns a `translate(0 N)` for any pose that
+ * shifts the body, and a caller that draws the marks without it puts every
+ * posed blobatar in the wrong place. It is the *only* transform: an eye's
+ * rotation is baked into the points of its path by `superellipse`, not carried
+ * as an attribute. Empty string when there is no pose.
+ */
+export function _marks(name: string, opts: BlobatarOptions = {}): {
+  bg: ReturnType<typeof backdrop>;
+  transform: string;
+  marks: Mark[];
+} {
+  const { t, palette } = resolve(name, opts);
+  const p = tinted(palette, opts.expression);
+  const pose = posed(style.layout(t), opts);
+  return {
+    // Outside the pose wrap, matching `makeBlobatar`. A plate that leans and
+    // scales with the creature stops being a plate.
+    bg: backdrop(style, opts, p),
+    transform: pose.wrap,
+    marks: marks(pose.l as Layout, p),
+  };
 }
 
 /**

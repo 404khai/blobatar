@@ -88,6 +88,50 @@ The React section with the import swapped, which is the whole difference — eac
 is compiled by its own framework's JSX transform rather than re-using React's,
 so `solid-js` reactivity and Preact's runtime both behave as they should.
 
+### React Native and Expo
+
+```sh
+bun add blobatar @blobatar/react-native
+npx expo install react-native-svg          # or bun add react-native-svg
+```
+
+```tsx
+import { Blobatar } from "@blobatar/react-native";
+
+<Blobatar name={user.email} size={48} />;
+```
+
+Expo needs nothing beyond that install. An Expo app is a React Native app, and
+`react-native-svg` is the same library in both, so there is no `@blobatar/expo`
+and there is not going to be one.
+
+Two differences from every other adapter, and both are the platform rather than
+the package:
+
+**`size` is required.** On the web, omitting it lets CSS size the element and
+the viewBox scales to whatever the page decides. React Native has no such
+fallback, so an unsized blobatar is a blank square. Defaulting it here was the
+alternative and it is the one thing an adapter may never do: a default size is
+a default that changes the picture, and the core is the only place a default is
+written down.
+
+**There is no `animate`.** Blobatar's idle motion is a stylesheet: `motion.css`,
+a root class, and a dozen seeded custom properties the CSS reads. React Native
+has none of the three. The prop is absent from the type rather than accepted and
+ignored, so passing it is a compile error instead of a blobatar that silently
+sits still.
+
+`expression` does work, in full. A static pose bakes into the geometry, which is
+why it survives here for the same reason it survives in the string API. What is
+missing is only the *morph* between poses, which was always the part that needed
+CSS.
+
+Everything else is the same: same names, same options, same blobatar. Anything
+not declared as a prop lands on the underlying `<Svg>`. `title` becomes the
+accessibility label rather than a `<title>` element, because `react-native-svg`
+has none. Without one the tree is hidden from screen readers, which is the
+same call `aria-hidden` makes on the web.
+
 ### shadcn/ui
 
 The registry serves shadcn's `Avatar` with a blobatar as the fallback for a
@@ -179,6 +223,7 @@ import "blobatar/motion.css"; // required — nothing animates without it
 ```
 
 The same props work in every adapter — only the component import changes.
+The one exception is React Native, which has no `animate`. See that section above.
 
 ### Coming from `blobatar/react` or `blobatar/vue`
 

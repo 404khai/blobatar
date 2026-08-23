@@ -1,0 +1,66 @@
+{
+  "name": "@blobatar/react-native",
+  "version": "2.4.0",
+  "description": "React Native and Expo adapter for blobatar. Deterministic geometric avatars.",
+  "type": "module",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "//sideEffects": "No `*.css` entry, unlike every other adapter. Those carry one so a bundler cannot drop `import \"blobatar/motion.css\"`; there is no motion layer on this platform and no stylesheet to protect, so the field would be guarding nothing.",
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "bun run typecheck",
+    "//prepack": "See the same note in `packages/react/package.json`. It matters more here than anywhere: this package's first release cannot go out through `release.yml` at all, because npm will not register a trusted publisher for a name that does not exist yet, so its very first publish is a manual one, which is precisely the run with no turbo ordering in front of it.",
+    "prepack": "bun run build"
+  },
+  "//peerDependencies": "`blobatar` is pinned to an exact major for the reason `packages/react/package.json` spells out: under ADR-0008 the major names the generation, so a mixed pair is the wrong picture rather than a version skew, and `packages/harness` asserts the range rather than trusting release tooling with it. The three React Native peers are the opposite case and take ranges: `react-native-svg`'s majors are its own, not blobatar's generations, so a caret is correct there. The floors are the New Architecture's, which is the only architecture current React Native has, and a lower floor would be a configuration nobody here can test and everybody would be asked to support.",
+  "peerDependencies": {
+    "blobatar": "2.x",
+    "react": ">=18",
+    "react-native": ">=0.76",
+    "react-native-svg": ">=15"
+  },
+  "//devDependencies": "`react-native` is pinned to the exact version Expo SDK 54 ships, and the pin is not cosmetic: `apps/example-native` declares that version, and a floating range here resolves higher, hoists over it, and hands Metro a React Native whose internals do not match the one the app was built against. The peer range above stays open, because a consumer's React Native is their business. Both are here for types only and never load: `SvgProps` extends `ViewProps`, so `react-native-svg`'s declarations reach into `react-native` and `tsc` needs it on disk, but that package's own entry point is Flow-typed source Bun cannot parse, which is why `packages/harness` renders this adapter through a stub rather than the real components. `react` is deliberately NOT pinned the same way: it is a single version across the whole workspace, and forcing it down here drags every other app with it while `react-dom` stays put, which React itself rejects at runtime. The duplicate-React hazard that pin was trying to solve belongs to the example app and is solved in its `metro.config.js`.",
+  "devDependencies": {
+    "@types/react": "^19",
+    "blobatar": "workspace:*",
+    "react": "^19",
+    "react-native": "0.81.4",
+    "react-native-svg": "^15.15.5"
+  },
+  "keywords": [
+    "blobatar",
+    "avatar",
+    "identicon",
+    "react-native",
+    "expo",
+    "svg",
+    "deterministic"
+  ],
+  "license": "MIT",
+  "author": "Alain",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alain00/blobatar.git",
+    "directory": "packages/react-native"
+  },
+  "homepage": "https://github.com/Alain00/blobatar#readme",
+  "bugs": "https://github.com/Alain00/blobatar/issues",
+  "//check": "No `bun run build` here. The build is a turbo task that `check` depends on, so it runs once for the whole workspace before any check reads a `dist`. A check that rebuilt its own package would delete `dist` out from under a concurrent check in another one."
+}

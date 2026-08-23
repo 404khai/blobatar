@@ -121,6 +121,57 @@ export function compose(bands: Band[], fit: Fit) {
 }
 
 /**
+ * One drawn primitive, as data rather than as markup.
+ *
+ * This is the other half of `render`, and it exists because `react-native-svg`
+ * has no `innerHTML` to hand a string to, so an adapter there builds real
+ * elements or it builds nothing. Serializing here and parsing there would put
+ * an XML parser between the renderer and the screen, which is a place output
+ * can change, and ADR-0009 is explicit that an adapter adds no geometry of its
+ * own.
+ *
+ * The fill rides on every mark rather than on a group. `render` groups by fill
+ * because SVG attribute inheritance makes that cheaper on the wire; nothing
+ * downstream of this reads a group, so grouping here would only be structure
+ * the adapter has to walk back out.
+ */
+export type Mark =
+  | { kind: "path"; d: string; fill: string }
+  | { kind: "circle"; cx: number; cy: number; r: number; fill: string };
+
+/**
+ * The same figure `render` draws, as marks.
+ *
+ * **A standalone function, deliberately not a method on the object `compose`
+ * returns.** A property of a live object literal can never be dropped by a
+ * bundler, so putting it there would charge every web consumer for a seam only
+ * React Native reads. That is the same reasoning that keeps `animate.ts` out of static
+ * bundles by passing the motion factory in rather than importing it.
+ *
+ * Kept beside `render` rather than derived from it, or it from this. Both
+ * directions were available and both tax the static path everyone is already
+ * on: an emitter puts an indirection in it, and making marks primary makes it
+ * allocate an array of objects before stringifying. So there are two small
+ * traversals of one layout, and the drift that invites is *caught* rather than
+ * prevented: `test/marks.test.ts` asserts these serialize to exactly what
+ * `render` emits, over the golden corpus, and `packages/harness` compares the
+ * React Native adapter against React on every case in its table.
+ *
+ * No `mo` parameter. React Native never animates (the motion layer is CSS), so
+ * there is no motion grouping to emit and no class to carry.
+ */
+export function marks(l: Layout, p: Palette): Mark[] {
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const head = p.head!;
+  return [
+    ...l.petals.map((d): Mark => ({ kind: "circle", cx: r2(d.cx), cy: r2(d.cy), r: r2(d.r), fill: head })),
+    ...l.extra.map((d): Mark => ({ kind: "path", d, fill: head })),
+    { kind: "path", d: l.draw ? l.draw(l.body) : superellipse(l.body), fill: head },
+    ...l.eyes.map((e): Mark => ({ kind: "path", d: superellipse(e), fill: p.eye! })),
+  ];
+}
+
+/**
  * What a composed `layout` returns.
  *
  * `shape` is a `string` here rather than a union of names, because which names

@@ -27,12 +27,19 @@
  * Nothing here is needed to render a blobatar. If you are reaching for `_parts`
  * to build markup, `blobatar()` and `blobatarUri()` are the public answers and
  * they are not going to move under you.
+ *
+ * `_marks` is the newest of the three and the only one added since the split.
+ * It is here rather than in a public entry point for the same reason as the
+ * other two, since its shape is the adapters' business, and it was addable at all
+ * because this entry point's contract permits a minor to add. React Native has
+ * no `innerHTML`, so `_parts` cannot serve it; `_marks` is the same figure as
+ * data.
  */
 
 import { serializeVars as serialize } from "./animate";
 
-export { _layout, _parts } from "./blobatar";
-export type { Animate, BlobatarOptions, Expression } from "./blobatar";
+export { _layout, _marks, _parts } from "./blobatar";
+export type { Animate, BlobatarOptions, Expression, Mark } from "./blobatar";
 export type { Palette } from "./color";
 export type { TraitOverrides, Traits } from "./traits";
 

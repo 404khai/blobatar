@@ -16,6 +16,7 @@ import { Blobatar as Vue_ } from "@blobatar/vue";
 import { Blobatar as Solid_ } from "@blobatar/solid";
 import { Blobatar as Preact_ } from "@blobatar/preact";
 import { Blobatar as Svelte_ } from "@blobatar/svelte";
+import { CASES } from "./cases";
 
 /**
  * The adapters must agree.
@@ -159,21 +160,6 @@ describe("every adapter renders a blobatar at all", () => {
 });
 
 describe("the adapters render the same blobatar", () => {
-  const CASES: [string, Record<string, unknown>][] = [
-    // The bare call is the one that caught a real bug: with no `background`
-    // prop declared default, Vue passed an explicit `false` here.
-    ["nothing but a name", { name: "alain" }],
-    ["a size", { name: "alain", size: 48 }],
-    ["a backdrop", { name: "alain", background: "circle" }],
-    ["a suppressed backdrop", { name: "alain", background: false }],
-    ["a pinned hue", { name: "alain", hue: 210 }],
-    ["a pinned tone", { name: "alain", tone: 0.2 }],
-    ["pinned traits", { name: "alain", traits: { "body.r": 0.9 } }],
-    ["a title", { name: "alain", title: "Alain" }],
-    ["normalization off", { name: "  ALAIN  ", normalize: false }],
-    ["contrast off", { name: "alain", contrast: false }],
-  ];
-
   for (const [what, props] of CASES) {
     for (const [name, render] of OTHERS) {
       test(`static: ${what} — ${name}`, async () => {
