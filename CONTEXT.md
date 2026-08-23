@@ -92,19 +92,19 @@ minor version add a trait without disturbing existing blobatars — and what mak
 trait addressable, so it can be pinned instead of hashed.
 
 **Mark**:
-One drawing primitive — a path or a circle, with the fill it is painted in.
+One drawing primitive: a path or a circle, with the fill it is painted in.
 The figure as *data*, where the string API's output is the figure as markup.
 Reached through `blobatar/internal` (`_marks`), and it exists for one reason:
 `react-native-svg` has no `innerHTML`, so an adapter there builds real elements
 or it builds nothing, and serializing here to parse there would put an XML
 parser between the renderer and the screen.
-A mark carries its own fill, where the string groups by fill with `<g fill>` —
-attribute inheritance is cheaper on the wire and means nothing to a renderer
+A mark carries its own fill, where the string groups by fill with `<g fill>`.
+Attribute inheritance is cheaper on the wire and means nothing to a renderer
 that never reads a group.
 _Avoid_: shape, part, element. **`shape` is the one to guard**: a shape is which
 silhouette the seed picked, and a mark is one of the several primitives that
 silhouette draws with. `part` is taken by `_parts`, which splits an blobatar into
-`inner`/`vars`/`cls`/`bg` for a renderer that owns the outer element — a
+`inner`/`vars`/`cls`/`bg` for a renderer that owns the outer element. That is a
 different cut of the same blobatar, for a different reason.
 
 **Override**:
@@ -212,8 +212,8 @@ source _is_ the artifact. See ADR-0010.
 
 **Static-only adapter**:
 `@blobatar/react-native`, and so far only it. Every other adapter honors
-`animate`; this one has no such prop, because the idle motion is a stylesheet —
-`motion.css`, a root class, a dozen seeded custom properties — and React Native
+`animate`; this one has no such prop, because the idle motion is a stylesheet
+(`motion.css`, a root class, a dozen seeded custom properties) and React Native
 has no stylesheet, no custom properties and no CSS transitions. Re-expressing
 the motion spec against Reanimated would make it exist twice, in two languages,
 drifting.
@@ -223,8 +223,8 @@ is a compile error naming the package, which is the cheapest place to learn it.
 geometry before any renderer sees it; what is missing is the *morph* between
 poses, which was always the part that needed CSS.
 Like source-resolved, this is a property of the platform and not a tier. It owes
-the same equivalence row, the same exact-major peer, the same lockstep version —
-its row simply reads `_marks` instead of markup, and the option matrix it is
+the same equivalence row, the same exact-major peer, the same lockstep version.
+Its row simply reads `_marks` instead of markup, and the option matrix it is
 compared over is shared rather than restated (`packages/harness/test/cases.ts`).
 _Avoid_: limited adapter, partial adapter, v1 adapter. All three imply something
 that is coming; nothing here is waiting on work.

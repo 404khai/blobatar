@@ -30,7 +30,7 @@
  *
  * `_marks` is the newest of the three and the only one added since the split.
  * It is here rather than in a public entry point for the same reason as the
- * other two — its shape is the adapters' business — and it was addable at all
+ * other two, since its shape is the adapters' business, and it was addable at all
  * because this entry point's contract permits a minor to add. React Native has
  * no `innerHTML`, so `_parts` cannot serve it; `_marks` is the same figure as
  * data.

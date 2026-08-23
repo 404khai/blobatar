@@ -2,7 +2,7 @@
  * `_marks` and `blobatar()` draw the same figure.
  *
  * These are two traversals of one layout rather than one derived from the
- * other, and that was a deliberate trade — an emitter shared between them would
+ * other, and that was a deliberate trade. An emitter shared between them would
  * have made drift impossible, at the cost of an indirection on the static path
  * every web consumer is already on, and deriving one from the other taxes the
  * same path differently. See the header of `marks` in `styles/compose.ts`.
@@ -10,7 +10,7 @@
  * This file is the other half of that trade. It is what turns "they cannot
  * drift" from a structural property into an asserted one, and it runs over the
  * golden corpus so it sweeps the same seeds and the same option matrix the
- * fixture does — every silhouette, every backdrop, every expression, tone
+ * fixture does: every silhouette, every backdrop, every expression, tone
  * edges, and normalization off.
  *
  * It compares *drawing primitives*, not markup, because the two forms are not
@@ -21,8 +21,8 @@
  * resolved onto each one, and *that* is what has to match.
  *
  * `packages/harness` asserts the same equivalence a second time and from the
- * other end — the React Native adapter against React, through the real packages
- * — which is the check that would survive this file being wrong.
+ * other end, the React Native adapter against React through the real packages,
+ * which is the check that would survive this file being wrong.
  */
 
 import { expect, test } from "bun:test";
@@ -93,7 +93,7 @@ test("_marks draws what blobatar() draws, over the golden corpus", () => {
   let n = 0;
   for (const [key, markup] of cases()) {
     // The corpus keys carry their options in a label after a NUL, and the
-    // options themselves are not recoverable from it — so the seeds are swept
+    // options themselves are not recoverable from it, so the seeds are swept
     // here and the option matrix below, against the same generator.
     if (key.includes("\0")) continue;
     n++;
@@ -127,8 +127,8 @@ test("_marks draws what blobatar() draws, under every option", () => {
 test("a pose reaches the marks, transform and tint included", async () => {
   const { happy, mad } = await import("../src/expression");
 
-  // Geometry: `happy` moves the body, so the wrap has to survive into `_marks`
-  // — a caller that drew the marks without it would put the figure in the
+  // Geometry: `happy` moves the body, so the wrap has to survive into `_marks`.
+  // A caller that drew the marks without it would put the figure in the
   // wrong place, silently and only for posed blobatars.
   const posed = _marks("alain", { expression: happy });
   expect(posed).toEqual(drawn(blobatar("alain", { expression: happy })) as never);
@@ -139,6 +139,6 @@ test("a pose reaches the marks, transform and tint included", async () => {
   // to a stylesheet, because there is no stylesheet on this path.
   const tinted = _marks("alain", { expression: mad });
   expect(tinted).toEqual(drawn(blobatar("alain", { expression: mad })) as never);
-  // The head, which is the half `mad` tints — its eyes keep the seed's ink.
+  // The head, which is the half `mad` tints. Its eyes keep the seed's ink.
   expect(tinted.marks[0]!.fill).not.toBe(_marks("alain").marks[0]!.fill);
 });

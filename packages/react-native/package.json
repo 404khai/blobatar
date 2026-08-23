@@ -1,7 +1,7 @@
 {
   "name": "@blobatar/react-native",
   "version": "2.4.0",
-  "description": "React Native and Expo adapter for blobatar — deterministic geometric avatars.",
+  "description": "React Native and Expo adapter for blobatar. Deterministic geometric avatars.",
   "type": "module",
   "files": [
     "dist",
@@ -26,10 +26,10 @@
     "build": "bun scripts/build.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "bun run typecheck",
-    "//prepack": "See the same note in `packages/react/package.json`. It matters more here than anywhere: this package's first release cannot go out through `release.yml` at all — npm will not register a trusted publisher for a name that does not exist yet — so its very first publish is a manual one, which is precisely the run with no turbo ordering in front of it.",
+    "//prepack": "See the same note in `packages/react/package.json`. It matters more here than anywhere: this package's first release cannot go out through `release.yml` at all, because npm will not register a trusted publisher for a name that does not exist yet, so its very first publish is a manual one, which is precisely the run with no turbo ordering in front of it.",
     "prepack": "bun run build"
   },
-  "//peerDependencies": "`blobatar` is pinned to an exact major for the reason `packages/react/package.json` spells out: under ADR-0008 the major names the generation, so a mixed pair is the wrong picture rather than a version skew, and `packages/harness` asserts the range rather than trusting release tooling with it. The three React Native peers are the opposite case and take ranges: `react-native-svg`'s majors are its own, not blobatar's generations, so a caret is correct there. The floors are the New Architecture's — it is the only architecture current React Native has, and a lower floor would be a configuration nobody here can test and everybody would be asked to support.",
+  "//peerDependencies": "`blobatar` is pinned to an exact major for the reason `packages/react/package.json` spells out: under ADR-0008 the major names the generation, so a mixed pair is the wrong picture rather than a version skew, and `packages/harness` asserts the range rather than trusting release tooling with it. The three React Native peers are the opposite case and take ranges: `react-native-svg`'s majors are its own, not blobatar's generations, so a caret is correct there. The floors are the New Architecture's, which is the only architecture current React Native has, and a lower floor would be a configuration nobody here can test and everybody would be asked to support.",
   "peerDependencies": {
     "blobatar": "2.x",
     "react": ">=18",
@@ -62,5 +62,5 @@
   },
   "homepage": "https://github.com/Alain00/blobatar#readme",
   "bugs": "https://github.com/Alain00/blobatar/issues",
-  "//check": "No `bun run build` here. The build is a turbo task that `check` depends on, so it runs once for the whole workspace before any check reads a `dist` — a check that rebuilt its own package would delete `dist` out from under a concurrent check in another one."
+  "//check": "No `bun run build` here. The build is a turbo task that `check` depends on, so it runs once for the whole workspace before any check reads a `dist`. A check that rebuilt its own package would delete `dist` out from under a concurrent check in another one."
 }

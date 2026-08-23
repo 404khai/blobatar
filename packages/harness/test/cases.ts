@@ -2,7 +2,7 @@
  * The option matrix every adapter is compared over.
  *
  * Extracted from `adapters.test.ts` when the React Native adapter arrived,
- * because that one cannot join the roster in that file — it renders no `<img>`,
+ * because that one cannot join the roster in that file. It renders no `<img>`,
  * so the static assertion there does not hold for it, and it has no `animate`
  * at all, so half the table's cases do not exist on its platform. It gets its
  * own file and a different instrument, the way `@blobatar/svelte` needed the
@@ -10,7 +10,7 @@
  *
  * What it must not get is a different *matrix*. Two adapters compared over two
  * lists agree about whatever they happen to share, and the case nobody checks
- * is the one that breaks — so the list lives here and both files read it, for
+ * is the one that breaks, so the list lives here and both files read it, for
  * the same reason `test/golden/corpus.ts` is shared by the fixture's writer and
  * its checker.
  */

@@ -5,8 +5,8 @@
  * `@blobatar/react-native` is a symlink into `packages/react-native` rather
  * than a copy under this app's `node_modules`. Metro resolves a bare specifier
  * by walking up from the *importing file*, so `import { useMemo } from "react"`
- * inside the adapter's built `dist` finds `packages/react-native/node_modules/react`
- * — a different physical copy from the one this app loaded.
+ * inside the adapter's built `dist` finds `packages/react-native/node_modules/react`,
+ * a different physical copy from the one this app loaded.
  *
  * Two Reacts in one app means the adapter's hooks read a null dispatcher, and
  * the app dies with `Cannot read property 'useMemo' of null` on the first
@@ -18,7 +18,7 @@
  * Pinning the adapter's `react` devDependency to this app's version does fix
  * the duplication, and it was tried. It also deduplicates `react` across the
  * *entire* workspace, dragging `apps/site`, `apps/demo` and `apps/video` down
- * with it while `react-dom` stays where it was — and React refuses to run
+ * with it while `react-dom` stays where it was, and React refuses to run
  * against a `react-dom` of a different exact version. So a fix for this app
  * broke three others.
  *

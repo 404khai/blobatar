@@ -1,12 +1,12 @@
 /**
- * `@blobatar/react-native` — the React Native and Expo adapter.
+ * `@blobatar/react-native`, the React Native and Expo adapter.
  *
  * ## Why this one holds a component when `@blobatar/react` does not
  *
  * `@blobatar/react` is an alias: the component still lives in `blobatar/react`
  * until v3, because that subpath shipped with consumers and core cannot depend
  * on a package that peer-depends on core (ADR-0009). Nothing analogous is true
- * here. There is no `blobatar/react-native` subpath and there never will be —
+ * here. There is no `blobatar/react-native` subpath and there never will be.
  * ADR-0009 freezes core's optional peer list at `react` and `vue`, and the
  * moment a third adapter subpath appears the peer list resumes growing and the
  * reason for splitting is gone. So this package holds the real implementation
@@ -23,7 +23,7 @@
  * at runtime, and that was the obvious shape and the wrong one: it puts an XML
  * parser between the renderer and the screen, which is a place the picture can
  * change, and ADR-0009 is explicit that an adapter adds no geometry of its own.
- * So core grew `_marks` — the same figure as drawing primitives — and this file
+ * So core grew `_marks`, the same figure as drawing primitives, and this file
  * maps them onto elements. What crosses the boundary is data core produced,
  * not markup something re-interpreted.
  *
@@ -39,7 +39,7 @@ import Svg, { Circle, G, Path, type SvgProps } from "react-native-svg";
 export type BlobatarProps = {
   /**
    * Who the blobatar is for. A username, a display name, an email, a bot's
-   * handle, a user id — any string, and the same string always renders the
+   * handle, a user id. Any string, and the same string always renders the
    * same blobatar.
    */
   name: string;
@@ -48,7 +48,7 @@ export type BlobatarProps = {
    * other adapter.**
    *
    * On the web, omitting it emits no `width`/`height` and lets CSS size the
-   * element — the viewBox scales to whatever the page decides. React Native has
+   * element, and the viewBox scales to whatever the page decides. React Native has
    * no such fallback, so an unsized `<Svg>` is at best ambiguous and at worst
    * zero pixels of nothing.
    *
@@ -62,13 +62,13 @@ export type BlobatarProps = {
 } & Omit<BlobatarOptions, "animate" | "size"> &
   /**
    * `title` is dropped from the passthrough because `SvgProps` declares one of
-   * its own and it is not this one — ours is the screen-reader label every
+   * its own and it is not this one. Ours is the screen-reader label every
    * adapter takes, and it is mapped onto React Native's accessibility props
    * below rather than onto an element, because `react-native-svg` has no
    * `<title>`.
    *
    * `viewBox` is dropped because the geometry is drawn in a fixed 100×100 space
-   * and a caller who changes it gets a cropped blobatar, not a resized one —
+   * and a caller who changes it gets a cropped blobatar, not a resized one:
    * `size` is the prop for that. `children` because there is nothing to put
    * inside a blobatar.
    */
@@ -82,7 +82,7 @@ export type BlobatarProps = {
  * dozen seeded custom properties the CSS reads. React Native has no stylesheet,
  * no custom properties and no CSS transitions, so there is nothing here for
  * `animate` to switch on. Re-expressing the motion spec against Reanimated
- * would make it exist twice, in two languages, drifting — which is the failure
+ * would make it exist twice, in two languages, drifting, which is the failure
  * ADR-0009 refuses everywhere else.
  *
  * So the prop is absent from the type instead of accepted and ignored. Passing
@@ -92,7 +92,7 @@ export type BlobatarProps = {
  * `expression` is a different matter and works fully: a static pose bakes into
  * the geometry before it reaches the marks, which is why it survives here for
  * the same reason it survives in the string API. What is missing is only the
- * *morph* between poses — that was always the part that needed CSS.
+ * *morph* between poses, which was always the part that needed CSS.
  */
 export function Blobatar({
   name: seed,
@@ -109,7 +109,7 @@ export function Blobatar({
   ...rest
 }: BlobatarProps) {
   // Pulled out explicitly like every other option, because what is left in
-  // `rest` goes straight onto the `<Svg>` — and `traits` spread onto a native
+  // `rest` goes straight onto the `<Svg>`, and `traits` spread onto a native
   // component is a prop the view bridge has no idea what to do with.
   //
   // `size` and `title` are deliberately not in here: `_marks` reads neither.
@@ -154,7 +154,7 @@ export function Blobatar({
       accessibilityElementsHidden={title ? undefined : true}
       importantForAccessibility={title ? undefined : "no-hide-descendants"}
       // Last, so a caller who writes an explicit `width` or `accessibilityLabel`
-      // overrides what the props derived — the same rule every other adapter
+      // overrides what the props derived. The same rule every other adapter
       // follows, and one `packages/harness` asserts across all of them.
       {...rest}
     >
@@ -165,7 +165,7 @@ export function Blobatar({
       {figure.bg ? <Path d={figure.bg.d} fill={figure.bg.fill} /> : null}
       {/*
         `transform` is the pose's body wrap and it is load-bearing rather than
-        decorative — `expression.bake` returns a `translate(0 N)` for any pose
+        decorative. `expression.bake` returns a `translate(0 N)` for any pose
         that shifts the body, and drawing the marks without it puts every posed
         blobatar in the wrong place. It is the only transform in the figure: an
         eye's rotation is baked into the points of its path, not carried as an

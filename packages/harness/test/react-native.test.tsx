@@ -5,11 +5,11 @@
  * cannot join it. Two of that file's assumptions are false here: there is no
  * `<img>` and no `data:image/svg+xml`, because React Native's `<Image>` does not
  * decode SVG, and there is no `animate`, because the motion layer is a
- * stylesheet and this platform has none — so every animated case in that table
+ * stylesheet and this platform has none, so every animated case in that table
  * describes something that does not exist on this one.
  *
  * That is the ADR-0010 shape: the guarantee is owed in full, and the instrument
- * has to differ. What is *not* different is the matrix — both files read the
+ * has to differ. What is *not* different is the matrix: both files read the
  * same `CASES`, because two adapters compared over two lists agree about
  * whatever they happen to share.
  *
@@ -22,7 +22,7 @@
  * things actually drawn, with group fills resolved onto each one, and that is
  * what has to match.
  *
- * `react-native-svg` itself is stubbed — see `react-native-stub.ts` for what
+ * `react-native-svg` itself is stubbed. See `react-native-stub.ts` for what
  * that does and does not prove.
  */
 
@@ -66,7 +66,7 @@ function figure(markup: string): { transform: string; prims: Prim[] } {
         [...m[2].matchAll(/(\w[\w-]*)="([^"]*)"/g)].map(a => [a[1]!, a[2]!]),
       );
       // A `<g>` carries either a fill (core's grouping) or the pose transform,
-      // never both — and the stack has to be pushed either way or the `</g>`
+      // never both, and the stack has to be pushed either way or the `</g>`
       // that closes a transform group would pop somebody else's fill.
       if (attrs.transform) transform = attrs.transform;
       fills.push(attrs.fill ?? fills[fills.length - 1] ?? "");
@@ -103,8 +103,8 @@ const fromNative = (props: Record<string, unknown>) =>
 
 /**
  * `size` is required on this adapter and optional everywhere else, so every
- * case gains one. It changes no geometry — it is `width`/`height` on the outer
- * element, which `figure` never reads — so the comparison is unaffected.
+ * case gains one. It changes no geometry: it is `width`/`height` on the outer
+ * element, which `figure` never reads, so the comparison is unaffected.
  */
 const sized = (props: Record<string, unknown>) => ({ size: 40, ...props });
 
@@ -113,7 +113,7 @@ test("the parser refuses markup it does not fully understand", () => {
 });
 
 /**
- * Agreement is not enough on its own — two adapters that both render nothing
+ * Agreement is not enough on its own. Two adapters that both render nothing
  * agree perfectly, which is how an empty Preact adapter once passed a clean
  * typecheck and a green suite. So this runs before any comparison.
  */
@@ -146,7 +146,7 @@ describe("it draws what @blobatar/react draws", () => {
   // values and the shared table is plain data. It belongs here regardless:
   // `expression` is the one part of the motion story that does survive to this
   // platform, and the pose's body `transform` is the thing most likely to be
-  // dropped silently — a posed blobatar would simply render in the wrong place.
+  // dropped silently, and a posed blobatar would simply render in the wrong place.
   test("a pose, transform included", async () => {
     const { happy, mad } = await import("blobatar/expression");
     for (const expression of [happy, mad]) {
@@ -160,7 +160,7 @@ describe("it draws what @blobatar/react draws", () => {
 describe("the caller's props win", () => {
   /**
    * Read from the stub's recorder rather than from markup, because `react-dom`
-   * drops an unknown attribute whose value is a boolean — and
+   * drops an unknown attribute whose value is a boolean, and
    * `accessibilityElementsHidden={true}` is exactly that. Asserting against
    * HTML here would be asserting against react-dom's attribute rules instead of
    * against the adapter. See the stub's header.
@@ -222,7 +222,7 @@ describe("the caller's props win", () => {
   test("no option the caller omitted is invented", async () => {
     // The assertion `adapters.test.ts` makes against Vue's props table, made
     // here against a plain function component. Nothing but the name should
-    // survive into what core is asked to render — and `traits` in particular
+    // survive into what core is asked to render, and `traits` in particular
     // must never reach the native element, where the view bridge has no idea
     // what it is.
     const a = await root({ name: "alain", size: 40 });

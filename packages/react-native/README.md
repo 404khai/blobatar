@@ -1,6 +1,6 @@
 # @blobatar/react-native
 
-React Native and Expo adapter for [blobatar](https://github.com/Alain00/blobatar) — deterministic geometric avatars.
+React Native and Expo adapter for [blobatar](https://github.com/Alain00/blobatar). Deterministic geometric avatars.
 
 ## Installation
 
@@ -9,7 +9,7 @@ bun add @blobatar/react-native blobatar
 npx expo install react-native-svg     # or: bun add react-native-svg
 ```
 
-`react-native-svg` is a peer dependency and is what actually draws — every
+`react-native-svg` is a peer dependency and is what actually draws. Every
 blobatar is `<Path>` and `<Circle>` elements, no gradients, filters or masks.
 
 Expo needs nothing else. An Expo app is a React Native app and `react-native-svg`
@@ -52,7 +52,7 @@ Both are the platform rather than the package.
 the viewBox scales to whatever the page decides. React Native has no such
 fallback, so an unsized blobatar is a blank square. Defaulting it here was the
 alternative, and an adapter that invents a default is an adapter that changes
-the picture — the core is the only place a default is written down.
+the picture. The core is the only place a default is written down.
 
 **There is no `animate`.** Blobatar's idle motion is a stylesheet: `motion.css`,
 a root class, and a dozen seeded custom properties the CSS reads. React Native
@@ -60,7 +60,7 @@ has none of the three. The prop is absent from the type rather than accepted and
 ignored, so passing it is a compile error instead of a blobatar that silently
 sits still.
 
-`expression` works in full — a static pose bakes into the geometry, which is why
+`expression` works in full. A static pose bakes into the geometry, which is why
 it survives here for the same reason it survives in the string API. What is
 missing is only the *morph* between poses, which was always the part that needed
 CSS.
@@ -74,7 +74,7 @@ import { happy } from "blobatar/expression";
 ## Accessibility
 
 `react-native-svg` has no `<title>`, so `title` becomes the accessibility label
-on the root `<Svg>` — `accessible`, `accessibilityLabel` and
+on the root `<Svg>`: `accessible`, `accessibilityLabel` and
 `accessibilityRole="image"`. Without one, the tree is hidden from screen readers
 on both platforms, which is the same call `aria-hidden` makes on the web.
 

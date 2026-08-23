@@ -86,7 +86,7 @@ export function _parts(name: string, opts: BlobatarOptions = {}) {
  * a major together with every adapter.
  *
  * Static only, and that is not a gap in this function. The whole motion layer
- * is CSS — a stylesheet, custom properties and a class — so there is nothing
+ * is CSS (a stylesheet, custom properties and a class), so there is nothing
  * for `animate` to mean on a substrate that has none of the three, and a mark
  * carries no motion grouping. `expression` *does* work, because a static pose
  * bakes into the geometry before it gets here.
@@ -94,7 +94,7 @@ export function _parts(name: string, opts: BlobatarOptions = {}) {
  * `transform` is the pose's body wrap, and it is load-bearing rather than
  * decorative: `expression.bake` returns a `translate(0 N)` for any pose that
  * shifts the body, and a caller that draws the marks without it puts every
- * posed blobatar in the wrong place. It is the *only* transform — an eye's
+ * posed blobatar in the wrong place. It is the *only* transform: an eye's
  * rotation is baked into the points of its path by `superellipse`, not carried
  * as an attribute. Empty string when there is no pose.
  */
@@ -107,7 +107,7 @@ export function _marks(name: string, opts: BlobatarOptions = {}): {
   const p = tinted(palette, opts.expression);
   const pose = posed(style.layout(t), opts);
   return {
-    // Outside the pose wrap, matching `makeBlobatar` — a plate that leans and
+    // Outside the pose wrap, matching `makeBlobatar`. A plate that leans and
     // scales with the creature stops being a plate.
     bg: backdrop(style, opts, p),
     transform: pose.wrap,

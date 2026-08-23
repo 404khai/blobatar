@@ -150,8 +150,8 @@ const ENTRIES: {
   },
 
   {
-    // 4804 B measured, and the row is *smaller* than every other adapter's —
-    // which looks wrong and is not, so the reason is here rather than left for
+    // 4804 B measured, and the row is *smaller* than every other adapter's.
+    // That looks wrong and is not, so the reason is here rather than left for
     // somebody to rediscover as a suspected mismeasurement.
     //
     // The DOM adapters reach core through `blobatar/react`, which carries the
@@ -159,11 +159,11 @@ const ENTRIES: {
     // and the motion vars for the animated inline SVG. This one reaches core
     // through `blobatar/internal` and touches `_marks` alone. There is no URI
     // encoder in it because there is no `<img>`, and no motion layer because
-    // there is no CSS — so the paths that make those adapters bigger are paths
+    // there is no CSS, so the paths that make those adapters bigger are paths
     // this consumer never links.
     //
     // What the row does *not* include, unavoidably: `react-native-svg` is
-    // external, as it must be — it is a native module with a build step on the
+    // external, as it must be. It is a native module with a build step on the
     // far side of the bridge, so a bundled copy would be a second JavaScript
     // half talking to native code that was never linked for it. Its bytes are
     // not this package's to report. What is gated here is the JavaScript
@@ -236,7 +236,7 @@ const ENTRIES: {
   },
   {
     // 525 B measured. The row that would catch `react-native-svg` or
-    // `react-native` being bundled in — which on this platform is not a size
+    // `react-native` being bundled in, which on this platform is not a size
     // regression but a broken app, since the native halves are linked once and
     // a private JavaScript copy would be talking to nothing.
     name: "@blobatar/react-native alone",

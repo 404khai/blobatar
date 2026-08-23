@@ -124,7 +124,7 @@ export function compose(bands: Band[], fit: Fit) {
  * One drawn primitive, as data rather than as markup.
  *
  * This is the other half of `render`, and it exists because `react-native-svg`
- * has no `innerHTML` to hand a string to — an adapter there builds real
+ * has no `innerHTML` to hand a string to, so an adapter there builds real
  * elements or it builds nothing. Serializing here and parsing there would put
  * an XML parser between the renderer and the screen, which is a place output
  * can change, and ADR-0009 is explicit that an adapter adds no geometry of its
@@ -145,7 +145,7 @@ export type Mark =
  * **A standalone function, deliberately not a method on the object `compose`
  * returns.** A property of a live object literal can never be dropped by a
  * bundler, so putting it there would charge every web consumer for a seam only
- * React Native reads — the same reasoning that keeps `animate.ts` out of static
+ * React Native reads. That is the same reasoning that keeps `animate.ts` out of static
  * bundles by passing the motion factory in rather than importing it.
  *
  * Kept beside `render` rather than derived from it, or it from this. Both
@@ -153,7 +153,7 @@ export type Mark =
  * on: an emitter puts an indirection in it, and making marks primary makes it
  * allocate an array of objects before stringifying. So there are two small
  * traversals of one layout, and the drift that invites is *caught* rather than
- * prevented — `test/marks.test.ts` asserts these serialize to exactly what
+ * prevented: `test/marks.test.ts` asserts these serialize to exactly what
  * `render` emits, over the golden corpus, and `packages/harness` compares the
  * React Native adapter against React on every case in its table.
  *

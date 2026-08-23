@@ -8,7 +8,7 @@
  *
  * `react-native` and `react-native-svg` are external for a second reason on top
  * of that one. Both are native modules with a build step on the far side of the
- * bridge, and a bundled copy would not merely be wasteful — it would be a
+ * bridge, and a bundled copy would not merely be wasteful. It would be a
  * second JavaScript half talking to a native half that was never linked for it.
  *
  * `target: "browser"` rather than `"node"`, matching the other adapters. Metro
@@ -33,7 +33,7 @@ const build = await Bun.build({
   external: ["blobatar", "blobatar/internal", "react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-native", "react-native-svg"],
   // Carried over from core's build, and for the same reason: Bun picks the JSX
   // runtime off `process.env.NODE_ENV`, and a publish build run from a normal
-  // shell has it unset — so without this the package ships `react/jsx-dev-runtime`
+  // shell has it unset, so without this the package ships `react/jsx-dev-runtime`
   // calls that resolve fine under Node and die in any consumer bundling for
   // production, where that specifier carries no `jsxDEV`. Stated here rather
   // than left to the shell so the output does not depend on who ran it.

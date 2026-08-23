@@ -3,7 +3,7 @@
  *
  * The harness renders `@blobatar/react-native` through a stub, because
  * `react-native`'s entry is Flow-typed source Bun cannot parse. That proves the
- * adapter chooses the right props and draws the same figure React draws — and
+ * adapter chooses the right props and draws the same figure React draws, and
  * it proves nothing at all about whether `react-native-svg` puts pixels on a
  * screen when handed them. ADR-0009 records that this repo has shipped an
  * adapter rendering an empty string twice, each time with a clean typecheck and
@@ -35,16 +35,16 @@
  *
  * What to look for, in the order the screens are laid out:
  *
- * 1. **The grid** — ten silhouettes, one per band, each with the shape trait
+ * 1. **The grid.** Ten silhouettes, one per band, each with the shape trait
  *    pinned. If a shape is missing or draws as a blank square, the mark for it
  *    is not reaching an element.
- * 2. **Backdrops** — the plate must sit *behind* the figure and must not lean
+ * 2. **Backdrops.** The plate must sit *behind* the figure and must not lean
  *    or scale with it.
- * 3. **Poses** — `happy` shifts the body upward. If the posed row sits at the
+ * 3. **Poses.** `happy` shifts the body upward. If the posed row sits at the
  *    same height as the idle one, the `transform` is being dropped; if it sits
  *    at a different height than the same pose on the web, it is being applied
  *    twice.
- * 4. **The tinted pose** — `mad` recolours the head and leaves the eyes alone.
+ * 4. **The tinted pose.** `mad` recolours the head and leaves the eyes alone.
  */
 
 import type { ReactNode } from "react";
@@ -83,41 +83,41 @@ export default function App() {
       <Section title="Every silhouette in gen2">
         {SHAPES.map(([name, v]) => (
           <View key={name} style={styles.cell}>
-            <Blobatar name="alain" size={64} traits={{ shape: v }} />
+            <Blobatar name="alain00" size={64} traits={{ shape: v }} />
             <Text style={styles.caption}>{name}</Text>
           </View>
         ))}
       </Section>
 
-      <Section title="Backdrops — the plate sits behind, and does not move with the figure">
+      <Section title="Backdrops: the plate sits behind, and does not move with the figure">
         {(["square", "circle", "squircle"] as const).map(bg => (
           <View key={bg} style={styles.cell}>
-            <Blobatar name="alain" size={64} background={bg} />
+            <Blobatar name="alain00" size={64} background={bg} />
             <Text style={styles.caption}>{bg}</Text>
           </View>
         ))}
         <View style={styles.cell}>
-          <Blobatar name="alain" size={64} background={false} />
+          <Blobatar name="alain00" size={64} background={false} />
           <Text style={styles.caption}>none</Text>
         </View>
       </Section>
 
-      <Section title="Poses — happy lifts the body, mad tints the head only">
+      <Section title="Poses: happy lifts the body, mad tints the head only">
         <View style={styles.cell}>
-          <Blobatar name="alain" size={64} background="squircle" />
+          <Blobatar name="alain00" size={64} background="squircle" />
           <Text style={styles.caption}>idle</Text>
         </View>
         <View style={styles.cell}>
-          <Blobatar name="alain" size={64} background="squircle" expression={happy} />
+          <Blobatar name="alain00" size={64} background="squircle" expression={happy} />
           <Text style={styles.caption}>happy</Text>
         </View>
         <View style={styles.cell}>
-          <Blobatar name="alain" size={64} background="squircle" expression={mad} />
+          <Blobatar name="alain00" size={64} background="squircle" expression={mad} />
           <Text style={styles.caption}>mad</Text>
         </View>
       </Section>
 
-      <Section title="A crowd — every name a different creature">
+      <Section title="A crowd: every name a different creature">
         {Array.from({ length: 24 }, (_, i) => (
           <Blobatar key={i} name={`user-${i}`} size={44} title={`user-${i}`} />
         ))}
