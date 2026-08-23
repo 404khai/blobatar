@@ -35,7 +35,7 @@
  * store, and transitive dependencies are reachable only by walking up from the
  * file that needs them. Turning the walk off would strand them.
  *
- * So only the three packages that must be singletons are redirected, and every
+ * So only the packages that must be singletons are redirected, and every
  * other specifier resolves exactly as it did.
  */
 
@@ -53,11 +53,25 @@ const config = getDefaultConfig(projectRoot);
 config.watchFolders = [workspaceRoot];
 
 /**
- * The three that break if the app loads two of them. `react` breaks loudest
+ * The five that break if the app loads two of them. `react` breaks loudest
  * (hooks), but a second `react-native` or `react-native-svg` means a second
  * JavaScript half talking to native modules that were linked once.
+ *
+ * `react-native-reanimated` and `react-native-worklets` break *quietly*, which
+ * is worse. `dist/animated.js` imports reanimated, so Metro walks up from
+ * `packages/react-native` and finds that package's own copy: a second set of
+ * shared values and a second frame-callback registry, neither of which the
+ * worklets runtime the app started knows anything about. Nothing throws. The
+ * blobatars simply render their first frame and never move again, which reads
+ * as a broken idle layer rather than as a resolution problem.
  */
-const SINGLETONS = new Set(["react", "react-native", "react-native-svg"]);
+const SINGLETONS = new Set([
+  "react",
+  "react-native",
+  "react-native-svg",
+  "react-native-reanimated",
+  "react-native-worklets",
+]);
 
 const upstream = config.resolver.resolveRequest;
 
