@@ -17,12 +17,21 @@
  * bun start          # then press i, a, or scan the QR code with Expo Go
  * ```
  *
- * Two pins here exist for reasons that are not obvious from this file. The app
- * declares `typescript` at 5.x, because Expo's CLI reads the project tsconfig
- * through the TypeScript API and crashes on the 7 the rest of the workspace is
- * on. And `packages/react-native` pins its type-only `react-native` devDependency
- * to the exact version this app uses, because a floating range there resolves
- * higher, hoists over this one, and hands Metro mismatched internals.
+ * Three things here exist for reasons that are not obvious from this file, and
+ * each was found by the app failing rather than by reasoning:
+ *
+ * - `metro.config.js` deduplicates React. Without it the adapter loads a second
+ *   copy from its own `node_modules` and every hook reads a null dispatcher.
+ *   Its header has the whole account.
+ * - `typescript` is declared at 5.x, because Expo's CLI reads the project
+ *   tsconfig through the TypeScript API and crashes on the 7 the rest of the
+ *   workspace is on.
+ * - `packages/react-native` pins its type-only `react-native` devDependency to
+ *   the version this app uses, because a floating range there resolves higher
+ *   and hands Metro mismatched React Native internals.
+ *
+ * None of the three is a consumer's problem. All three exist because this app
+ * lives inside the workspace that builds the adapter.
  *
  * What to look for, in the order the screens are laid out:
  *
