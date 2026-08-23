@@ -203,24 +203,42 @@ export function snippet(
   shape: Shape | null,
 ) {
   const posed = expression.value !== idle;
-  const { pkg, flavor } = infoFor(fw);
+  const { pkg, flavor, native } = infoFor(fw);
 
-  const imports = [`import { Blobatar } from "${pkg}";`];
+  /*
+    This snippet always animates, which is the one axis it does not offer a
+    choice about, so React Native's difference lands here rather than being
+    avoidable. There, the loops are worklets in a second component behind a
+    second entry point, the stylesheet does not exist, and `animate` is a
+    boolean the app drives because the platform has no `:hover` to key off.
+    `src/editor/snippet.ts` carries the long version of the same note.
+  */
+  const tag = native ? "AnimatedBlobatar" : "Blobatar";
+
+  const imports = [
+    native
+      ? `import { AnimatedBlobatar } from "${pkg}/animated";`
+      : `import { Blobatar } from "${pkg}";`,
+  ];
   // Expressions are values, not strings, and they are core's rather than any
-  // adapter's — so this import is the one line of the five that is identical in
-  // all five.
+  // adapter's — so this import is the one line of the six that is identical in
+  // all six.
   if (posed) imports.push(`import { ${expression.name} } from "blobatar/expression";`);
-  imports.push(`import "blobatar/motion.css";`);
+  if (!native) imports.push(`import "blobatar/motion.css";`);
 
   // Only what differs from the defaults. A snippet that restates every default
   // reads as configuration you are obliged to supply, which is the opposite of
   // what a one-prop library wants to advertise.
   const props = [attrString(flavor, "name", seed || "blobatar")];
+  // Except this one, which has no default to differ from: React Native has no
+  // CSS box for a size to be inherited from, so the prop is required and a
+  // snippet without it pastes into an app and renders nothing.
+  if (native) props.push(attrExpr(flavor, "size", "48"));
   if (shape) props.push(attrExpr(flavor, "traits", `{ shape: ${shape.at} }`));
   if (background !== "none") props.push(attrString(flavor, "background", background));
   if (hue !== null) props.push(attrExpr(flavor, "hue", String(hue)));
   if (posed) props.push(attrExpr(flavor, "expression", expression.name));
-  props.push(attrString(flavor, "animate", "hover"));
+  props.push(native ? "animate" : attrString(flavor, "animate", "hover"));
 
   // The one line here that cannot be read off the code. `0.885` is a position in
   // a range, not a measurement, and nothing about it says "cloud" — so the name
@@ -231,7 +249,7 @@ export function snippet(
 
   return wrap(flavor, imports, [
     ...note,
-    `<Blobatar`,
+    `<${tag}`,
     ...props.map((p) => `  ${p}`),
     close(flavor),
   ]);

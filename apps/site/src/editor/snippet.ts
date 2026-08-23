@@ -28,9 +28,9 @@ import {
 /**
  * The call sites, which is what the tab strip is an axis over.
  *
- * Five of the seven are frameworks and differ only in package name and
+ * Six of the eight are frameworks and differ mostly in package name and
  * attribute spelling, so they are one member of this union expanded rather than
- * five hand-written emitters — see `@/frameworks`. The other two are genuinely
+ * six hand-written emitters — see `@/frameworks`. The other two are genuinely
  * different APIs: `string` returns markup and `http` is a URL, and neither has
  * a component to configure.
  */
@@ -109,13 +109,18 @@ export function snippet({ api, name, pinned, motion }: SnippetInput): string {
 }
 
 /**
- * Any of the five adapters.
+ * Any of the six adapters.
  *
- * One emitter rather than five because the adapters are one component with five
+ * One emitter rather than six because the adapters are one component with six
  * publishers: the props are identical, so what a Svelte snippet and a Preact
  * snippet disagree about is the package they import and how their template
- * spells an attribute — both of which are table lookups. The alternative, five
- * near-identical functions, is five places for a prop to be added to four of.
+ * spells an attribute — both of which are table lookups. The alternative, six
+ * near-identical functions, is six places for a prop to be added to five of.
+ *
+ * React Native is the one member that disagrees about more than spelling, and
+ * the two places it does are read off `native` rather than off its id. Both are
+ * the platform rather than the package: there is no CSS box for a size to be
+ * inherited from, and no stylesheet for the motion layer to live in.
  */
 function component(
   id: Framework,
@@ -123,13 +128,34 @@ function component(
   traits: (readonly [string, number | number[]])[],
   motion: Motion,
 ) {
-  const { pkg, flavor } = infoFor(id);
+  const { pkg, flavor, native } = infoFor(id);
 
-  const imports = [`import { Blobatar } from "${pkg}";`];
+  /*
+    The motion layer, which is a different shape on each platform.
+
+    On the web it is a prop and a stylesheet: `animate="hover"` on the same
+    component, and `motion.css` carries the loops. On React Native there is no
+    stylesheet and no `:hover` for one to key off. `motion.css` says as much
+    itself, pausing every loop under `@media not ((hover: hover) and (pointer:
+    fine))`. So the loops are worklets in a second component behind a second
+    entry point, and the only mode the platform has is the always-on one.
+
+    So the tab's three motion settings collapse to two here, and `hover` is not
+    quietly emitted as something it cannot mean. What the snippet does say is
+    that `animate` is now the app's to drive, which is the real difference a
+    reader is about to run into.
+  */
+  const tag = native && motion ? "AnimatedBlobatar" : "Blobatar";
+
+  const imports = [
+    native && motion
+      ? `import { AnimatedBlobatar } from "${pkg}/animated";`
+      : `import { Blobatar } from "${pkg}";`,
+  ];
   // The trade the library documents, stated where it is taken rather than in
   // prose beside the box: animating is what moves the blobatar out of a single
   // `<img>` and into a dozen inline SVG nodes.
-  if (motion)
+  if (motion && !native)
     imports.push(
       `import "blobatar/motion.css"; // animate renders inline SVG, not one <img>`,
     );
@@ -137,7 +163,10 @@ function component(
   const lines: string[] = [];
   if (traits.length) lines.push(comment(flavor, NAME_NOTE));
 
-  lines.push(`<Blobatar`, `  ${attrString(flavor, "name", seed)}`);
+  lines.push(`<${tag}`, `  ${attrString(flavor, "name", seed)}`);
+  // Required rather than defaulted on this platform, so a snippet without it
+  // pastes into an app and renders nothing.
+  if (native) lines.push(`  ${attrExpr(flavor, "size", "48")}`);
   // One key inline, several over lines. A person writing `{ shape: 0.14 }`
   // does not break it across four lines, and a person writing six of them does
   // not leave it on one.
@@ -152,7 +181,12 @@ function component(
     lines.push(`  ${exprClose(flavor)}`);
   }
 
-  if (motion) lines.push(`  ${attrString(flavor, "animate", motion)}`);
+  if (motion)
+    lines.push(
+      native
+        ? `  animate // no :hover on a touch screen, so this one is yours to drive`
+        : `  ${attrString(flavor, "animate", motion)}`,
+    );
   lines.push(close(flavor, true));
 
   return wrap(flavor, imports, lines);

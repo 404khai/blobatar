@@ -1,5 +1,5 @@
 /**
- * The five adapters, as the two snippet generators need to know them.
+ * The six adapters, as the two snippet generators need to know them.
  *
  * Shared rather than duplicated because there are two generators — the hero's
  * four-axis one and the editor's — and a framework that exists in one but not
@@ -13,7 +13,13 @@
  */
 
 /** The published adapters. `react` first because it is the default tab. */
-export type Framework = "react" | "vue" | "svelte" | "solid" | "preact";
+export type Framework =
+  | "react"
+  | "vue"
+  | "svelte"
+  | "solid"
+  | "preact"
+  | "react-native";
 
 /**
  * How a framework spells an attribute, which is the only axis they differ on.
@@ -33,6 +39,26 @@ export interface FrameworkInfo {
   /** The filename shown above the code box, which is how a reader places it. */
   file: string;
   flavor: Flavor;
+  /**
+   * Packages the adapter needs beside it that are not core.
+   *
+   * Empty for every web adapter: they render markup, and the only unmet peer a
+   * paste could produce is `blobatar` itself, which `installFor` already names.
+   * React Native draws through `react-native-svg`, which is a native module the
+   * app links rather than something the package could bundle, so an install
+   * that omits it produces a component that cannot render.
+   */
+  peers?: readonly string[];
+  /**
+   * Not a web page, which the snippet has to say in more than one place.
+   *
+   * `size` is required rather than defaulted, because there is no CSS box to
+   * inherit from; the motion layer is a second component rather than a prop and
+   * a stylesheet, because a stylesheet is the thing this platform does not
+   * have. Both are the platform rather than the package, and both are things a
+   * pasted snippet gets wrong silently if this flag is not consulted.
+   */
+  native?: true;
 }
 
 export const FRAMEWORKS: readonly FrameworkInfo[] = [
@@ -41,6 +67,14 @@ export const FRAMEWORKS: readonly FrameworkInfo[] = [
   { id: "svelte", pkg: "@blobatar/svelte", file: "Blobatar.svelte", flavor: "svelte" },
   { id: "solid", pkg: "@blobatar/solid", file: "Blobatar.tsx", flavor: "jsx" },
   { id: "preact", pkg: "@blobatar/preact", file: "Blobatar.tsx", flavor: "jsx" },
+  {
+    id: "react-native",
+    pkg: "@blobatar/react-native",
+    file: "Blobatar.tsx",
+    flavor: "jsx",
+    peers: ["react-native-svg"],
+    native: true,
+  },
 ];
 
 const BY_ID = new Map(FRAMEWORKS.map(f => [f.id, f]));
@@ -84,10 +118,10 @@ export const isManager = (v: string): v is Manager => MANAGERS.includes(v as Man
  * selector and no room for one, keeps calling this with a single argument.
  */
 export function installFor(id: Framework, pm: Manager = "bun"): string {
-  const { pkg } = infoFor(id);
+  const { pkg, peers } = infoFor(id);
   if (pm === "shadcn") return SHADCN_ADD;
   const verb = pm === "npm" ? "npm i" : `${pm} add`;
-  return `${verb} blobatar ${pkg}`;
+  return [verb, "blobatar", pkg, ...(peers ?? [])].join(" ");
 }
 
 /**

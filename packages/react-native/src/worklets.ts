@@ -294,7 +294,7 @@ export function rockT(f: IdleFrame, p: Pose, side: number): Mat {
  * The seven terms are multiplied out here rather than composed through a pair
  * of matrix helpers, and that is a size decision rather than a taste one. A
  * worklet carries its own source across the bridge, so a helper two worklets
- * call is not shared the way a function normally is — it is serialized into
+ * call is not shared the way a function normally is. It is serialized into
  * each of them. `mul` and `rot` cost more in this bundle than the algebra they
  * were hiding, and `@blobatar/react-native/animated` has a 10 kB budget it was
  * already sitting at 99% of.

@@ -239,7 +239,7 @@ const ENTRIES: {
     //
     // Up from 9880 when the loops started composing a matrix instead of
     // printing a `transform` string, which is the only spelling that survives a
-    // prop written from the UI thread — `packages/react-native/src/worklets.ts`
+    // prop written from the UI thread. `packages/react-native/src/worklets.ts`
     // has the account. The arithmetic is the same arithmetic; what costs the
     // 264 B is that every character of it is paid for twice, once as code and
     // once as the source string beside it. That is also why the glance is

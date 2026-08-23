@@ -97,7 +97,7 @@ const ADAPTERS: [string, string[]][] = [
   ["@blobatar/svelte", ["blobatar", "blobatar/internal", "blobatar/uri", "svelte", "svelte/elements"]],
   // Two entries, and the second one's imports are the point: `blobatar/idle`
   // and `react-native-reanimated` are reachable only from `./animated`, which
-  // is exactly the promise that subpath makes — a consumer drawing a still
+  // is exactly the promise that subpath makes: a consumer drawing a still
   // avatar in a list links neither.
   [
     "@blobatar/react-native",

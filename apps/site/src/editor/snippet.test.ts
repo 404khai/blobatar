@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { blobatar, type BlobatarOptions } from "blobatar";
-import { snippet, type Api, type SnippetInput } from "./snippet";
+import { snippet, type Api, type Motion, type SnippetInput } from "./snippet";
 import { KEY_ORDER, round3 } from "./axes";
 
 /**
@@ -176,23 +176,32 @@ describe("what it emits", () => {
 });
 
 /**
- * Five adapters, one component.
+ * Six adapters, one component.
  *
- * The generator emits them from one table rather than five functions, so what
+ * The generator emits them from one table rather than six functions, so what
  * is worth testing is not each framework's happy path — it is the places the
  * flavors genuinely disagree, because those are where a shared emitter can be
- * quietly wrong for four of them. Each test below is a mistake this file caught
+ * quietly wrong for five of them. Each test below is a mistake this file caught
  * while it was being written.
+ *
+ * `WEB` exists because React Native disagrees about two things no web adapter
+ * has an opinion on: a required `size`, and a motion layer that is a second
+ * component rather than a prop and a stylesheet. Those get their own test
+ * rather than a conditional inside every other one.
  */
 describe("every adapter", () => {
-  const FRAMEWORKS: Api[] = ["react", "vue", "svelte", "solid", "preact"];
+  const FRAMEWORKS: Api[] = ["react", "vue", "svelte", "solid", "preact", "react-native"];
+  const WEB = FRAMEWORKS.filter(f => f !== "react-native");
 
   test("each imports its own package, and none imports another's", () => {
     for (const api of FRAMEWORKS) {
       const code = snip({ api, name: NAME, pinned: {}, motion: false });
       expect(code).toContain(`import { Blobatar } from "@blobatar/${api}";`);
       for (const other of FRAMEWORKS.filter(f => f !== api))
-        expect(code).not.toContain(`@blobatar/${other}`);
+        // The specifier, not a prefix of one: `@blobatar/react` opens
+        // `@blobatar/react-native`, so a bare substring check calls a correct
+        // snippet wrong.
+        expect(code).not.toMatch(new RegExp(`@blobatar/${other}(?![\\w-])`));
     }
   });
 
@@ -279,10 +288,44 @@ describe("every adapter", () => {
   });
 
   test("animating says so in every flavor, and imports the stylesheet", () => {
-    for (const api of FRAMEWORKS) {
+    for (const api of WEB) {
       const code = snip({ api, name: NAME, pinned: {}, motion: "hover" });
       expect(code).toContain(`import "blobatar/motion.css"`);
       expect(code).toContain(`animate="hover"`);
+    }
+  });
+
+  test("React Native takes the size the web adapters default", () => {
+    // No CSS box to inherit from, so the prop is required, and a snippet
+    // missing a required prop pastes into an app and renders nothing.
+    for (const motion of [false, "hover", "always"] as Motion[]) {
+      expect(snip({ api: "react-native", name: NAME, pinned: {}, motion })).toContain(
+        "size={48}",
+      );
+    }
+    for (const api of WEB)
+      expect(snip({ api, name: NAME, pinned: {}, motion: false })).not.toContain("size=");
+  });
+
+  test("React Native animates through a second component, not a stylesheet", () => {
+    // `motion.css` pauses every loop under `@media not ((hover: hover) and
+    // (pointer: fine))`, so the web spelling of this prop means nothing on a
+    // touch screen even before you notice the platform has no stylesheet. The
+    // loops live in worklets behind `/animated` instead, and `animate` is a
+    // boolean the app drives.
+    const still = snip({ api: "react-native", name: NAME, pinned: {}, motion: false });
+    expect(still).toContain(`import { Blobatar } from "@blobatar/react-native";`);
+    expect(still).not.toContain("animate");
+
+    for (const motion of ["hover", "always"] as Motion[]) {
+      const code = snip({ api: "react-native", name: NAME, pinned: {}, motion });
+      expect(code).toContain(
+        `import { AnimatedBlobatar } from "@blobatar/react-native/animated";`,
+      );
+      expect(code).toContain("<AnimatedBlobatar");
+      expect(code).not.toContain("motion.css");
+      // Never the web's spelling, in either mode the tab can be in.
+      expect(code).not.toContain(`animate="${motion}"`);
     }
   });
 });
