@@ -141,8 +141,15 @@ It is a separate entry point, `@blobatar/react-native/animated`, and that is
 what keeps the dependency optional:
 
 ```sh
-npm install react-native-reanimated react-native-worklets
+npx expo install react-native-reanimated react-native-worklets
 ```
+
+Use `expo install` rather than `npm install` if you are on Expo. Worklets ships
+a JavaScript half and a native half that must match **exactly**, and on Expo the
+native half is whatever your SDK compiled into the app binary, so a version npm
+resolves happily still throws `Mismatch between JavaScript part and native part`
+on the first render. Reanimated is a native module either way, so this needs a
+development build; Expo Go will not run it.
 
 Only this subpath needs them. `Blobatar` and `MorphingBlobatar` come from the
 package root and link neither, so an app drawing still avatars in a list
