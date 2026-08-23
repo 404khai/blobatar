@@ -79,8 +79,16 @@ const ENTRIES: {
     // those in flight — the v3 swap, where the implementation moves into the
     // package and `blobatar/react` is deleted. On that day the subpath rows go
     // away and these are what is left.
+  // +60 B gz on every row that animates, and it is one cause across all of
+  // them: the seeded timings a blobatar's loops run on are now derived once, by
+  // `motionSeeds`, and `motionVars` serializes that rather than computing its
+  // own. React Native has no stylesheet to read custom properties out of, so it
+  // needs the numbers; the web needs the strings; and two derivations of them
+  // would be two crowds drifting apart, which is the one property in the whole
+  // motion layer that a grid actually shows. The cost is a named object with
+  // ten keys that minification cannot mangle.
     name: "@blobatar/react",
-    budget: 5260,
+    budget: 5320,
     external: ["react"],
     source: `import { Blobatar } from "@blobatar/react";
              globalThis.x = Blobatar;`,
@@ -96,8 +104,16 @@ const ENTRIES: {
     //
     // This row is here so the pair delta below has something to subtract, and
     // it retires with the subpath in v3.
+  // +60 B gz on every row that animates, and it is one cause across all of
+  // them: the seeded timings a blobatar's loops run on are now derived once, by
+  // `motionSeeds`, and `motionVars` serializes that rather than computing its
+  // own. React Native has no stylesheet to read custom properties out of, so it
+  // needs the numbers; the web needs the strings; and two derivations of them
+  // would be two crowds drifting apart, which is the one property in the whole
+  // motion layer that a grid actually shows. The cost is a named object with
+  // ten keys that minification cannot mangle.
     name: "blobatar/react",
-    budget: 5240,
+    budget: 5300,
     external: ["react"],
     source: `import { Blobatar } from "blobatar/react";
              globalThis.x = Blobatar;`,
@@ -107,16 +123,32 @@ const ENTRIES: {
     // accounts for: the runtime props table, the string-style merge, and the
     // `default: undefined` on every prop. Vue surface, not packaging — its
     // indirection over the subpath row is 27 B against React's 24.
+  // +60 B gz on every row that animates, and it is one cause across all of
+  // them: the seeded timings a blobatar's loops run on are now derived once, by
+  // `motionSeeds`, and `motionVars` serializes that rather than computing its
+  // own. React Native has no stylesheet to read custom properties out of, so it
+  // needs the numbers; the web needs the strings; and two derivations of them
+  // would be two crowds drifting apart, which is the one property in the whole
+  // motion layer that a grid actually shows. The cost is a named object with
+  // ten keys that minification cannot mangle.
     name: "@blobatar/vue",
-    budget: 5440,
+    budget: 5500,
     external: ["vue"],
     ext: "ts",
     source: `import { Blobatar } from "@blobatar/vue";
              globalThis.x = Blobatar;`,
   },
   {
+  // +60 B gz on every row that animates, and it is one cause across all of
+  // them: the seeded timings a blobatar's loops run on are now derived once, by
+  // `motionSeeds`, and `motionVars` serializes that rather than computing its
+  // own. React Native has no stylesheet to read custom properties out of, so it
+  // needs the numbers; the web needs the strings; and two derivations of them
+  // would be two crowds drifting apart, which is the one property in the whole
+  // motion layer that a grid actually shows. The cost is a named object with
+  // ten keys that minification cannot mangle.
     name: "blobatar/vue",
-    budget: 5410,
+    budget: 5470,
     external: ["vue"],
     ext: "ts",
     source: `import { Blobatar } from "blobatar/vue";
@@ -202,8 +234,16 @@ const ENTRIES: {
     // assuming. The two rows are only meaningful together, and a change that
     // moves both by the same amount is core getting bigger while a change that
     // moves only this one is the morph getting bigger.
+  // +60 B gz on every row that animates, and it is one cause across all of
+  // them: the seeded timings a blobatar's loops run on are now derived once, by
+  // `motionSeeds`, and `motionVars` serializes that rather than computing its
+  // own. React Native has no stylesheet to read custom properties out of, so it
+  // needs the numbers; the web needs the strings; and two derivations of them
+  // would be two crowds drifting apart, which is the one property in the whole
+  // motion layer that a grid actually shows. The cost is a named object with
+  // ten keys that minification cannot mangle.
     name: "@blobatar/react-native morph",
-    budget: 5860,
+    budget: 5900,
     external: ["react", "react/jsx-runtime", "react-native", "react-native-svg"],
     ext: "tsx",
     source: `import { MorphingBlobatar } from "@blobatar/react-native";

@@ -325,6 +325,7 @@ export function bakePose<L extends Posable>(
 export function poseTransforms<L extends Posable>(
   l: L,
   p: Pose,
+  rockp = 1,
 ): { eyes: string[]; wrap: string } {
   return {
     eyes: l.eyes.map((e, i) => {
@@ -334,8 +335,16 @@ export function poseTransforms<L extends Posable>(
       const wrap = i ? 1 : -1;
       const sel = i ? 1 : 0;
       const lean = e.rot;
+      // `--mo-ph`, and the whole of how a static differential and a symmetric
+      // seesaw are the same term. The static share is `sel`: all of the offset
+      // on the right eye, none on the left. The moving share is
+      // `(1 + wrap · rockp) / 2`, a swing about the pair's own centre, and at
+      // `rockp: 1` the second expression *is* the first, which is why the
+      // default here reproduces `bakePose` exactly and why a still `thinking`
+      // blobatar wears frame zero of the loop rather than an approximation.
+      const ph = sel * (1 - p.rock) + p.rock * ((1 + wrap * rockp) / 2);
       return (
-        `translate(${r3(e.cx + p.edx * wrap)} ${r3(e.cy + p.edy + sel * p.edy2)})` +
+        `translate(${r3(e.cx + p.edx * wrap)} ${r3(e.cy + p.edy + ph * p.edy2)})` +
         ` rotate(${r3((p.tilt + sel * p.tilt2) * wrap + lean * (1 - p.lock))})` +
         ` scale(${r3(p.esx + sel * p.esx2)} ${r3(p.esy + sel * p.esy2)})` +
         ` rotate(${r3(-lean)})` +

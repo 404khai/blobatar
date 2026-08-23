@@ -48,6 +48,7 @@ const ENTRIES = [
   "src/blob.ts",
   "src/uri.ts",
   "src/expression.ts",
+  "src/idle.ts",
   "src/internal.ts",
   "src/react.tsx",
   "src/vue.ts",

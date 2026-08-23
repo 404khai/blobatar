@@ -28,6 +28,29 @@
  * to build markup, `blobatar()` and `blobatarUri()` are the public answers and
  * they are not going to move under you.
  *
+ * **The idle layer is deliberately not here.** It lives at `blobatar/idle`,
+ * beside `blobatar/expression` and for the same reason: it is a feature with
+ * its own weight, and an entry point everybody imports is the wrong place to
+ * put a thing most consumers never animate. It is also a measured decision
+ * rather than a tidy one. The loops are keyframe *tables*, and a bundler does
+ * not drop an unreferenced array literal the way it drops an unreferenced
+ * function, so re-exporting them from here put 2.9 kB of stops into every
+ * adapter's bundle, animated or not. `packages/harness/scripts/size.ts` caught
+ * it, twice now, for the same underlying reason as the pose roster.
+ *
+ * The timings go with it, as `idleSeeds`, for the same measurement: they are a
+ * dozen numbers off the same traits the stylesheet reads, and putting them here
+ * cost every still adapter ~230 B for a function it never calls.
+ *
+ * The morph's curves and the bezier solver are not here either, and that one is
+ * a genuine duplication rather than a placement: `@blobatar/react-native` keeps
+ * its own copy of both. Exporting core's from here charges every consumer of
+ * this entry point for them, because core's publish build minifies, minifying
+ * strips the `/* @__PURE__ *\/` annotations that would let a downstream bundler
+ * drop the call, and the annotation is the only thing that made them free. A
+ * fifteen-line Newton solver in two packages is the cheaper of the two wrongs,
+ * and `motion.css` is the real original of those curves in any case.
+ *
  * `_posed`, `poseTransforms`, `lerpPose` and `fadeHex` are the morph, and they
  * are four exports rather than one because the pieces belong to three different
  * modules and none of them may be welded to the others. `_posed` is the figure

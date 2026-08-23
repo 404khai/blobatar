@@ -35,6 +35,10 @@
       "types": "./dist/expression.d.ts",
       "default": "./dist/expression.js"
     },
+    "./idle": {
+      "types": "./dist/idle.d.ts",
+      "default": "./dist/idle.js"
+    },
     "./internal": {
       "types": "./dist/internal.d.ts",
       "default": "./dist/internal.js"
