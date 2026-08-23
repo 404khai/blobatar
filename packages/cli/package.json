@@ -1,6 +1,6 @@
 {
   "name": "@blobatar/cli",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Deterministic geometric blobatars from any string, in your terminal.",
   "type": "module",
   "bin": { "blobatar": "./dist/blobatar.mjs" },
@@ -17,7 +17,7 @@
   "//dependencies": "Exactly these three at runtime. A real dependency rather than the adapters' peer range, because the audience runs `npx @blobatar/cli` and has nothing else installed — an unmet peer is a broken command, where for an adapter it is a bundler warning in a project that already has core. The range is core's exact version, written by `changeset version` on each release: lockstep means this bin was built and smoke-tested against that one, so that is the pairing it hands a caller rather than whatever the major resolves to that day. resvg-js ships per-platform napi prebuilds as optionalDependencies with no postinstall. blobatar-v1 aliases the frozen v1 major so --gen 1 renders it, the same pairing apps/api uses.",
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
-    "blobatar": "2.4.0",
+    "blobatar": "2.5.0",
     "blobatar-v1": "npm:blobatar@^1.0.0"
   },
   "devDependencies": {

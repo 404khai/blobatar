@@ -1,6 +1,6 @@
 {
   "name": "@blobatar/react-native",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "React Native and Expo adapter for blobatar. Deterministic geometric avatars.",
   "type": "module",
   "files": [
