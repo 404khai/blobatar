@@ -426,20 +426,30 @@ export function Hero() {
     */
     <section className="relative mx-auto flex min-h-svh max-w-6xl flex-col justify-center gap-14 px-6 py-12 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16 lg:py-16">
       {/*
-        Source and author, in that order — the repo is what the page is selling
-        and the profile is who to ask about it.
+        The two places to go, then the two places to look: pages first, marks
+        after, split by a hairline.
 
-        Absolute to the hero rather than fixed to the viewport: there is no
-        header on this page, so a pair of icons pinned to the window would
-        follow you down three more sections with nothing to belong to. Here
-        they scroll away with the hero, and `right-6` matches the section's own
-        padding so they land on the same edge as the snippet column below.
+        The pages are here because they were reachable only from the footer,
+        which is four sections down. Someone who arrives, tunes a face and
+        wants the components or the editor should not have to scroll past the
+        whole argument to find out they exist.
 
-        Icons rather than labelled links — at this size and this far from the
-        content, two words would read as a navigation bar the page does not
-        have. The name lives in the tooltip and the accessible label.
+        Words for the pages and marks for the accounts, deliberately. A GitHub
+        glyph is read faster than the word and an internal page has no glyph
+        anybody knows, so spelling one and drawing the other is what makes the
+        row scan in one pass. It does make this a small navigation bar, which
+        the page did not have before and now earns: it has five pages.
+
+        Absolute to the hero rather than fixed to the viewport, which is
+        unchanged. Pinned to the window it would follow you down three more
+        sections with nothing to belong to; here it scrolls away with the hero,
+        and `right-6` matches the section's own padding so it lands on the same
+        edge as the snippet column below.
       */}
       <div className="absolute top-6 right-6 z-10 flex items-center gap-1 lg:top-8">
+        <HeaderLink href="/components">Components</HeaderLink>
+        <HeaderLink href="/editor">Editor</HeaderLink>
+        <span className="bg-line mx-1.5 h-4 w-px" aria-hidden="true" />
         <SocialLink href="https://github.com/Alain00/blobatar" label="blobatar on GitHub">
           <GitHubIcon />
         </SocialLink>
@@ -1048,6 +1058,25 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  * wash. They are the only three icon-only controls on the page, and two of them
  * sitting in the same column with different hit areas reads as an accident.
  */
+/**
+ * A page in the hero's row. Same hit target and same colours as `SocialLink`,
+ * with a word in place of a mark, so the two kinds of link read as one row
+ * rather than as text that happens to sit beside some icons.
+ */
+function HeaderLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      className={cn(
+        "text-muted hover:text-ink hover:bg-line/50 rounded-lg px-2 py-1.5 text-sm",
+        "transition-colors duration-150",
+      )}
+    >
+      {children}
+    </a>
+  );
+}
+
 function SocialLink({
   href,
   label,
