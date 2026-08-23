@@ -125,9 +125,17 @@ export function AgentList({
               isActive={agent.name === activeName}
               onClick={() => onSelect?.(agent)}
               tooltip={agent.title ?? agent.name}
-              // Room for the badge, which is positioned over the row rather
-              // than laid out in it. Only when there is one.
-              className={cn(agent.badge != null && "pr-8")}
+              /*
+                Taller than shadcn's `lg`, which is `h-12` and sized for a face
+                that ends where its box does. A thinking agent hangs its
+                indicator below the avatar, so at `h-12` the dots land on the
+                row's own edge and read as belonging to the agent underneath.
+                `h-14` is the smallest that clears them.
+
+                `pr-8` is room for the badge, which is positioned over the row
+                rather than laid out in it. Only when there is one.
+              */
+              className={cn("h-14", agent.badge != null && "pr-8")}
             >
               <PresenceAvatar
                 name={agent.name}

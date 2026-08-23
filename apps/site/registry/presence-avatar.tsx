@@ -209,7 +209,7 @@ export function PresenceAvatar({
            * underneath is where a caption goes. Centred also means it does not
            * have to dodge whichever silhouette it lands on.
            */
-          className="absolute -bottom-1.5 left-1/2 flex -translate-x-1/2 items-center gap-[3px]"
+          className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-[3px]"
         >
           {/*
             Three dots rather than one pulsing light, because this is the only
