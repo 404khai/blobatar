@@ -45,12 +45,6 @@
 import type { IdleFrame, IdleSeeds } from "blobatar/idle";
 import type { Pose } from "blobatar/internal";
 
-/** Three decimals, matching `r3` in core. */
-function r3(v: number): string {
-  "worklet";
-  return String(Math.round(v * 1000) / 1000);
-}
-
 /** `bezier`, from `src/ease.ts` in core, inlined because a worklet must be. */
 function solve(x: number, x1: number, y1: number, x2: number, y2: number): number {
   "worklet";
@@ -198,28 +192,97 @@ export function idleFrame(
   };
 }
 
-/** `.mo-root`: the tremor. */
-export function rootT(f: IdleFrame): string {
+/**
+ * ## Why these return a matrix and not a transform string
+ *
+ * Every other renderer in this repo writes `transform="translate(...)"`, and so
+ * did this file, and on a device it did nothing at all.
+ *
+ * `react-native-svg` parses `transform` in **JavaScript**: `G.render` runs the
+ * string through `extractTransform` and hands the native view a `matrix` prop,
+ * which is the only transform `RNSVGGroup` actually has. That parse happens
+ * during a React render. A worklet does not render: `updateProps` writes the
+ * props it is given straight onto the shadow node from the UI thread, so a
+ * `transform` string arrives at a native component that has no such prop and is
+ * dropped. Nothing throws, nothing warns, and the blobatar renders its first
+ * frame and then sits perfectly still while every loop below runs correctly
+ * sixty times a second into nowhere.
+ *
+ * So the loops compose the matrix themselves and write the prop the native view
+ * really has. `packages/harness/test/react-native-worklets.test.ts` still
+ * checks them against the strings core composes, by parsing those strings: the
+ * transform being described has not changed, only the spelling that survives
+ * the trip across the thread.
+ *
+ * The pose transform in `poseTransforms` stays a string, and correctly so. It
+ * is rendered by React on the JS thread like any other prop, which is exactly
+ * the path that does the parsing.
+ */
+
+/** An affine, in `react-native-svg`'s `matrix` order: `[a, b, c, d, e, f]`. */
+export type Mat = [number, number, number, number, number, number];
+
+/**
+ * `r3`, as a number.
+ *
+ * The rounding is kept even though nothing is being printed any more, because
+ * the point of it was never the string: core rounds every transform component
+ * to three decimals before the browser sees it, and a UI thread that composed
+ * from unrounded values would be drawing a subtly different picture from every
+ * other renderer. The harness compares the two, so it would also fail.
+ */
+function n3(v: number): number {
   "worklet";
-  return `translate(${r3(f.shake[0])} ${r3(f.shake[1])})`;
+  return Math.round(v * 1000) / 1000;
+}
+
+/** `m · n`, both in `Mat` order. */
+function mul(m: Mat, n: Mat): Mat {
+  "worklet";
+  return [
+    m[0] * n[0] + m[2] * n[1],
+    m[1] * n[0] + m[3] * n[1],
+    m[0] * n[2] + m[2] * n[3],
+    m[1] * n[2] + m[3] * n[3],
+    m[0] * n[4] + m[2] * n[5] + m[4],
+    m[1] * n[4] + m[3] * n[5] + m[5],
+  ];
+}
+
+/** `rotate(deg)`, about the origin. */
+function rot(deg: number): Mat {
+  "worklet";
+  const r = (deg * Math.PI) / 180;
+  const c = Math.cos(r);
+  const s = Math.sin(r);
+  return [c, s, -s, c, 0, 0];
+}
+
+/** `.mo-root`: the tremor. */
+export function rootT(f: IdleFrame): Mat {
+  "worklet";
+  return [1, 0, 0, 1, n3(f.shake[0]), n3(f.shake[1])];
 }
 
 /** `.mo-breathe`, about the viewBox centre. */
-export function breatheT(f: IdleFrame): string {
+export function breatheT(f: IdleFrame): Mat {
   "worklet";
-  return `translate(50 50) scale(${r3(f.breathe[0])} ${r3(f.breathe[1])}) translate(-50 -50)`;
+  const sx = n3(f.breathe[0]);
+  const sy = n3(f.breathe[1]);
+  // `translate(50 50) scale(sx sy) translate(-50 -50)`, multiplied out.
+  return [sx, 0, 0, sy, 50 - 50 * sx, 50 - 50 * sy];
 }
 
 /** `.mo-bob`, carrying the pose's own lift as well. */
-export function bobT(f: IdleFrame, bdy: number): string {
+export function bobT(f: IdleFrame, bdy: number): Mat {
   "worklet";
-  return `translate(0 ${r3(bdy + f.bob)})`;
+  return [1, 0, 0, 1, 0, n3(bdy + f.bob)];
 }
 
 /** `.mo-eyes`: the glance, which belongs to the pair. */
-export function eyesT(f: IdleFrame): string {
+export function eyesT(f: IdleFrame): Mat {
   "worklet";
-  return `translate(${r3(f.saccade[0])} ${r3(f.saccade[1])})`;
+  return [1, 0, 0, 1, n3(f.saccade[0]), n3(f.saccade[1])];
 }
 
 /**
@@ -236,9 +299,9 @@ export function eyesT(f: IdleFrame): string {
  * That is the whole reason the pose composition did not need copying into a
  * worklet, and it is worth not undoing.
  */
-export function rockT(f: IdleFrame, p: Pose, side: number): string {
+export function rockT(f: IdleFrame, p: Pose, side: number): Mat {
   "worklet";
-  return `translate(0 ${r3((p.edy2 * p.rock * side * (f.rockp - 1)) / 2)})`;
+  return [1, 0, 0, 1, 0, n3((p.edy2 * p.rock * side * (f.rockp - 1)) / 2)];
 }
 
 /**
@@ -256,15 +319,20 @@ export function glanceT(
   cy: number,
   lean: number,
   side: number,
-): string {
+): Mat {
   "worklet";
-  return (
-    `translate(${r3(cx)} ${r3(cy)})` +
-    ` rotate(${r3(f.wrap.rot * side)})` +
-    ` scale(${r3(1 + f.wrap.mx + f.wrap.side * side)} ${r3(1 + f.wrap.sy)})` +
-    ` rotate(${r3(lean)})` +
-    ` scale(1 ${r3(f.blink)})` +
-    ` rotate(${r3(-lean)})` +
-    ` translate(${r3(-cx)} ${r3(-cy)})`
-  );
+  const x = n3(cx);
+  const y = n3(cy);
+  const sx = n3(1 + f.wrap.mx + f.wrap.side * side);
+  const sy = n3(1 + f.wrap.sy);
+  const bl = n3(f.blink);
+  const l = n3(lean);
+  // The same seven terms in the same order, multiplied out rather than printed.
+  let m: Mat = [1, 0, 0, 1, x, y];
+  m = mul(m, rot(n3(f.wrap.rot * side)));
+  m = mul(m, [sx, 0, 0, sy, 0, 0]);
+  m = mul(m, rot(l));
+  m = mul(m, [1, 0, 0, bl, 0, 0]);
+  m = mul(m, rot(-l));
+  return mul(m, [1, 0, 0, 1, n3(-cx), n3(-cy)]);
 }

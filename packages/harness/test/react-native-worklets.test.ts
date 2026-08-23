@@ -98,6 +98,70 @@ describe("idleFrame is idleAt", () => {
   });
 });
 
+/**
+ * An SVG transform list, as the matrix `react-native-svg` would build from it.
+ *
+ * The worklets return a matrix rather than a string, because that is the only
+ * transform a native `RNSVGGroup` has and a string written from the UI thread
+ * is silently dropped. `worklets.ts` says why at length. What core composes is
+ * still a string, so comparing the two means parsing one, and parsing it here
+ * rather than importing `react-native-svg`'s parser is the point: an
+ * independent reading of the string is a check, and the library's own reading
+ * of it would only prove the two agree about `react-native-svg`.
+ *
+ * Handles `translate`, `scale` and `rotate`, which is every term either side
+ * composes.
+ */
+function matrix(list: string): number[] {
+  let m = [1, 0, 0, 1, 0, 0];
+  const mul = (n: number[]) => {
+    m = [
+      m[0]! * n[0]! + m[2]! * n[1]!,
+      m[1]! * n[0]! + m[3]! * n[1]!,
+      m[0]! * n[2]! + m[2]! * n[3]!,
+      m[1]! * n[2]! + m[3]! * n[3]!,
+      m[0]! * n[4]! + m[2]! * n[5]! + m[4]!,
+      m[1]! * n[4]! + m[3]! * n[5]! + m[5]!,
+    ];
+  };
+  for (const [, fn, argv] of list.matchAll(/(\w+)\(([^)]*)\)/g)) {
+    const a = argv!.trim().split(/[\s,]+/).map(Number);
+    if (fn === "translate") mul([1, 0, 0, 1, a[0]!, a[1] ?? 0]);
+    else if (fn === "scale") mul([a[0]!, 0, 0, a[1] ?? a[0]!, 0, 0]);
+    else if (fn === "rotate") {
+      const r = (a[0]! * Math.PI) / 180;
+      mul([Math.cos(r), Math.sin(r), -Math.sin(r), Math.cos(r), 0, 0]);
+    } else throw new Error(`unhandled transform ${fn}`);
+  }
+  return m;
+}
+
+/**
+ * Bit-identical is the wrong bar for a matrix and 0.001 is far too loose.
+ *
+ * The string path rounds each term to three decimals and then composes; the
+ * worklet rounds the same terms to three decimals and composes the same
+ * products in the same order. Only the float multiplications can differ, and
+ * only in the last bits. A transcription error moves a term, not its mantissa.
+ */
+const near = (got: number[], want: number[], why: string) => {
+  got.forEach((v, i) => {
+    expect(Math.abs(v - want[i]!), `${why} [${i}]`).toBeLessThan(1e-9);
+  });
+};
+
+describe("the transform parser reads what core writes", () => {
+  test("the terms that appear in these strings", () => {
+    expect(matrix("translate(3 -4)")).toEqual([1, 0, 0, 1, 3, -4]);
+    expect(matrix("scale(2 3)")).toEqual([2, 0, 0, 3, 0, 0]);
+    near(matrix("rotate(90)"), [0, 1, -1, 0, 0, 0], "rotate");
+    // Order matters, and a parser that composed the other way would pass every
+    // single-term case above.
+    expect(matrix("translate(10 0) scale(2 2)")).toEqual([2, 0, 0, 2, 10, 0]);
+    expect(matrix("scale(2 2) translate(10 0)")).toEqual([2, 0, 0, 2, 20, 0]);
+  });
+});
+
 describe("the transforms compose the same picture", () => {
   // The adapter splits what core returns as one `eye` transform into two
   // groups: the pose, computed in JavaScript at `rockp: 1`, and the seesaw's
@@ -123,19 +187,40 @@ describe("the transforms compose the same picture", () => {
           const frame = idleAt(s, t, 1, p.shake);
           const core = idleTransforms(l, p, frame);
 
-          expect(rootT(frame), `${label} ${name} root`).toBe(core.root);
-          expect(breatheT(frame), `${label} ${name} breathe`).toBe(core.breathe);
-          expect(bobT(frame, p.bdy), `${label} ${name} bob`).toBe(core.bob);
-          expect(eyesT(frame), `${label} ${name} eyes`).toBe(core.eyes);
+          near(rootT(frame), matrix(core.root), `${label} ${name} root`);
+          near(breatheT(frame), matrix(core.breathe), `${label} ${name} breathe`);
+          near(bobT(frame, p.bdy), matrix(core.bob), `${label} ${name} bob`);
+          near(eyesT(frame), matrix(core.eyes), `${label} ${name} eyes`);
 
           l.eyes.forEach((e, i) => {
-            expect(glanceT(frame, e.cx, e.cy, e.rot, i ? 1 : -1), `${label} ${name} glance`)
-              .toBe(core.glance[i]!);
+            near(
+              glanceT(frame, e.cx, e.cy, e.rot, i ? 1 : -1),
+              matrix(core.glance[i]!),
+              `${label} ${name} glance ${i}`,
+            );
           });
         }
       }
     });
   }
+
+  test("a difference anywhere would actually be caught", () => {
+    // The guard on the guard, matching the one above `idleFrame`. `near` at
+    // 1e-9 is only a real check if a genuinely different matrix fails it, and
+    // the two eyes' glances differ by exactly the kind of sign flip a
+    // transcription error makes.
+    const f = _posed("alain", { expression: thinking });
+    const s = idleSeeds("alain");
+    const frame = idleAt(s, 450, 1, f.pose!.shake);
+    const [l, r] = f.eyeFrames;
+    expect(() =>
+      near(
+        glanceT(frame, l!.cx, l!.cy, l!.rot, -1),
+        glanceT(frame, r!.cx, r!.cy, r!.rot, 1),
+        "opposite eyes",
+      ),
+    ).toThrow();
+  });
 
   test("the seesaw split lands where core puts it", () => {
     // `poseTransforms(l, p, rockp)` in core, against `poseTransforms(l, p)`
@@ -155,7 +240,7 @@ describe("the transforms compose the same picture", () => {
         // The adapter draws `rockT` outside `base`; core folds the phase in.
         // Both are `translate(0 d) · translate(cx cy) · …`, so the composed
         // vertical offset is what has to match.
-        const d = Number(rockT(frame, p, i ? 1 : -1).match(/-?[\d.]+(?=\))/)![0]);
+        const d = rockT(frame, p, i ? 1 : -1)[5];
         const y = Number(base[i]!.match(/^translate\([-\d.]+ (-?[\d.]+)\)/)![1]);
         const want = Number(merged[i]!.match(/^translate\([-\d.]+ (-?[\d.]+)\)/)![1]);
         // Within one rounding step, and not closer, which is the honest bound

@@ -12,7 +12,7 @@
  * `scripts/build.ts` for why a library has to do that itself.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ComponentType } from "react";
 import { poseTransforms, _posed, type BlobatarOptions, type Pose } from "blobatar/internal";
 import { idleSeeds, type IdleFrame } from "blobatar/idle";
 import Reanimated, {
@@ -23,9 +23,9 @@ import Reanimated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { G, Path, type SvgProps } from "react-native-svg";
+import { G, Path, type GProps, type SvgProps } from "react-native-svg";
 import { Body, Frame, split, useMorph, type BlobatarProps } from "./parts";
-import { bobT, breatheT, eyesT, glanceT, idleFrame, rockT, rootT } from "./worklets";
+import { bobT, breatheT, eyesT, glanceT, idleFrame, rockT, rootT, type Mat } from "./worklets";
 
 /**
  * A `<G>` whose transform can be written from the UI thread.
@@ -33,8 +33,18 @@ import { bobT, breatheT, eyesT, glanceT, idleFrame, rockT, rootT } from "./workl
  * Created once at module scope, as `createAnimatedComponent` requires: called
  * inside a component it would produce a new type every render, and React would
  * unmount and remount the whole subtree sixty times a second.
+ *
+ * The cast widens the props by the one prop the loops write. `matrix` is a real
+ * prop of the native `RNSVGGroup` and the only transform it has, but it is
+ * absent from `GProps`, which describes what a *consumer* passes to `<G>`:
+ * there, `transform` is the prop, and `react-native-svg` turns it into `matrix`
+ * in JavaScript on its way down. A worklet skips that JavaScript, so it has to
+ * write the lower prop, and saying so here is more honest than an `as never` at
+ * each of the six call sites.
  */
-const AG = Reanimated.createAnimatedComponent(G);
+const AG = Reanimated.createAnimatedComponent(
+  G as unknown as ComponentType<GProps & { matrix?: Mat }>,
+);
 
 function Animated({
   seed,
@@ -131,11 +141,14 @@ function Animated({
     idleFrame(seeds, clock.value, amp.value, shake.value * amp.value),
   );
 
-  const rootP = useAnimatedProps(() => ({ transform: rootT(frame.value) }));
-  const breatheP = useAnimatedProps(() => ({ transform: breatheT(frame.value) }));
+  // `matrix` and not `transform`, which is the difference between this file
+  // animating and this file rendering one frame and stopping. See the note at
+  // the top of `worklets.ts`.
+  const rootP = useAnimatedProps(() => ({ matrix: rootT(frame.value) }));
+  const breatheP = useAnimatedProps(() => ({ matrix: breatheT(frame.value) }));
   const bdy = shown.pose.bdy;
-  const bobP = useAnimatedProps(() => ({ transform: bobT(frame.value, bdy) }));
-  const eyesP = useAnimatedProps(() => ({ transform: eyesT(frame.value) }));
+  const bobP = useAnimatedProps(() => ({ matrix: bobT(frame.value, bdy) }));
+  const eyesP = useAnimatedProps(() => ({ matrix: eyesT(frame.value) }));
 
   const t = poseTransforms({ eyes: figure.eyeFrames }, shown.pose);
 
@@ -146,7 +159,20 @@ function Animated({
       {figure.bg ? <Path d={figure.bg.d} fill={figure.bg.fill} /> : null}
       <AG animatedProps={rootP}>
         <AG animatedProps={breatheP}>
-          <AG animatedProps={bobP}>
+          {/*
+            The one animated group that carries a static `transform` as well,
+            and the reason is the seam between the two threads. React owns the
+            props on render and the UI thread owns them between renders, so a
+            re-render (which the morph does on every frame of its 300ms) drops
+            each group back to what React last said. For every other group that
+            is the identity, which is exactly what the still renderer draws, so
+            the worst case is one frame of a motionless blobatar. The bob is
+            different: its matrix also carries the pose's own lift, and
+            forgetting that for a frame would drop the body rather than merely
+            stop it. So the still lift is passed the way `Blobatar` passes it,
+            as a string React parses, and the loop writes over it.
+          */}
+          <AG animatedProps={bobP} transform={`translate(0 ${bdy})`}>
             <Body marks={figure.marks} fill={shown.fill.head} />
             <AG animatedProps={eyesP}>
               {figure.eyes.map((m, i) => (
@@ -201,14 +227,14 @@ function Eye({
   side: number;
 }) {
   const rockP = useAnimatedProps(() => ({
-    transform: rockT(
+    matrix: rockT(
       frame.value,
       { edy2: edy2.value, rock: rock.value } as Pose,
       side,
     ),
   }));
   const glanceP = useAnimatedProps(() => ({
-    transform: glanceT(frame.value, at.cx, at.cy, at.rot, side),
+    matrix: glanceT(frame.value, at.cx, at.cy, at.rot, side),
   }));
   return (
     <AG animatedProps={rockP}>
