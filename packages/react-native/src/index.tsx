@@ -56,7 +56,10 @@ import {
   lerpPose,
   poseTransforms,
   type BlobatarOptions,
+  type Mark,
+  type Pose,
 } from "blobatar/internal";
+import { idleAt, idleSeeds, idleTransforms } from "blobatar/idle";
 import Svg, { Circle, G, Path, type SvgProps } from "react-native-svg";
 
 export type BlobatarProps = {
@@ -115,6 +118,19 @@ export type BlobatarProps = {
  */
 const IN = { ms: 300, ease: [0.45, 0.05, 0.5, 1] } as const;
 const OUT = { ms: 400, ease: [0.42, 0, 0.58, 1] } as const;
+
+/**
+ * `ease-out`, for the amplitude ramp. From `.mo-root`'s
+ * `transition-timing-function` on `--mo-amp`, and the one curve in this file
+ * that belongs to the idle layer rather than to the morph.
+ *
+ * Built inside the component that uses it rather than once at module scope, and
+ * that is a size decision rather than a style one: `bezier(...)` is a *call*, a
+ * bundler will not drop a call it cannot prove side-effect-free, and a
+ * module-scope one put the solver into the still and morphing rows too. The
+ * size gate caught it, which is what those two rows are for.
+ */
+const easeOut = () => bezier([0, 0, 0.58, 1]);
 
 /**
  * A CSS `cubic-bezier(x1, y1, x2, y2)`, as a function of elapsed fraction.
@@ -266,6 +282,120 @@ function Still({
 }
 
 /**
+ * The morph as a state machine with no clock of its own.
+ *
+ * A hook rather than a component, and it hands back a `step` instead of running
+ * a loop, because there are two callers and only one of them owns the only
+ * clock. `MorphingBlobatar` runs a frame loop while a morph is in flight and
+ * stops. `AnimatedBlobatar` is already running one forever, and a second loop
+ * beside it would be two `requestAnimationFrame` callbacks per blobatar per
+ * frame, setting state twice, to draw one picture.
+ *
+ * So the clock is the caller's and the bookkeeping is here. That is what keeps
+ * the two components from each carrying their own copy of interrupt handling,
+ * which is the part with the subtle rule in it.
+ *
+ * State holds *what is on screen*, not a progress fraction, and that is what
+ * makes an interrupted morph correct without a special case. Setting a new
+ * expression half way through the last one starts from wherever the face
+ * actually is, so poses chained faster than 300ms flow into each other instead
+ * of snapping back to a start the consumer never saw.
+ */
+function useMorph(
+  figure: ReturnType<typeof _posed>,
+  seed: string,
+  opts: Omit<BlobatarOptions, "animate" | "size">,
+) {
+  // Where the morph is heading. `hot` is already the finished colour at the
+  // pose's own `heat`, so there is no mix left to do here. The travel is from
+  // whatever is on screen to these two values, on the morph's own clock, which
+  // is exactly what `transition: fill` does on the web.
+  const to: Fill = {
+    head: figure.hot?.head ?? figure.fill.head,
+    eye: figure.hot?.eye ?? figure.fill.eye,
+  };
+  const [shown, setShown] = useState({
+    pose: lerpPose(undefined, figure.pose, 1),
+    fill: to,
+  });
+  // The latest committed frame, readable by a caller that has to start from it.
+  // A morph interrupted mid-flight begins where the face is, and the face is
+  // here.
+  const at = useRef(shown);
+  at.current = shown;
+
+  // Identity is not enough: `figure` is rebuilt whenever any option changes, so
+  // a palette tweak would hand back an equal pose in a new object and start a
+  // 300ms morph from a pose to itself. The colours are in the key because a
+  // palette change *is* something to fade, and the same key drives both.
+  const key = JSON.stringify([figure.pose ?? null, to]);
+  // Which blobatar this is, which is every option except the expression.
+  //
+  // A morph is a change of *expression* on one creature. Handing a component a
+  // different `name` is not that: it is a different creature in the same slot,
+  // which React does routinely when a list re-renders over new data. That has
+  // to cut, and without this it would not quite: the geometry would snap while
+  // the colours eased, so one person's palette would fade into another's.
+  const ident = JSON.stringify([seed, { ...opts, expression: null }]);
+
+  const seen = useRef(key);
+  const seenIdent = useRef(ident);
+  const run = useRef<{
+    from: { pose: Pose; fill: Fill };
+    start: number;
+    ms: number;
+    ease: (x: number) => number;
+  } | null>(null);
+
+  // Decided during render rather than in an effect, so the frame loop a caller
+  // starts on this token already has something to do on its first tick. An
+  // effect would be a frame late, which is invisible and is also how a loop
+  // that stops on "nothing moving" can stop before it ever starts.
+  if (seen.current !== key || seenIdent.current !== ident) {
+    const cut = seenIdent.current !== ident;
+    seen.current = key;
+    seenIdent.current = ident;
+    if (cut) {
+      // A different creature, so there is nothing to travel from.
+      run.current = null;
+      at.current = { pose: lerpPose(undefined, figure.pose, 1), fill: to };
+    } else {
+      // Adopting an expression is quick and returning to idle is slower, and
+      // the asymmetry is deliberate. See `IN`/`OUT` above.
+      const clock = figure.expr ? IN : OUT;
+      run.current = { from: at.current, start: 0, ms: clock.ms, ease: bezier(clock.ease) };
+    }
+  }
+
+  /** Advance to `now`. Returns whether there is still somewhere to go. */
+  const step = (now: number) => {
+    const r = run.current;
+    if (!r) {
+      // The cut case, and the mount case. Commit whatever `at` holds, once.
+      if (at.current !== shown) setShown(at.current);
+      return false;
+    }
+    // The first callback establishes the origin rather than assuming one.
+    // `requestAnimationFrame`'s timestamp is not wall-clock on this platform
+    // and subtracting a separately-read `now` from it drifts.
+    if (!r.start) r.start = now;
+    const u = Math.min(1, (now - r.start) / r.ms);
+    const k = r.ease(u);
+    setShown({
+      pose: lerpPose(r.from.pose, figure.pose, k),
+      fill: {
+        head: fadeHex(r.from.fill.head, to.head, k),
+        eye: fadeHex(r.from.fill.eye, to.eye, k),
+      },
+    });
+    if (u >= 1) run.current = null;
+    return u < 1;
+  };
+
+  return { shown, step, token: `${key}|${ident}` };
+}
+
+/**
  * The morphing blobatar.
  *
  * The whole of the animation is here and none of the motion is: what travels is
@@ -274,12 +404,6 @@ function Still({
  * same property the web side has and the reason a morph is affordable at all.
  * `_posed` hands back the figure as drawn, once, and every frame after that is
  * a string on a `<G>`.
- *
- * State holds *what is on screen*, not a progress fraction, and that is what
- * makes an interrupted morph correct without any special case. Setting a new
- * expression half way through the last one starts from wherever the face
- * actually is, so poses chained faster than 300ms flow into each other instead
- * of snapping back to a start the consumer never saw.
  */
 function Morphing({
   seed,
@@ -300,90 +424,26 @@ function Morphing({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dep],
   );
-
-  // Where the morph is heading. `hot` is already the finished colour at the
-  // pose's own `heat`, so there is no mix left to do here. The travel is from
-  // whatever is on screen to these two values, on the morph's own clock, which
-  // is exactly what `transition: fill` does on the web.
-  const to: Fill = {
-    head: figure.hot?.head ?? figure.fill.head,
-    eye: figure.hot?.eye ?? figure.fill.eye,
-  };
-  const [shown, setShown] = useState({
-    pose: lerpPose(undefined, figure.pose, 1),
-    fill: to,
-  });
-  // The latest committed frame, readable by an effect that has to start from
-  // it. A morph interrupted mid-flight begins where the face is, and the face
-  // is here.
-  const at = useRef(shown);
-  at.current = shown;
-
-  // Identity is not enough: `figure` is rebuilt whenever any option changes, so
-  // a palette tweak would hand back an equal pose in a new object and start a
-  // 300ms morph from a pose to itself. The colours are in the key because a
-  // palette change *is* something to fade, and the same key drives both.
-  const key = JSON.stringify([figure.pose ?? null, to]);
-  // The pose the visible blobatar is already settled on or heading toward.
-  // Compared rather than a mount flag, because a flag also has to be right
-  // under React's development double-invocation of effects, where the second
-  // run would otherwise start a 300ms morph from the mount pose to itself.
-  const seen = useRef(key);
-
-  // Which blobatar this is, which is every option except the expression.
-  //
-  // A morph is a change of *expression* on one creature. Handing this component
-  // a different `name` is not that: it is a different creature in the same
-  // slot, which React does routinely when a list re-renders over new data. That
-  // has to cut, and without this it would not quite: the geometry would snap
-  // while the colours eased, so one person's palette would fade into another's
-  // over 300ms.
-  const ident = JSON.stringify([seed, { ...opts, expression: null }]);
-  const seenIdent = useRef(ident);
+  const { shown, step, token } = useMorph(figure, seed, opts);
+  const first = useRef(true);
 
   useEffect(() => {
-    // Nothing to morph from on the way in. A blobatar that eased out of idle
-    // on mount would animate a whole grid of them on first paint, which is the
+    // Nothing to morph from on the way in. A blobatar that eased out of idle on
+    // mount would animate a whole grid of them on first paint, which is the
     // web's rule too: transitions do not run on an element's first style
     // resolution.
-    if (seen.current === key && seenIdent.current === ident) return;
-    const cut = seenIdent.current !== ident;
-    seen.current = key;
-    seenIdent.current = ident;
-    // A different creature, so there is nothing to travel from. See `ident`.
-    if (cut) {
-      setShown({ pose: lerpPose(undefined, figure.pose, 1), fill: to });
+    if (first.current) {
+      first.current = false;
       return;
     }
-    const from = at.current;
-    // Adopting an expression is quick and returning to idle is slower, and the
-    // asymmetry is deliberate. See `IN`/`OUT` above.
-    const clock = figure.expr ? IN : OUT;
-    const ease = bezier(clock.ease);
-    let start = 0;
     let frame = 0;
-
-    const step = (now: number) => {
-      // The first callback establishes the origin rather than assuming one.
-      // `requestAnimationFrame`'s timestamp is not wall-clock on this platform
-      // and subtracting a separately-read `now` from it drifts.
-      if (!start) start = now;
-      const u = Math.min(1, (now - start) / clock.ms);
-      const k = ease(u);
-      setShown({
-        pose: lerpPose(from.pose, figure.pose, k),
-        fill: {
-          head: fadeHex(from.fill.head, to.head, k),
-          eye: fadeHex(from.fill.eye, to.eye, k),
-        },
-      });
-      if (u < 1) frame = requestAnimationFrame(step);
+    const tick = (now: number) => {
+      if (step(now)) frame = requestAnimationFrame(tick);
     };
-
-    frame = requestAnimationFrame(step);
+    frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, ident]);
+  }, [token]);
 
   const t = poseTransforms({ eyes: figure.eyeFrames }, shown.pose);
 
@@ -399,18 +459,7 @@ function Morphing({
         reparent rather than a translate.
       */}
       <G transform={t.wrap}>
-        {figure.marks.map((m, i) =>
-          m.kind === "circle" ? (
-            <Circle key={i} cx={m.cx} cy={m.cy} r={m.r} fill={shown.fill.head} />
-          ) : (
-            <Path key={i} d={m.d} fill={shown.fill.head} />
-          ),
-        )}
-        {/*
-          One group per eye, and the pose lives entirely on it. The path inside
-          never changes. It is the eye as drawn, lean and all, which is what
-          keeps a frame of this morph to thirteen numbers and a string.
-        */}
+        <Body marks={figure.marks} fill={shown.fill.head} />
         {figure.eyes.map((m, i) => (
           <G key={i} transform={t.eyes[i]}>
             <Path d={m.d} fill={shown.fill.eye} />
@@ -418,6 +467,147 @@ function Morphing({
         ))}
       </G>
     </Frame>
+  );
+}
+
+/**
+ * The animated blobatar: the idle layer, and the morph along with it.
+ *
+ * Six levels of group, which is the same tree `motion.css` decorates, and every
+ * level of it earns its place by having a different origin or a different
+ * clock. `idleTransforms` in core says which is which; this file puts the
+ * strings it returns onto elements and adds nothing.
+ *
+ * One `requestAnimationFrame` loop drives both layers, because there is one
+ * picture per frame and computing it twice to set state twice is the cost that
+ * matters here rather than the arithmetic, which is about thirty numbers.
+ */
+function Animated({
+  seed,
+  size,
+  title,
+  opts,
+  on,
+  rest,
+}: {
+  seed: string;
+  size: number;
+  title?: string;
+  opts: Omit<BlobatarOptions, "animate" | "size">;
+  on: boolean;
+  rest: SvgProps;
+}) {
+  const dep = JSON.stringify([seed, opts]);
+  const figure = useMemo(
+    () => _posed(seed, opts),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dep],
+  );
+  const seeds = useMemo(
+    () => idleSeeds(seed, { normalize: opts.normalize, traits: opts.traits }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [seed, JSON.stringify(opts.traits ?? null), opts.normalize],
+  );
+  const { shown, step, token } = useMorph(figure, seed, opts);
+
+  // The frame the blobatar is at rest: no amplitude, no tremor, and the seesaw
+  // at the extreme the still renderer bakes. `idleAt` at time zero *is* that
+  // frame, so there is no second definition of what rest looks like.
+  const REST = useMemo(() => idleAt(seeds, 0, 0, 0), [seeds]);
+  const [frame, setFrame] = useState(REST);
+
+  // Amplitude ramps rather than switching, which is `.mo-root`'s own
+  // `transition: --mo-amp 400ms ease-out`. Turning the loops on by assignment
+  // makes a blobatar start breathing at full depth mid-breath, and turning them
+  // off that way stops it mid-breath, which reads as a fault rather than as
+  // something settling.
+  const amp = useRef({ from: 0, to: on ? 1 : 0, start: 0 });
+  const ease = useMemo(easeOut, []);
+
+  useEffect(() => {
+    amp.current = { from: ampNow(amp.current, 0, ease), to: on ? 1 : 0, start: 0 };
+    let raf = 0;
+    const tick = (now: number) => {
+      if (!amp.current.start) amp.current.start = now;
+      const a = ampNow(amp.current, now, ease);
+      const moving = step(now);
+      setFrame(idleAt(seeds, now, a, shown.pose.shake));
+      // Keep going while anything is still moving: the loops themselves, the
+      // amplitude easing out behind them, or a morph. When all three are done
+      // there is nothing left to draw and the loop ends rather than spinning on
+      // a still picture.
+      if (on || moving || a > 0) raf = requestAnimationFrame(tick);
+      else setFrame(REST);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, on, seeds]);
+
+  const t = idleTransforms({ eyes: figure.eyeFrames }, shown.pose, frame);
+
+  return (
+    <Frame size={size} title={title} rest={rest}>
+      {/* Outside every layer of the motion, matching every other renderer: a
+          plate that breathes and bobs with the creature stops being a plate. */}
+      {figure.bg ? <Path d={figure.bg.d} fill={figure.bg.fill} /> : null}
+      <G transform={t.root}>
+        <G transform={t.breathe}>
+          <G transform={t.bob}>
+            <Body marks={figure.marks} fill={shown.fill.head} />
+            <G transform={t.eyes}>
+              {figure.eyes.map((m, i) => (
+                <G key={i} transform={t.eye[i]}>
+                  {/*
+                    One more group per eye than the morph needs, and it is not
+                    optional. The blink and the glance's foreshortening are
+                    about the eye's own drawn centre, where the pose above is
+                    about the pair's frame, and collapsing the two is how the
+                    eye-scale bug in `motion.css`'s own history happened.
+                  */}
+                  <G transform={t.glance[i]}>
+                    <Path d={m.d} fill={shown.fill.eye} />
+                  </G>
+                </G>
+              ))}
+            </G>
+          </G>
+        </G>
+      </G>
+    </Frame>
+  );
+}
+
+/** Where an amplitude ramp has got to, on `.mo-root`'s own 400ms ease-out. */
+function ampNow(
+  r: { from: number; to: number; start: number },
+  now: number,
+  ease: (x: number) => number,
+) {
+  if (!r.start || r.from === r.to) return r.to;
+  const u = Math.min(1, (now - r.start) / 400);
+  return r.from + (r.to - r.from) * ease(u);
+}
+
+/**
+ * Everything that is not an eye, which is one fill and no motion of its own.
+ *
+ * Shared by the two animated bodies, where the fill is a value that travels.
+ * The still one keeps its own copy deliberately: it is the row the size gate
+ * holds at its pre-morph number, and an indirection it does not need is exactly
+ * what that row exists to notice.
+ */
+function Body({ marks, fill }: { marks: Mark[]; fill: string }) {
+  return (
+    <>
+      {marks.map((m, i) =>
+        m.kind === "circle" ? (
+          <Circle key={i} cx={m.cx} cy={m.cy} r={m.r} fill={fill} />
+        ) : (
+          <Path key={i} d={m.d} fill={fill} />
+        ),
+      )}
+    </>
   );
 }
 
@@ -528,4 +718,67 @@ export function Blobatar(props: BlobatarProps) {
  */
 export function MorphingBlobatar(props: BlobatarProps) {
   return <Morphing {...split(props)} />;
+}
+
+/**
+ * A blobatar with its idle layer running: breathe, bob, blink, glance, and the
+ * tremor and seesaw two expressions carry. It morphs between expressions too,
+ * so it is `MorphingBlobatar` with the ambient motion added rather than an
+ * alternative to it.
+ *
+ * A third export rather than a prop, on the same measured grounds as the
+ * second: the idle layer is the largest of the three tiers, and a prop on one
+ * component is reachable from it whether or not anybody passes it. Three
+ * components means an app pays for the tier it names.
+ *
+ * ## `animate` is the caller's, and that is the platform's doing
+ *
+ * On the web the idle layer is gated on `:hover`, which is both the aesthetic
+ * answer and the performance one, and `animate="hover"` is the recommended
+ * default for a grid. There is no hover on a touch screen. `motion.css` already
+ * says so itself, under `@media not ((hover: hover) and (pointer: fine))`,
+ * where it pauses every loop and forces amplitude to zero unless the blobatar
+ * was marked `always`. So the only mode this platform has is the always one,
+ * and the question of *when* becomes the app's rather than the library's.
+ *
+ * Which is the honest answer rather than a shortcut. Screen focus, list
+ * viewability, a user preference, the OS reduced-motion setting: those are all
+ * things an app knows and a component drawn into a scroll view does not.
+ *
+ * ```tsx
+ * // a profile header, one large avatar
+ * <AnimatedBlobatar name="ada" size={120} animate />
+ *
+ * // a grid: only what the list says is on screen
+ * <AnimatedBlobatar name={u.id} size={44} animate={visible.has(u.id)} />
+ *
+ * // the OS setting, which this package cannot read itself
+ * <AnimatedBlobatar name="ada" size={120} animate={!reduceMotion} />
+ * ```
+ *
+ * It defaults to false, so an `AnimatedBlobatar` nobody has told to animate is
+ * a still blobatar. Turning it on and off ramps the amplitude over 400ms rather
+ * than switching it, which is `.mo-root`'s own transition: a blobatar that
+ * begins breathing at full depth mid-breath reads as a fault.
+ *
+ * ## What runs it
+ *
+ * A `requestAnimationFrame` loop and a React render per frame, which is the
+ * driver the morph already uses. Not Reanimated, and that was a decision with a
+ * cost: worklets would run this on the UI thread, but a library has to ship
+ * them pre-compiled, which means a Babel pass over a package built with Bun, a
+ * peer dependency with a native build, and a copy of the composition inside the
+ * worklet, since a worklet cannot call core's `idleTransforms`. That last one
+ * is the thing ADR-0009 exists to prevent.
+ *
+ * The trade it leaves is real and worth knowing: every animating blobatar
+ * re-renders sixty times a second on the JS thread. `animate` being the
+ * caller's is what makes that affordable, because the app is the only thing
+ * that knows how many need to be live at once.
+ */
+export function AnimatedBlobatar({
+  animate = false,
+  ...props
+}: BlobatarProps & { animate?: boolean }) {
+  return <Animated {...split(props as BlobatarProps)} on={animate} />;
 }

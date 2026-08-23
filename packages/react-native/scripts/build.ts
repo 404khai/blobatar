@@ -30,7 +30,7 @@ const build = await Bun.build({
   format: "esm",
   minify: true,
   sourcemap: "linked",
-  external: ["blobatar", "blobatar/internal", "react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-native", "react-native-svg"],
+  external: ["blobatar", "blobatar/internal", "blobatar/idle", "react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-native", "react-native-svg"],
   // Carried over from core's build, and for the same reason: Bun picks the JSX
   // runtime off `process.env.NODE_ENV`, and a publish build run from a normal
   // shell has it unset, so without this the package ships `react/jsx-dev-runtime`

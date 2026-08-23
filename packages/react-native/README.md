@@ -39,6 +39,7 @@ function Avatar() {
 | `contrast` | `boolean` | Enforce the contrast guarantee. |
 | `title` | `string` | Accessible label. |
 | `expression` | `Expression` | Pose to render. |
+| `animate` | `boolean` | **`AnimatedBlobatar` only.** Run the idle layer. Defaults to false. |
 | `traits` | `TraitOverrides` | Override specific traits. |
 
 Anything else lands on the underlying `<Svg>`, and wins over what the props
@@ -54,11 +55,17 @@ fallback, so an unsized blobatar is a blank square. Defaulting it here was the
 alternative, and an adapter that invents a default is an adapter that changes
 the picture. The core is the only place a default is written down.
 
-**There is no `animate`.** Blobatar's idle motion is a stylesheet: `motion.css`,
-a root class, and a dozen seeded custom properties the CSS reads. React Native
-has none of the three. The prop is absent from the type rather than accepted and
-ignored, so passing it is a compile error instead of a blobatar that silently
-sits still.
+**Motion is three components, not a prop.** `Blobatar` is still, and stays the
+cheapest thing this package can draw. `MorphingBlobatar` animates the change
+between expressions. `AnimatedBlobatar` adds the idle layer on top. Each tier
+is a separate export so a bundler drops the ones an app never names, and the
+size gate holds all three apart.
+
+`animate` therefore means something narrower here than on the web, where it
+selects between `"hover"` and `"always"`. There is no hover on a touch screen,
+so it is a boolean on `AnimatedBlobatar` and nothing else takes it. Passing it
+to the other two is a compile error naming this package, which is the cheapest
+place to learn the difference.
 
 `expression` works in full. A static pose bakes into the geometry, which is why
 it survives here for the same reason it survives in the string API. Setting a
@@ -98,17 +105,61 @@ here is the pose, which is thirteen numbers on a state change you control. The
 idle layer is six keyframe loops gated on `:hover`, and `:hover` has no meaning
 on a touch screen.
 
+## The idle layer
+
+`AnimatedBlobatar` adds the ambient motion on top of the morph: breathe, bob,
+blink, the glance, and the two loops that belong to an expression rather than to
+the ambient layer, `thinking`'s seesaw and `mad`'s tremor.
+
+```tsx
+import { AnimatedBlobatar } from "@blobatar/react-native";
+
+// a profile header, one large avatar
+<AnimatedBlobatar name="ada" size={120} animate />
+
+// a grid: only what the list says is on screen
+<AnimatedBlobatar name={u.id} size={44} animate={visible.has(u.id)} />
+```
+
+**`animate` is yours to drive, and that is the platform's doing.** On the web
+the idle layer is gated on `:hover`, which is both the aesthetic answer and the
+performance one. There is no hover on a touch screen; `motion.css` says so
+itself, pausing every loop under `@media not ((hover: hover) and (pointer:
+fine))`. So the only mode this platform has is the always-on one, and *when*
+becomes a question your app can answer and a component drawn into a scroll view
+cannot: screen focus, list viewability, a user setting.
+
+It defaults to false, so an `AnimatedBlobatar` nobody has told to animate is a
+still blobatar, exactly. Turning it on or off ramps over 400ms rather than
+switching, which is the stylesheet's own transition.
+
+Every animating blobatar re-renders each frame on the JS thread. That is what
+makes `animate` being yours the important part: your app is the only thing that
+knows how many need to be live at once. Reanimated would move this to the UI
+thread, and it is deliberately not used here, because a library has to ship
+worklets pre-compiled and a worklet cannot call core's composition, so the
+motion would exist twice in two languages. That is the drift ADR-0009 exists to
+prevent.
+
+The seeded timings are the same ones the stylesheet reads, so a blobatar
+breathes on the same offset on both platforms, and a grid of them is a crowd
+rather than a heartbeat.
+
 ### Reduced motion
 
-Render `Blobatar` instead. This package imports no React Native module at all,
-so it cannot read the setting itself, and your app already can:
+Pass `animate={!reduceMotion}`, or render `Blobatar` instead. This package
+imports no React Native module at all, so it cannot read the setting itself,
+and your app already can:
 
 ```tsx
 import { AccessibilityInfo } from "react-native";
 
 const reduce = AccessibilityInfo.useReduceMotionEnabled();
-const C = reduce ? Blobatar : MorphingBlobatar;
 
+<AnimatedBlobatar name="username" size={48} expression={mood} animate={!reduce} />;
+
+// or, to drop the morph as well
+const C = reduce ? Blobatar : MorphingBlobatar;
 <C name="username" size={48} expression={mood} />;
 ```
 

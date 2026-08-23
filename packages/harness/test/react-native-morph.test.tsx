@@ -35,7 +35,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Blobatar, MorphingBlobatar } from "@blobatar/react-native";
+import { AnimatedBlobatar, Blobatar, MorphingBlobatar } from "@blobatar/react-native";
 import {
   happy,
   love,
@@ -179,7 +179,7 @@ function sameMatrix(a: M, b: M, why: string) {
  * comparing the wrong primitives.
  */
 function halves(prims: Prim[], nEyes: number) {
-  const deep = prims.filter(p => p.depth > 1);
+  const deep = prims.filter(p => p.depth > (prims.some(q => q.depth > 3) ? 4 : 1));
   const eyes = deep.length ? deep : prims.slice(prims.length - nEyes);
   const rest = prims.filter(p => !eyes.includes(p));
   return { eyes, rest };
@@ -355,6 +355,77 @@ describe("it takes the same options the still one does", () => {
         expression: happy,
         ...o,
       });
+    });
+  }
+});
+
+/**
+ * `AnimatedBlobatar`, which is the third tier and the one that cannot be
+ * checked in motion here.
+ *
+ * A server render produces the mount frame and nothing after it, so what this
+ * can hold is the property that matters most and is easiest to lose: **an
+ * animated blobatar that has not been told to animate is a still one.** Every
+ * ambient layer is multiplied by an amplitude that starts at zero, so the six
+ * levels of group it draws have to compose to exactly what the still component
+ * draws, not to nearly that. A missed `* amp` is invisible on a device and
+ * obvious here.
+ *
+ * `packages/blobatar/test/idle.test.ts` holds the loops themselves, and
+ * `apps/example-native` is where somebody watches them move.
+ */
+describe("AnimatedBlobatar", () => {
+  test("it draws the whole nest, not a flattened one", () => {
+    // Six levels: root, breathe, bob, the eye pair, each eye, each eye's own
+    // path. Every one of them has a different origin or a different clock, and
+    // collapsing two is how the eye-scale bug in `motion.css`'s own history
+    // happened. An eye path sits under all six, so its depth is the count.
+    const prims = render(AnimatedBlobatar, { name: "alain", size: 40, animate: true });
+    expect(Math.max(...prims.map(p => p.depth))).toBe(6);
+    // …and the body is inside the ambient layers but outside the eye ones.
+    const body = prims.filter(p => p.depth === 3);
+    expect(body.length).toBeGreaterThan(0);
+  });
+
+  test("the eye paths are still the drawn eyes", () => {
+    // The same claim the morph makes, one tier up: no path data is regenerated
+    // for the idle layer either. Every loop lands on a group.
+    const paths = (props: Record<string, unknown>) =>
+      [...renderToStaticMarkup(createElement(AnimatedBlobatar as never, props as never))
+        .matchAll(/<path d="([^"]*)"/g)].map(m => m[1]);
+    expect(paths({ name: "alain", size: 40, animate: true, expression: mad })).toEqual(
+      paths({ name: "alain", size: 40 }),
+    );
+  });
+
+  for (const [name, expression] of [["idle", undefined], ...POSES] as const) {
+    test(`at rest it is the still blobatar: ${name}`, () => {
+      for (const seed of SEEDS) {
+        const props = { name: seed, size: 40, ...(expression ? { expression } : {}) };
+        const want = render(Blobatar, props);
+        const got = render(AnimatedBlobatar, props);
+        const why = `${seed} ${name}`;
+
+        expect(got.length, why).toBe(want.length);
+        const a = halves(got, 2);
+        const b = halves(want, 2);
+        a.rest.forEach((p, i) => {
+          const q = b.rest[i]!;
+          expect(p.fill, `${why} rest #${i}`).toBe(q.fill);
+          expect(p.attrs.d ?? "", `${why} rest #${i}`).toBe(q.attrs.d ?? "");
+          sameMatrix(p.at, q.at, `${why} rest #${i}`);
+        });
+        a.eyes.forEach((p, i) => {
+          const q = b.eyes[i]!;
+          expect(p.fill, `${why} eye #${i}`).toBe(q.fill);
+          const drawnPts = points(p.attrs.d!).map(pt => apply(p.at, pt));
+          const wantPts = points(q.attrs.d!).map(pt => apply(q.at, pt));
+          for (let k = 0; k < wantPts.length; k++) {
+            expect(drawnPts[k]![0], `${why} eye #${i}.${k}x`).toBeCloseTo(wantPts[k]![0], 1);
+            expect(drawnPts[k]![1], `${why} eye #${i}.${k}y`).toBeCloseTo(wantPts[k]![1], 1);
+          }
+        });
+      }
     });
   }
 });

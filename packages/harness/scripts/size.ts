@@ -221,6 +221,24 @@ const ENTRIES: {
              globalThis.x = Blobatar;`,
   },
   {
+    // The third tier, and the largest: the idle layer on top of the morph.
+    // Seven loops evaluated per frame, the seeded timings they run on, and one
+    // more level of grouping per eye.
+    //
+    // Its job here is the same as the other two rows': to say that the tiers
+    // stay separate. A change that moves this row and not the two above it is
+    // the idle layer; a change that moves all three is core; a change that
+    // moves a smaller row is a tier leaking into the one below, which is the
+    // failure the whole three-component shape exists to prevent and which the
+    // keyframe tables caused twice before landing on their own entry point.
+    name: "@blobatar/react-native animated",
+    budget: 7420,
+    external: ["react", "react/jsx-runtime", "react-native", "react-native-svg"],
+    ext: "tsx",
+    source: `import { AnimatedBlobatar } from "@blobatar/react-native";
+             globalThis.x = AnimatedBlobatar;`,
+  },
+  {
     // The morph, and the row that is the whole argument for it being a second
     // component rather than a `morph` prop on the one above.
     //
@@ -242,8 +260,13 @@ const ENTRIES: {
   // would be two crowds drifting apart, which is the one property in the whole
   // motion layer that a grid actually shows. The cost is a named object with
   // ten keys that minification cannot mangle.
+    // 6034 B, up ~170 from the morph's first release. That is the morph's
+    // bookkeeping becoming a hook two components share rather than a body one
+    // component owns: interrupt handling has exactly one subtle rule in it, and
+    // a second copy of that rule in the animated component is a worse trade
+    // than 170 B. The alternative was measured, not assumed.
     name: "@blobatar/react-native morph",
-    budget: 5900,
+    budget: 6080,
     external: ["react", "react/jsx-runtime", "react-native", "react-native-svg"],
     ext: "tsx",
     source: `import { MorphingBlobatar } from "@blobatar/react-native";

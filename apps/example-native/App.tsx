@@ -55,6 +55,18 @@
  *    morph must start from where the face is, not from the pose the first set
  *    out from.
  *
+ * 6. **The idle layer.** Four blobatars, and the first two are the check that
+ *    matters: they must *not* breathe in unison. If they do, the seeded phase
+ *    is not reaching the loops and a grid will read as a heartbeat rather than
+ *    as a crowd. Then watch one for a while: it breathes and bobs on two
+ *    periods that drift against each other, blinks every few seconds, and
+ *    glances somewhere and holds before glancing again. Eyes jump and settle;
+ *    anything that drifts smoothly between fixations is wrong.
+ *    The last two carry the loops that belong to an expression rather than to
+ *    the ambient layer: `thinking` seesaws its eyes, `mad` trembles. Toggling
+ *    to still has to ramp the motion out over 400ms rather than cutting it,
+ *    and has to land on exactly the still blobatar.
+ *
  * Everything written on this screen is drawn in a colour derived from the
  * device theme. It is not decoration. React Native gives `<Text>` no colour of
  * its own, so this app's first release was entirely unreadable on a dark-mode
@@ -71,7 +83,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { Blobatar, MorphingBlobatar } from "@blobatar/react-native";
+import { AnimatedBlobatar, Blobatar, MorphingBlobatar } from "@blobatar/react-native";
 import {
   happy,
   mad,
@@ -208,6 +220,48 @@ function Morph() {
   );
 }
 
+/**
+ * The idle layer, which is the other thing on this screen no still frame can
+ * check, and the one with the most ways to be subtly wrong.
+ *
+ * Two blobatars side by side rather than one, because the single most
+ * load-bearing property in the whole motion layer is that a grid does not move
+ * in unison. One creature breathing proves the loop runs; two creatures
+ * breathing on different offsets proves the crowd is a crowd.
+ */
+function Idle() {
+  const ink = useInk();
+  const [on, setOn] = useState(true);
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.heading, { color: ink.fg }]}>
+        The idle layer: breathe, bob, blink, glance
+      </Text>
+      <View style={styles.row}>
+        {["alain00", "ada"].map(n => (
+          <AnimatedBlobatar key={n} name={n} size={110} background="squircle" animate={on} />
+        ))}
+        {/* `thinking` seesaws and `mad` trembles. Both are pose channels
+            rather than ambient ones, so they run off the expression rather
+            than off the amplitude, and they are the two that were missing
+            while only the morph existed. */}
+        <AnimatedBlobatar name="alain00" size={110} background="squircle" expression={thinking} animate={on} />
+        <AnimatedBlobatar name="alain00" size={110} background="squircle" expression={mad} animate={on} />
+      </View>
+      <View style={styles.row}>
+        <Pressable
+          onPress={() => setOn(p => !p)}
+          style={[styles.chip, { backgroundColor: on ? ink.chipOn : ink.chip }]}
+        >
+          <Text style={[styles.chipText, { color: ink.fg }]}>
+            {on ? "animating" : "still"}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const ink = useInk();
   return (
@@ -267,6 +321,8 @@ export default function App() {
       </Section>
 
       <Morph />
+
+      <Idle />
 
       <Section title="A crowd: every name a different creature">
         {Array.from({ length: 24 }, (_, i) => (
