@@ -10,6 +10,11 @@
 @import "tailwindcss" source(none);
 
 @source "./src";
+/* The shadcn registry items, which the showcase page renders straight out of
+   `registry/` rather than from a second copy under `src`. Not scanned by the
+   line above, and a directory Tailwind never sees is a page that ships with
+   none of its classes compiled. */
+@source "./registry";
 /* Every page entry, by directory rather than by file. One stylesheet serves all
    of them — the build inlines it into each document — so a class only one page
    uses has to be scanned for here or it never gets compiled, and naming the
@@ -65,6 +70,35 @@
    */
   --color-code-str: oklch(0.83 0.07 165);
   --color-code-key: oklch(0.78 0.055 265);
+
+  /*
+   * shadcn's colour names, pointed at the five above.
+   *
+   * The registry items in `registry/` are copied into other people's projects,
+   * so they have to be written in the vocabulary those projects already have:
+   * `bg-card`, `text-muted-foreground`, `border-border`. This site does not use
+   * that vocabulary anywhere else, and it should not start. These aliases exist
+   * so that the showcase page can render the published sources unmodified,
+   * which is the only way a gallery can be trusted to show what it installs.
+   *
+   * `--color-muted` is deliberately absent, and it is the one collision worth
+   * knowing about: here `muted` is the muted *text* colour and `text-muted` is
+   * on almost every page, while in shadcn `muted` is a surface and the text is
+   * `muted-foreground`. Redefining it would restyle the whole site to fix one
+   * page. The registry items therefore never say `bg-muted` or `text-muted`;
+   * they say `text-muted-foreground` and `bg-accent`, which mean the same thing
+   * in both places.
+   */
+  --color-background: var(--color-ground);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-raised);
+  --color-card-foreground: var(--color-ink);
+  --color-muted-foreground: var(--color-muted);
+  --color-border: var(--color-line);
+  --color-accent: #1a1a1e;
+  --color-accent-foreground: var(--color-ink);
+  --color-primary: var(--color-ink);
+  --color-primary-foreground: var(--color-ground);
 }
 
 @layer base {
@@ -397,4 +431,30 @@
   .editor-preview .mo-root:hover {
     transform: scale(1.03);
   }
+}
+/*
+ * The sidebar's own palette, mapped onto this site's the way the rest of
+ * shadcn's vocabulary is up in `@theme`.
+ *
+ * `shadcn add sidebar` wrote three blocks here and none of them survived: a
+ * light `:root`, a `.dark` override, and an `@theme inline` bridging the two.
+ * That is the right shape for a project with a theme toggle and the wrong one
+ * for this site, which is dark and has no `.dark` class on anything, so what
+ * the CLI left behind was a sidebar rendered in light grey on a near-black
+ * page. Stated once, in the tone the page is actually in.
+ *
+ * The values are the site's five, not shadcn's greys, for the same reason the
+ * aliases above are: the gallery renders the published component, and it
+ * should look like it belongs to this page while being the same component a
+ * consumer installs against their own tokens.
+ */
+@theme {
+  --color-sidebar: var(--color-raised);
+  --color-sidebar-foreground: var(--color-ink);
+  --color-sidebar-primary: var(--color-ink);
+  --color-sidebar-primary-foreground: var(--color-ground);
+  --color-sidebar-accent: #1a1a1e;
+  --color-sidebar-accent-foreground: var(--color-ink);
+  --color-sidebar-border: var(--color-line);
+  --color-sidebar-ring: var(--color-muted);
 }

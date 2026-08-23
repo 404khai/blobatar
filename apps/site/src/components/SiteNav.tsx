@@ -16,6 +16,7 @@
  * failure mode of a hand-written nav is a link to something that moved. */
 export const SITE_LINKS: [string, string][] = [
   ["/docs", "Docs"],
+  ["/components", "Components"],
   ["/editor", "Editor"],
   ["/about", "About"],
   ["/contact", "Contact"],

@@ -17,6 +17,7 @@
 import { VERSION } from "blobatar";
 import type { ReactNode } from "react";
 import { GITHUB_PROFILE, ISSUES, NPM, REPO, X_PROFILE, absolute } from "./origin";
+import { SHOWCASE } from "./src/showcase";
 
 export type Page = {
   /** Document name. Produces `<name>.html`, which is generated and gitignored. */
@@ -241,6 +242,61 @@ export const PAGES: Page[] = [
      * generator" is a thing worth being findable for.
      */
     defer: false,
+  },
+  /*
+   * The gallery, and the second half of what the registry is for.
+   *
+   * `registry.json` has published a component for a while and the only place
+   * that said so was a paragraph in the README. This page is the other half:
+   * every item rendered from the source that ships, with the command that
+   * installs it under it. `src/showcase.ts` is the list, and
+   * `showcase.test.ts` is what stops it drifting from the registry.
+   *
+   * Prerendered and deferred, like the landing page and for the same two
+   * reasons. Every heading, blurb and install command is in the document for a
+   * reader that runs no JavaScript, and none of the forty-odd blobatars is:
+   * each demo waits for the scroll. See `ShowcaseSection`.
+   */
+  {
+    name: "components",
+    route: "/components",
+    entry: "./pages/components.tsx",
+    title: "blobatar components — avatar UI for shadcn",
+    description:
+      "Ready-made interface built on blobatar: a presence avatar with unread and thinking states, an agent list, a user table and a group chat. Each one installs with the shadcn CLI.",
+    ogTitle: "blobatar components",
+    ogDescription:
+      "A presence avatar, an agent list, a user table and a group chat, each installable with the shadcn CLI.",
+    schema: [
+      {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "blobatar components",
+        url: absolute("/components"),
+        description:
+          "Interface components built on blobatar, distributed as a shadcn registry.",
+        about: { "@id": absolute("/#blobatar") },
+        author: { "@id": absolute("/#alain") },
+        // The items, named rather than described. A reader arriving here
+        // machine-first is looking for what is installable, and the answer is
+        // a list of four names it can turn into URLs.
+        mainEntity: {
+          "@type": "ItemList",
+          itemListElement: SHOWCASE.map((entry, index) => ({
+            "@type": "ListItem",
+            position: index + 1,
+            name: entry.title,
+            url: absolute(`/components#${entry.item}`),
+          })),
+        },
+      },
+    ],
+    prerender: async () => {
+      const { createElement } = await import("react");
+      const { Components } = await import("./src/Components");
+      return createElement(Components);
+    },
+    defer: true,
   },
   /*
    * The written pages: what this is, how to call it, who to ask, and what it

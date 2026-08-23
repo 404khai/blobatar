@@ -167,6 +167,23 @@ as ordinary dependencies — a copied-in generator would be pinned to whichever
 generation you took it from, and the whole point is that a name renders the same
 picture everywhere.
 
+Four more items are interface built out of that avatar, each one a composition
+you own after installing it:
+
+```sh
+npx shadcn@latest add @blobatar/presence-avatar
+npx shadcn@latest add @blobatar/agent-list
+npx shadcn@latest add @blobatar/user-table
+npx shadcn@latest add @blobatar/group-chat
+```
+
+`presence-avatar` is a face with a presence dot and an unread badge, animated,
+plus a thinking state that adds a three-dot loading indicator. `agent-list` is the aside an agent runner needs,
+built on it. `user-table` is a table of people with a static blobatar per row.
+`group-chat` is a thread with consecutive messages grouped under one face. All
+four are rendered, with the command that installs each, at
+[blobatar.dev/components](https://blobatar.dev/components).
+
 ### Anywhere else
 
 `blobatar()` returns SVG markup as a string, and `blobatarUri()` wraps it in a

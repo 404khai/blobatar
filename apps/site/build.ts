@@ -42,8 +42,22 @@ const OUT = "dist";
  * output, no surviving at-rules, 779 rules, and 9.8 KB over the wire gzipped,
  * which is the number that actually reaches anybody. The scan is doing its job;
  * the app simply has more interface in it than it did.
+ *
+ * And again, to 80 KB, for shadcn's `sidebar`. The components gallery renders
+ * the registry items on the real primitives a consumer installs rather than on
+ * stand-ins, which meant vendoring that component here, and it is ~700 lines of
+ * utilities: collapsed rails, mobile sheet, hover and active states, the lot.
+ * Measured the same way — no `base64`, no surviving at-rules, 1077 rules, 73.6
+ * KB raw and 12.8 KB gzipped.
+ *
+ * Worth being plain about who pays. One stylesheet serves every page and is
+ * inlined into each document, so those ~21 KB (~3 KB gzipped) land on the
+ * landing page as well, which is the page this whole build is tuned around and
+ * which uses none of it. That is the actual cost of the fidelity decision, and
+ * the way out if it ever matters is a stylesheet per entrypoint rather than a
+ * lower ceiling.
  */
-const CSS_CEILING = 60_000;
+const CSS_CEILING = 80_000;
 const UNCOMPILED = ["@theme", "@apply", "@tailwind"];
 
 await rm(OUT, { recursive: true, force: true });
