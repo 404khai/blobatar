@@ -39,6 +39,11 @@
  * first that is a *loop the bake agrees with* rather than one it cannot express.
  * See `checkRock`.
  *
+ * **J — the gaze layer composes.** The first case that is about an entry point
+ * rather than about the renderer: `blobatar/gaze` is a driver writing custom
+ * properties and `blobatar/gaze.css` is a stylesheet turning them into a
+ * transform, and neither half means anything without the other. See `checkGaze`.
+ *
  * F and G exist because C's evidence was narrower than it read: it froze the
  * idle layers and only ever went `idle → happy`, which is one of three
  * mechanisms under conditions no real page has. Neither found a defect. That is
@@ -56,6 +61,7 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Blobatar } from "../../src/react";
 import { happy, mad, thinking } from "../../src/expression";
+import { gaze } from "../../src/gaze";
 
 interface Eye {
   cx: number;
@@ -819,7 +825,28 @@ async function checkBlink() {
     );
     await frame();
     await frame();
-    const svg = host.querySelector("svg")!;
+    /*
+   * The driver declines to attach without a real pointer, which is the correct
+   * behaviour and makes this check unrunnable in an engine that cannot be told
+   * it has one. Chrome is launched with Blink's pointer and hover settings for
+   * exactly this; Firefox has no equivalent switch, so it reports what headless
+   * actually is and this skips rather than failing. The composition it measures
+   * is not engine-specific, and the alternative — bypassing the guard from the
+   * test — would be asserting against a code path no browser ever runs.
+   */
+  if (!matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    report(
+      "J the gaze follows a pointer as a mark on a sphere, and moves only the eyes",
+      true,
+      "not measurable in this engine — it reports no fine pointer, so the driver " +
+        "correctly declines to attach. Run the gate in Chrome for this one.",
+      true,
+    );
+    host.remove();
+    return;
+  }
+
+  const svg = host.querySelector("svg")!;
     const shape = svg.querySelector(".mo-eye > *")!;
     const anims = svg.getAnimations({ subtree: true });
     for (const a of anims) a.pause();
@@ -979,6 +1006,268 @@ async function checkRock() {
   );
 }
 
+
+/**
+ * J — the gaze layer composes: a pointer moves the eyes, and only the eyes.
+ *
+ * The one check that covers `blobatar/gaze`, and it has to be here rather than
+ * in `bun test` for the same reason every other case is: the layer is a driver
+ * writing custom properties and a stylesheet turning them into a transform, and
+ * neither half means anything without the other. A unit test can prove `step`
+ * returns the right numbers and would go on passing if the stylesheet read a
+ * property nobody writes, or if the driver wrote to an element the rule cannot
+ * see from. That second failure is not hypothetical: `--mo-track-hold` has to
+ * be written *above* `.mo-root` to reach the rule that damps the idle rove, and
+ * writing it to `.mo-eyes` alongside the excursion looks entirely correct in
+ * the source.
+ *
+ * Four claims, in one pass over one blobatar:
+ *
+ *  1. The eyes follow. A pointer to the right moves them right, on screen, in
+ *     the geometry the stylesheet decides rather than in the driver's units.
+ *  2. The excursion is bounded by `--mo-track-travel`. A direction is a unit
+ *     vector, so the eyes may not travel further than the excursion the page
+ *     set, whatever the pointer does.
+ *  3. The body does not move. `motion.css` reserves `.mo-eyes`'s `transform`
+ *     for this layer alone, and a gaze that dragged the silhouette with it
+ *     would mean the rule had landed on the wrong group.
+ *  4. The idle rove stands down. `--mo-track-hold` reaches `.mo-root` and damps
+ *     `--mo-look-x`, which is the claim the nesting can silently break.
+ *
+ * Unfrozen, deliberately. Every other check pins `--mo-amp` to take the idle
+ * layers out of the measurement; this one is *about* the gaze composing with
+ * them, so the saccade and the blink run underneath exactly as they do on a
+ * page, and claim 3 is measured against that noise rather than against a still.
+ */
+async function checkGaze() {
+  const host = document.createElement("div");
+  /* Positioned, so the blobatar's client rect is somewhere predictable and the
+     synthetic pointer below can be aimed relative to it. */
+  host.style.cssText = "position:fixed;left:0;top:0";
+  document.body.appendChild(host);
+  createRoot(host).render(<Blobatar name="alain00" animate="always" size={SIZE} />);
+  await frame();
+  await frame();
+
+  /*
+   * The driver declines to attach without a real pointer, which is the correct
+   * behaviour and makes this check unrunnable in an engine that cannot be told
+   * it has one. Chrome is launched with Blink's pointer and hover settings for
+   * exactly this; Firefox has no equivalent switch, so it reports what headless
+   * actually is and this skips rather than failing. The composition it measures
+   * is not engine-specific, and the alternative — bypassing the guard from the
+   * test — would be asserting against a code path no browser ever runs.
+   */
+  if (!matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    report(
+      "J the gaze follows a pointer as a mark on a sphere, and moves only the eyes",
+      true,
+      "not measurable in this engine — it reports no fine pointer, so the driver " +
+        "correctly declines to attach. Run the gate in Chrome for this one.",
+      true,
+    );
+    host.remove();
+    return;
+  }
+
+  const svg = host.querySelector("svg")!;
+  const eyes = host.querySelector(".mo-eyes")! as SVGGElement;
+  const body = host.querySelector(".mo-bob")! as SVGGElement;
+  /*
+   * The gaze lands on each eye, not on the group, so the group is no longer
+   * where the excursion can be read. §4.5 is a projection: the two eyes sit at
+   * different longitudes and move by different amounts, which is the whole cue,
+   * and a translate on the pair could not express it. `.mo-eyes` is still what
+   * the *rove* moves — that stays a translate on the group — so both elements
+   * are measured here, each for the layer that actually uses it.
+   */
+  const eye = host.querySelectorAll(".mo-eye")[1] as SVGGElement;
+
+  /* The excursion the page sets. `gaze.css` registers it at 0, so without this
+     the whole layer is the identity — which is the safety property, and also
+     what would make this check pass while measuring nothing. */
+  const TRAVEL = 3;
+  eyes.style.setProperty("--mo-track-travel", `${TRAVEL}px`);
+
+  /* A viewBox unit is `SIZE / 100` CSS pixels, so this is the excursion in the
+     space `getScreenCTM` reports. */
+  const perUnit = SIZE / 100;
+
+  /**
+   * How far the idle rove is moving the eye group right now.
+   *
+   * Read off `translate`, which is the property `mo-saccade` animates and the
+   * one `motion.css` keeps the rove on precisely so that the gaze can have
+   * `transform`. Measured rather than read out of `--mo-look-x`, because that
+   * channel is unregistered: its computed value is the token stream
+   * `calc(1.4 * (1 - 0))` rather than a number, so a test that parsed it would
+   * be asserting against a string. What the stand-down is *for* is this
+   * movement stopping, so this is the thing to measure.
+   */
+  const roveOver = async (frames: number) => {
+    const seen: number[] = [];
+    for (let i = 0; i < frames; i++) {
+      await frame();
+      const t = getComputedStyle(host.querySelector(".mo-eyes")!).translate;
+      seen.push(parseFloat(t) || 0);
+    }
+    return Math.max(...seen) - Math.min(...seen);
+  };
+
+  /* The rove before anything stands it down. A saccade holds for most of its
+     cycle and jumps in ~1.5% windows, so this samples long enough to catch at
+     least one jump at the seeded period. */
+  const roving = await roveOver(200);
+
+  const g = gaze(svg);
+
+  const point = async (x: number, y: number, frames = 40) => {
+    dispatchEvent(new PointerEvent("pointermove", { clientX: x, clientY: y }));
+    for (let i = 0; i < frames; i++) await frame();
+  };
+
+  /** The eye's rest centre in its own user space, for pushing through the CTM. */
+  const rest = (() => {
+    const g = eye.getBBox();
+    return new DOMPoint(g.x + g.width / 2, g.y + g.height / 2);
+  })();
+
+  /**
+   * Where the eye's centre is, in screen pixels, and where the body is.
+   *
+   * A point through the CTM rather than the matrix's own translation, for the
+   * reason `outline()` above gives at length: `.mo-eye` scales about its own
+   * centre, and a scale about anything but the origin puts translation into the
+   * matrix. Reading `e` would be reading the foreshortening as movement.
+   */
+  const at = () => {
+    const p = rest.matrixTransform(eye.getScreenCTM()!);
+    const b = body.getScreenCTM()!;
+    return { ex: p.x, ey: p.y, bx: b.e, by: b.f, w: eye.getScreenCTM()!.a };
+  };
+
+  const r = svg.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const cy = r.top + r.height / 2;
+
+  await point(cx + 4000, cy);
+  const right = at();
+  await point(cx - 4000, cy);
+  const left = at();
+  await point(cx, cy - 4000);
+  const up = at();
+
+  const swing = right.ex - left.ex;
+  const vert = up.ey - right.ey;
+  /*
+   * The body's own travel across the same three aims.
+   *
+   * Not asserted against zero, because it is not zero and should not be: bob
+   * and breathe are running underneath this whole check, deliberately, since
+   * the claim is that the gaze composes with the idle layers rather than that
+   * it is the only thing moving. What the reservation in `motion.css` actually
+   * promises is that the gaze lands on `.mo-eyes` alone, so the number that
+   * matters is the ratio: the silhouette must not be swinging with the pointer.
+   */
+  const drift = Math.max(Math.abs(right.bx - left.bx), Math.abs(up.by - right.by));
+
+  /*
+   * The sphere, which is the claim the projection makes over the translate it
+   * replaced: an eye turning away foreshortens, and one asked for more
+   * excursion than the head has parks at the limb instead of leaving over the
+   * page. Measured at an excursion far past anything the docs recommend,
+   * because that is exactly the case a translate got wrong.
+   */
+  eyes.style.setProperty("--mo-track-travel", "24px");
+  /* The excursion is read at measure time and cached as an angle, so a host
+     that changes it has to say so. This is the same call `useGaze` makes after
+     writing `travel`, and forgetting it is why that hook makes it. */
+  g.remeasure();
+  await point(cx + 4000, cy);
+  const far = at();
+  const bodyBox = body.getBoundingClientRect();
+  const eyeBox = eye.getBoundingClientRect();
+  const inside = eyeBox.right <= bodyBox.right + 1;
+  /* The CTM's `a` is the horizontal scale the composed transform arrives at,
+     which is the foreshortening times the pose's own — and the pose is idle
+     here, so it is the foreshortening. */
+  const shrunk = far.w < right.w * 0.5;
+  eyes.style.setProperty("--mo-track-travel", `${TRAVEL}px`);
+  g.remeasure();
+  await point(cx + 4000, cy);
+
+  /*
+   * The subtree is replaced, which is what a name change does.
+   *
+   * The adapters hand `parts.inner` to `dangerouslySetInnerHTML` and the
+   * geometry varies with the name, so React rewrites the whole subtree on every
+   * keystroke while the `<svg>` itself survives. A driver holding the old
+   * `.mo-eyes` then writes into a detached tree forever, and the eyes on screen
+   * never move again — which is the hero of `blobatar.dev` after one keystroke.
+   * Nothing in `bun test` can see it: the driver is behaving perfectly, on the
+   * wrong nodes.
+   */
+  const root = host.querySelector(".mo-root")!;
+  root.innerHTML = root.innerHTML;
+  const newEye = host.querySelectorAll(".mo-eye")[1] as SVGGElement;
+  const g2 = newEye.getBBox();
+  const rest2 = new DOMPoint(g2.x + g2.width / 2, g2.y + g2.height / 2);
+  await point(cx - 4000, cy);
+  const swappedLeft = rest2.matrixTransform(newEye.getScreenCTM()!).x;
+  await point(cx + 4000, cy);
+  const swappedRight = rest2.matrixTransform(newEye.getScreenCTM()!).x;
+  const swung = swappedRight - swappedLeft;
+
+  /* Stood down: the rove has been damped to nothing while the gaze drives. */
+  const held = await roveOver(200);
+  const hold = parseFloat(
+    getComputedStyle(host.querySelector(".mo-root")!).getPropertyValue("--mo-track-hold"),
+  );
+
+  g.stop();
+  await frame();
+  /* The live group, not the one captured before the subtree was replaced: the
+     driver released the properties on the element it is actually driving, and
+     the detached one keeps whatever it was last written. */
+  const live = host.querySelector(".mo-eyes") as SVGGElement;
+  const released = parseFloat(live.style.getPropertyValue("--mo-track-x") || "0");
+
+  /*
+   * A full left-to-right reversal is two excursions wide, and the direction is
+   * normalised, so the eyes may not travel further than that however far away
+   * the pointer is. Bounded above for that reason and not tightly: the group's
+   * screen position carries breathe's scale and bob's offset at whichever phase
+   * each sample landed on, so a few percent of residue is the idle layers this
+   * check deliberately leaves running. The failure it is built to catch is an
+   * excursion that is not bounded at all, which is multiples out rather than
+   * percent.
+   */
+  const full = 2 * TRAVEL * perUnit;
+  report(
+    "J the gaze follows a pointer as a mark on a sphere, and moves only the eyes",
+    swing > full * 0.7 &&
+      swing <= full * 1.2 &&
+      vert < -perUnit &&
+      drift < swing * 0.3 &&
+      inside &&
+      shrunk &&
+      swung > 2 * TRAVEL * perUnit * 0.5 &&
+      roving > 0.5 &&
+      held < roving * 0.05 &&
+      hold > 0.98 &&
+      released === 0,
+    `eye swings ${swing.toFixed(1)}px of a ${full.toFixed(1)}px excursion, ` +
+      `rise ${(-vert).toFixed(1)}px, body drifts ${drift.toFixed(2)}px; ` +
+      `at 8× the excursion it stays inside the silhouette (${inside}) and ` +
+      `foreshortens ${right.w.toFixed(1)}px → ${far.w.toFixed(1)}px; ` +
+      `survives the subtree being replaced (${swung > 1 ? "swings " : "dead "}` +
+      `${swung.toFixed(1)}px); ` +
+      `rove ${roving.toFixed(2)}px stands down to ${held.toFixed(2)}px at ` +
+      `hold ${hold.toFixed(3)}; released to ${released}`,
+  );
+  host.remove();
+}
+
 /**
  * Each check runs on its own, and a thrower names itself.
  *
@@ -1001,6 +1290,7 @@ const CHECKS: [string, () => Promise<void>][] = [
   ["checkContinuity", checkContinuity],
   ["checkShake", checkShake],
   ["checkPacing", checkPacing],
+  ["checkGaze", checkGaze],
 ];
 
 (async () => {

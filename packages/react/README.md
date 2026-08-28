@@ -27,6 +27,53 @@ import "blobatar/motion.css";
 
 Full option reference lives in the [main README](https://github.com/Alain00/blobatar#readme).
 
+## Following the pointer
+
+The eyes can track the cursor. That layer is the one part of the motion system
+that needs JavaScript, so it is a separate subpath and costs nothing unless you
+import it:
+
+```tsx
+import { Blobatar } from "@blobatar/react";
+import { useGaze } from "@blobatar/react/gaze";
+import "blobatar/motion.css";
+import "blobatar/gaze.css"; // required — the eyes hold still without it
+
+const { ref } = useGaze({ travel: 3 });
+<Blobatar ref={ref} name={user.email} animate="always" size={200} />;
+```
+
+`travel` is the excursion, and it is what opts a blobatar into the layer:
+`--mo-track-travel` starts at `0px`, so a page with the stylesheet loaded and
+the excursion set nowhere has a driver running and no eyes moving. It is in
+viewBox units — the blobatar is 100 across, so `3` is 3% of the face — and
+about 1.5 to 4 reads well.
+
+Leave it out and the stylesheet owns it instead, which is the better route for a
+whole field of blobatars, since the property inherits, or for anything
+responsive:
+
+```css
+.hero .mo-eyes { --mo-track-travel: 3px; }
+```
+
+Pick one, not both. A rule like that one wins over `travel`, not the other way
+round: the hook writes the property inline on the `<svg>` and the eyes inherit
+it from there, and a declaration on the element itself always beats an inherited
+value however that value was written. Set both and the rule is what you get,
+silently, and the symptom is a face that renders perfectly and never moves.
+There is no default, so the two never collide unless you opt into both.
+
+`useGaze` also hands back `lookAt(point)` to aim the eyes somewhere other than
+the cursor, in client coordinates, `lookAt(null)` to hand them back, and
+`home()` to park them in the middle without resuming the pointer. All three are
+stable across renders. `useGaze({ settle, snap })` tunes the pursuit.
+
+Nothing attaches under `prefers-reduced-motion` or without a fine pointer, and
+both are watched rather than sampled once. This is a large-size effect: on a
+40px avatar it is a fraction of a pixel, and it earns its place on the one big
+blobatar a page is about.
+
 ## With shadcn/ui
 
 There is a registry item that composes this adapter with shadcn's `Avatar`,

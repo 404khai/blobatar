@@ -268,6 +268,78 @@ not, which is a real cost for a feature most callers will never use. If you need
 animated markup without a framework, open an issue: it wants its own entry point
 rather than a branch inside `blobatar()`.
 
+### Following the pointer
+
+The eyes can track the cursor. This is the one motion layer that needs
+JavaScript, so it ships as its own entry point and a second stylesheet, and a
+page that never imports them pays nothing for it.
+
+In React, `@blobatar/react/gaze` wraps it as a hook — a separate subpath, so it
+costs nothing unless you import it:
+
+```tsx
+import { Blobatar } from "@blobatar/react";
+import { useGaze } from "@blobatar/react/gaze";
+import "blobatar/motion.css";
+import "blobatar/gaze.css"; // required — the eyes hold still without it
+
+const { ref } = useGaze({ travel: 3 });
+<Blobatar ref={ref} name={user.email} animate="always" size={200} />;
+```
+
+Anywhere else, drive it yourself against the `<svg>`:
+
+```ts
+import { gaze } from "blobatar/gaze";
+
+const g = gaze(svgEl);
+```
+
+The excursion is what opts a blobatar in. `--mo-track-travel` is registered with
+an initial value of `0px`, so with the stylesheet loaded and nothing else done
+every blobatar on the page holds still. The React hook takes it as `travel`
+above; anywhere else, set the property on the blobatar or on anything above it,
+and that subtree follows:
+
+```css
+.hero .mo-eyes { --mo-track-travel: 3px; } /* viewBox units, ~1.5–4 reads well */
+```
+
+Pick one route, not both. A rule matching `.mo-eyes` wins over the hook's
+`travel`, not the other way round: the hook writes the property inline on the
+`<svg>` and the eyes inherit it from there, and a declaration on the element
+itself always beats an inherited value however that value was written. Set both
+and the rule is what you get, silently. The symptom is a face that renders
+perfectly and never moves, which is the same thing you see when nothing sets the
+excursion at all.
+
+The idle glance stands down on its own while the gaze is driving, so the eyes
+are not being aimed at two things at once, and it fades back in when the driver
+detaches rather than snapping.
+
+`gaze()` returns a handle. `stop()` tears it down and releases the properties;
+`lookAt(point)` aims the eyes somewhere other than the cursor, in client
+coordinates, and `lookAt(null)` hands them back. The hook exposes the same
+seam, plus `home()` for parking the eyes in the middle without resuming the
+pointer:
+
+```ts
+g.lookAt({ x: caretX, y: caretY }); // watch a caret, a card, anything
+g.lookAt(null); // back to the pointer
+```
+
+It follows the same rules as the rest of the motion layer, and for the same
+reasons: nothing attaches under `prefers-reduced-motion` or without a fine
+pointer, and both are watched rather than sampled once, so turning reduced
+motion on mid-session detaches the driver. A settled blobatar under a still
+pointer schedules no frames at all.
+
+`blobatar/gaze` also exports the pursuit as pure arithmetic — `step`, with no
+clock and no DOM — for renderers that solve frames out of order.
+
+This is a large-size effect. On a 40px avatar in a list it is a fraction of a
+pixel; it earns its place on the one big blobatar a page is about.
+
 ### React Native
 
 There is no stylesheet on this platform and no `:hover` for one to key off, so

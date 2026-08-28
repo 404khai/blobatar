@@ -167,22 +167,25 @@ as ordinary dependencies — a copied-in generator would be pinned to whichever
 generation you took it from, and the whole point is that a name renders the same
 picture everywhere.
 
-Four more items are interface built out of that avatar, each one a composition
+Five more items are interface built out of that avatar, each one a composition
 you own after installing it:
 
 ```sh
 npx shadcn@latest add @blobatar/presence-avatar
 npx shadcn@latest add @blobatar/agent-list
 npx shadcn@latest add @blobatar/user-table
+npx shadcn@latest add @blobatar/password-field
 npx shadcn@latest add @blobatar/group-chat
 ```
 
 `presence-avatar` is a face with a presence dot and an unread badge, animated,
 plus a thinking state that adds a three-dot loading indicator. `agent-list` is the aside an agent runner needs,
 built on it. `user-table` is a table of people with a static blobatar per row.
-`group-chat` is a thread with consecutive messages grouped under one face. All
-four are rendered, with the command that installs each, at
-[blobatar.dev/components](https://blobatar.dev/components).
+`password-field` is a password input with a face that watches the caret while
+you type and goes sleepy when you reveal what you typed, which is the one item
+built on `blobatar/gaze`. `group-chat` is a thread with consecutive messages
+grouped under one face. All five are rendered, with the command that installs
+each, at [blobatar.dev/components](https://blobatar.dev/components).
 
 ### Anywhere else
 
@@ -241,6 +244,22 @@ import "blobatar/motion.css"; // required — nothing animates without it
 
 The same props work in every adapter — only the component import changes.
 The one exception is React Native, which has no `animate`. See that section above.
+
+The eyes can also follow the cursor. That layer is the one piece of the motion
+system that needs JavaScript, so it is a separate entry point and a second
+stylesheet you opt into:
+
+```tsx
+import { useGaze } from "@blobatar/react/gaze";
+import "blobatar/gaze.css";
+
+const { ref, lookAt, home } = useGaze({ travel: 3 });
+<Blobatar ref={ref} name={user.email} animate="always" size={200} />;
+```
+
+Outside React, `gaze(svgEl)` is the same thing without the hook.
+
+`npx shadcn@latest add @blobatar/password-field` is a worked example of it.
 
 ### Coming from `blobatar/react` or `blobatar/vue`
 

@@ -727,15 +727,27 @@
    * layers have: a loading indicator is a mechanism, it is saying so on purpose,
    * and a grid of them syncopated would read as a fault.
    *
-   * It runs on every animated blobatar rather than on `.mo-expr` alone, and that
-   * costs two registered-property loops per blobatar that resolve to nothing on
-   * every pose but one. The gate is affordable and wrong: removing `.mo-expr`
-   * stops the loop, `--mo-rockp` snaps back to its initial 1, and the shared
-   * half of the offset jumps by up to `edy2 · rock` in the same frame the pose
-   * begins easing out — a hop at the front of a 560ms morph. Always-running has
-   * nothing to start, nothing to stop and nothing to snap, which is the argument
-   * `--mo-shake` already made and the reason that channel is built the same way.
-   * The touch-device query below is where the cost is actually clawed back.
+   * It runs on every animated blobatar rather than on `.mo-expr` alone, because
+   * gating on the class is wrong: removing `.mo-expr` stops the loop, `--mo-rockp`
+   * snaps back to its initial 1, and the shared half of the offset jumps by up to
+   * `edy2 · rock` in the same frame the pose begins easing out — a hop at the
+   * front of a 560ms morph. What it is gated on instead is `--mo-rock` itself,
+   * in the style query after this block. That property is the one that
+   * transitions, so the loop keeps running through the whole ease-out and stops
+   * only once `--mo-rock` is exactly 0, at which point `--mo-ph` no longer reads
+   * `--mo-rockp` and the snap has nothing to move. On the way in it starts from
+   * frame zero, which is the initial value, so there is nothing to start either.
+   *
+   * The gate is not a nicety. A keyframe on a registered custom property never
+   * reaches the compositor and dirties style for the subtree every frame, and
+   * two of them per blobatar was *half* the frame budget of a grid: headless
+   * Chrome, software raster, 64px cells, `animate="always"`, 10% of the field
+   * wearing `thinking`, n=100 went from 35fps to 60 and n=200 from 15 to 29
+   * with nothing else changed. `--mo-shake` keeps its always-running bargain
+   * because the same measurement put its gate at under 1fps.
+   *
+   * Browsers without `@container style()` ignore the block and keep the loop
+   * running, which is exactly the behaviour before the gate.
    *
    * `animation-name` and not the shorthand, because `.mo-eye`'s `transform`,
    * `translate` and `rotate` are all base declarations and the shorthand would
@@ -746,6 +758,15 @@
   animation-duration: calc(900ms * var(--mo-rate, 1));
   animation-iteration-count: infinite;
   animation-timing-function: ease-in-out;
+}
+
+/* The gate `mo-rock` describes: the eye's parent is the container, and
+   `--mo-rock` inherits, so this reads the transitioning value. Same specificity
+   as the declaration above, so it has to come after it. */
+@container style(--mo-rock: 0) {
+  .mo-eye {
+    animation-name: none;
+  }
 }
 
 /**

@@ -49,6 +49,7 @@ const ENTRIES = [
   "src/uri.ts",
   "src/expression.ts",
   "src/idle.ts",
+  "src/gaze.ts",
   "src/internal.ts",
   "src/react.tsx",
   "src/vue.ts",
@@ -59,6 +60,13 @@ rmSync("dist", { recursive: true, force: true });
 const build = await Bun.build({
   entrypoints: ENTRIES,
   outdir: "dist",
+  // Pinned, not inferred. Bun derives the output root from the common ancestor
+  // of the entrypoints, so the layout of `dist` was a function of which files
+  // happened to be in the list above: adding `src/gaze.ts` moved every entry
+  // from `dist/blob.js` to `dist/src/blob.js` and broke every path in the
+  // `exports` map at once. Stating it means the entry list can grow without
+  // relocating the package.
+  root: "src",
   target: "browser",
   format: "esm",
   minify: true,
@@ -86,13 +94,14 @@ if (!build.success) {
   process.exit(1);
 }
 
-// The stylesheet ships minified. `src/motion.css` is ~44 KB, nearly all of it
+// The stylesheets ship minified. `src/motion.css` is ~54 KB, nearly all of it
 // the commentary explaining why each channel exists — worth reading in the
 // repo, not worth shipping to a consumer who drops it in a <link> and gets no
 // bundler pass over it.
 const css = await Bun.build({
-  entrypoints: ["src/motion.css"],
+  entrypoints: ["src/motion.css", "src/gaze.css"],
   outdir: "dist",
+  root: "src",
   minify: true,
 });
 

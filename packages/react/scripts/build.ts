@@ -15,13 +15,19 @@ import { $ } from "bun";
 rmSync("dist", { recursive: true, force: true });
 
 const build = await Bun.build({
-  entrypoints: ["src/index.tsx"],
+  entrypoints: ["src/index.tsx", "src/gaze.ts"],
   outdir: "dist",
+  // Pinned, not inferred. Bun derives the output root from the common ancestor
+  // of the entrypoints, so the layout of `dist` is otherwise a function of which
+  // files happen to be in that list — adding a second entry to core's build
+  // moved every file from `dist/blob.js` to `dist/src/blob.js` and broke every
+  // path in its `exports` map at once.
+  root: "src",
   target: "browser",
   format: "esm",
   minify: true,
   sourcemap: "linked",
-  external: ["blobatar", "blobatar/react", "blobatar/internal", "blobatar/uri", "react", "react/jsx-runtime", "react/jsx-dev-runtime"],
+  external: ["blobatar", "blobatar/react", "blobatar/gaze", "blobatar/internal", "blobatar/uri", "react", "react/jsx-runtime", "react/jsx-dev-runtime"],
   // Carried over from core's build, and for the same reason: Bun picks the JSX
   // runtime off `process.env.NODE_ENV`, and a publish build run from a normal
   // shell has it unset — so without this the package ships `react/jsx-dev-runtime`

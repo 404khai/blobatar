@@ -67,6 +67,14 @@ const BROWSERS = [
     // these a transition simply never advances between samples.
     args: (url: string, dir: string) => [
       "--headless=new",
+      // Headless reports no pointer and no hover, which is correct for what it
+      // is and makes check J untestable: the gaze driver declines to attach
+      // under `(hover: hover) and (pointer: fine)`, exactly as it does on a
+      // phone, so without this the layer simply never runs and the check
+      // measures the idle saccade. These are Blink's own settings for what the
+      // device claims to have, and 4 is `fine` / `hover` in both enums.
+      "--blink-settings=availablePointerTypes=4,primaryPointerType=4," +
+        "availableHoverTypes=2,primaryHoverType=2",
       "--disable-gpu",
       "--no-sandbox",
       "--hide-scrollbars",
@@ -216,10 +224,16 @@ writeFileSync(`${DIR}/cases.js`, `window.CASES=${JSON.stringify(cases)}`);
 writeFileSync(`${DIR}/probe.js`, await build.outputs[0]!.text());
 
 const css = readFileSync(new URL("../src/motion.css", import.meta.url), "utf8");
+/* The gaze layer's geometry, loaded exactly as a consumer loads it: a second
+   stylesheet beside `motion.css`, not part of it. Check J is the only one that
+   needs it, and it is inert for every other check on the page because nothing
+   else sets `--mo-track-travel`. */
+const gazeCss = readFileSync(new URL("../src/gaze.css", import.meta.url), "utf8");
 const file = `${DIR}/probe.html`;
 writeFileSync(
   file,
   `<!doctype html><meta charset="utf-8"><style>${css}
+${gazeCss}
 /* Has to sit on \`.mo-root\` itself: \`--mo-amp\` is declared on that element, and
    an element's own declaration beats an inherited one however important the
    ancestor's is. At amplitude 0 every idle layer folds to the identity, so what

@@ -1,7 +1,7 @@
 {
   "name": "@blobatar/react",
   "version": "2.5.0",
-  "description": "React adapter for blobatar — deterministic geometric avatars.",
+  "description": "React adapter for blobatar \u2014 deterministic geometric avatars.",
   "type": "module",
   "sideEffects": [
     "*.css"
@@ -19,6 +19,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./gaze": {
+      "types": "./dist/gaze.d.ts",
+      "default": "./dist/gaze.js"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -28,10 +32,10 @@
     "build": "bun scripts/build.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "bun run typecheck",
-    "//prepack": "This does not contradict `//check` below, and the difference is who owns the build. Under `check`, turbo owns it: the `build` task runs once for the whole workspace before any check reads a `dist`, so a check that rebuilt its own package would delete one out from under a concurrent check in another. Under `npm pack` and `npm publish` there is no turbo and no ordering — npm runs one lifecycle in one package — so without this the tarball is whatever `dist` happened to be on disk, which for a package built from a peer dependency can be stale, from another branch, or absent entirely. Core carried this from the start; the adapters were published by hand once without it, and only a manual `npm pack --dry-run` caught that the contents were right.",
+    "//prepack": "This does not contradict `//check` below, and the difference is who owns the build. Under `check`, turbo owns it: the `build` task runs once for the whole workspace before any check reads a `dist`, so a check that rebuilt its own package would delete one out from under a concurrent check in another. Under `npm pack` and `npm publish` there is no turbo and no ordering \u2014 npm runs one lifecycle in one package \u2014 so without this the tarball is whatever `dist` happened to be on disk, which for a package built from a peer dependency can be stale, from another branch, or absent entirely. Core carried this from the start; the adapters were published by hand once without it, and only a manual `npm pack --dry-run` caught that the contents were right.",
     "prepack": "bun run build"
   },
-  "//peerDependencies": "`blobatar` is pinned to an exact major, not `^3`. Every package in this set publishes the same version (`.changeset/config.json`), and npm does not enforce that at install time — without the exact range, `@blobatar/react@4` resolves happily alongside `blobatar@3` and renders a different generation's faces from a package the consumer believes is current. Under ADR-0008 the major names the generation, so a mixed pair is not a version skew, it is the wrong picture. `packages/harness` asserts this range rather than trusting it, because release tooling rewrites workspace ranges and would quietly turn it into a caret.",
+  "//peerDependencies": "`blobatar` is pinned to an exact major, not `^3`. Every package in this set publishes the same version (`.changeset/config.json`), and npm does not enforce that at install time \u2014 without the exact range, `@blobatar/react@4` resolves happily alongside `blobatar@3` and renders a different generation's faces from a package the consumer believes is current. Under ADR-0008 the major names the generation, so a mixed pair is not a version skew, it is the wrong picture. `packages/harness` asserts this range rather than trusting it, because release tooling rewrites workspace ranges and would quietly turn it into a caret.",
   "peerDependencies": {
     "blobatar": "2.x",
     "react": ">=18"
@@ -61,5 +65,5 @@
   },
   "homepage": "https://github.com/Alain00/blobatar#readme",
   "bugs": "https://github.com/Alain00/blobatar/issues",
-  "//check": "No `bun run build` here. The build is a turbo task that `check` depends on, so it runs once for the whole workspace before any check reads a `dist` — a check that rebuilt its own package would delete `dist` out from under a concurrent check in another one."
+  "//check": "No `bun run build` here. The build is a turbo task that `check` depends on, so it runs once for the whole workspace before any check reads a `dist` \u2014 a check that rebuilt its own package would delete `dist` out from under a concurrent check in another one."
 }

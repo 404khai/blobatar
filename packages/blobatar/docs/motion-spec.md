@@ -364,6 +364,12 @@ Clipping to the body would read as 3D too — arguably better — but it needs a
 `clipPath` with an id per blobatar, and "emits no ids, so many blobatars on one page
 cannot collide" is a guarantee with a test behind it. Not worth trading.
 
+That holds for the idle rove, whose amplitude is under two units and which never
+gets near the edge. It did **not** hold for the gaze, which is deliberate, large
+and pointed by a person: asked for an excursion wider than the face, the
+translate slid both eyes out over the page. §4.8 is the answer, and it is not a
+clip.
+
 **It is close to invisible at 40px.** Even a 2 unit glance is under a pixel at
 grid size; translation has no relative-change advantage the way a collapsing eyelid
 does. This layer earns its keep on the `always` / profile-header case. Do not
@@ -439,6 +445,126 @@ per-blobatar markup could never afford.
 **Also close to invisible at 40px**, for the same reason §4.6 is: foreshortening
 a 3px eye by 7% is sub-pixel. Same rule applies — do not inflate it to make it
 show up in a grid.
+
+---
+
+### 4.8 Projection — the gaze on the same sphere
+
+§4.7 is the idle glance's sphere and it cannot be pointed anywhere: its input is
+which of six fixations the saccade is in, not a direction. The gaze's input is a
+continuous unit vector, so its cues have to be a continuous function of it — and
+once they are a function there is no reason for it to be a fitted one.
+
+**The excursion is an arc, not a translation.** `travel` is still a distance in
+viewBox units and still means what the READMEs say, but it is read as an arc
+along the surface: the turn is `travel / radius` radians, and a mark lands at
+`sin` of where it turned to. For a small turn `sin θ ≈ θ`, so a face at the
+documented 1.5 to 4 units moves as far as it did when this was a translate. That
+compatibility is what kept `travel` a distance instead of forcing it to become an
+angle, and `test/gaze.test.ts` pins it.
+
+**And that is what stops an eye leaving the head.** The mark is lifted onto the
+unit sphere, rotated as a vector and projected, so `x² + y² ≤ 1` holds by
+construction and it arrives at the limb with no width. The 3D read §4.6 wanted
+from clipping, without the `clipPath`, without the id, and with the no-ids
+guarantee untouched. Gate J in the probe measures it at eight times the
+documented excursion.
+
+**A rotation, not two angles.** The first cut clamped a longitude and a latitude
+independently, which is a square and not a sphere: a diagonal aim drove both to
+their limits at once and put the mark at the *corner*, `√2` out on a disc of
+radius 1. The eyes behaved perfectly on the axes and left the head on every
+diagonal, which is exactly how it looked.
+
+**Pitch is signed against the screen.** SVG's y grows downward, so the textbook
+right-handed rotation about X inverts the vertical and a pointer below the face
+makes it look up. There is a test on all four directions, because every other
+property in this section — containment, foreshortening, the differential — holds
+just as well upside down.
+
+**The head is an ellipsoid fitted to the silhouette, not to its box.** Three
+things in turn, each found by a shape that broke the one before:
+
+- *Per axis.* `capsule` is 37 units wide and 20 tall, and one mean radius put its
+  limb 44% below the eyes it was meant to contain, so the eyes rode out under the
+  chin.
+- *Fitted, not assumed.* The box is not the head either: `capsule` is a stadium
+  an ellipse overflows at the ends, `triangle`'s box is mostly not triangle, and
+  `round`'s per-point radii dip 15% below its widest. The driver bisects sixteen
+  rays against `isPointInFill` on attach, in viewBox units a scroll cannot
+  change. The answer runs from 0.98 of the box on `round` to 0.39 on `triangle`,
+  which is why it could not be a constant.
+- *Inset by the eyes.* A centre inside the silhouette is not an eye inside it
+  when the eye is a capsule 22 units tall. The foreshortening removes width
+  radially as the mark nears the limb and leaves it tangentially, which is the
+  direction that overhangs.
+
+Shrinking the head rather than clamping the eye afterwards is what keeps this a
+projection: the turn is `travel / radius`, so a smaller head turns further for
+the same excursion and a small glance moves exactly as far as it did. Only the
+saturation comes sooner, which is correct, because there is less head to turn.
+
+**A mark parks at the edge, it does not go round the back.** Rotating far enough
+carries a feature out of sight, which is true of a head and wrong here: the
+excursion is a stylesheet's to set and nothing stops it being set to more head
+than there is. `triangle`'s fitted head is 9 units tall, so an excursion of 24 is
+a pitch of 159°, and the eyes do not turn away — they vanish. A face that blinks
+out of existence because someone typed a large number is not a failure anyone can
+read, so the projection stops at `LIMB`, 0.97 of the disc, where the eye is down
+to about a quarter of its width and still on screen.
+
+**The driver re-resolves a replaced subtree.** The adapters hand `parts.inner`
+to `dangerouslySetInnerHTML` and the geometry varies with the *name*, so a
+keystroke rewrites the whole subtree while the `<svg>` survives and the callback
+ref never fires. A driver holding the old `.mo-eyes` then writes into a detached
+tree forever and the eyes never move again — the hero of `blobatar.dev` after one
+keystroke. A connectivity check per frame buys the geometry back, and the write
+cache has to be dropped with it or the first write to the new eyes never clears
+its threshold. Gate J replaces the subtree and measures that the gaze recovers.
+
+**Measured across the roster**, 400 seeds × 10 shapes × 36 directions: no eye
+leaves any silhouette anywhere in the documented 1.5–4 range, and no eye is ever
+thinner than a quarter of its width at any excursion up to 200. Past it the worst
+is about one unit on `capsule`, and `triangle` is the standing exception — its
+fitted ellipse does not contain its own eyes, so the head is opened up to hold
+them and containment there is a margin rather than a proof. An eye that reaches a
+corner late beats every eye frozen from the first frame.
+
+**Every cue §4.7 lists by hand falls out.** Foreshortening is the cosine of the
+turned longitude. The differential is the two eyes sitting at different
+longitudes, so the leading one is nearer the limb and compresses harder with no
+coefficient arranging it — and no test on the inequality, because it is not an
+inequality any more, it is where the eyes are. The tilt is the product of the two
+sines, which vanishes on the pure axes for a mark on the equator exactly as §4.7
+requires, and does not for one above it, because a sphere says so.
+
+**Foreshortening is capped at 1, and that is the one place the geometry is
+overruled.** Un-dividing is symmetric: an eye turning *toward* the centre
+meridian un-foreshortens and should widen, by up to 11% on the hero's eye
+spacing. A real head does that. §4.7 says an eye growing on a glance is the tell
+that kills the sphere read instantly, and watching it, §4.7 is right. So the
+drawn width is taken as the mark's widest and this only ever removes width.
+
+**It lands on `motion.css`'s own properties**, because there are none left free:
+`.mo-eye` spends `translate`, `rotate` and `transform` on the expression, and
+`.mo-eye > *` spends `transform` on the blink and `scale`/`rotate` on §4.7. So
+`gaze.css` restates those three declarations with the gaze's terms folded in,
+which is why it must be loaded after `motion.css`. The offset rides `translate`
+rather than the child's, since the individual properties resolve `translate`
+before `scale` — on the child it would sit inside the foreshortening and slide
+the eye back toward the middle of the face as it turned away.
+
+**Peak tilt is 4.1°**, against §4.7's 2.4° and the static lean's 12° ceiling.
+Higher than the idle glance's deliberately: this is a look held for as long as
+the pointer is there, where that one is gone in 200ms, and the cue has time to be
+read.
+
+**The driver reads the geometry off the DOM.** `getBBox` on each eye and on the
+body group is what `layout()` already put there, so the layer costs nothing in
+markup: a per-eye custom property would be two more declarations on every
+animated blobatar on the page, gazing or not, to say something the driver can
+see. The cost is instead a `remeasure()` after any change to `travel`, because
+the angle is cached — which is what `useGaze` does for you.
 
 ---
 
@@ -732,7 +858,8 @@ removing it costs the user nothing.
 | Entry                        | Budget (gz)                                                                                                                                                                                                          |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `blobatar/motion.css`       | 950 B — **at 923 B with seven layers in.** Was 700, raised to 800 for saccades (§4.6) and to 950 for wrap (§4.7). Raise it again rather than shaving comments out of the stylesheet; this file is paid once per app. |
-| `blobatar/motion` (gaze JS) | 900 B                                                                                                                                                                                                                |
+| `blobatar/gaze` (gaze JS) | 2200 B — **at 2129 B.** Raised from 1250 for the spherical projection below, and again for fitting the head to the silhouette rather than to its bounding box. Was estimated at 900 before it was written, under the entry name `blobatar/motion`. Three things the estimate predated account for the difference and all three are load-bearing: live media queries rather than a single sample, so reduced motion turned on mid-session detaches the driver; the `--mo-track-hold` channel, so the idle rove cross-fades out instead of being hard-zeroed by every host; and reading `--mo-track-travel` back off the element, so the excursion has one home. |
+| `blobatar/gaze.css` | 450 B — **at 432 B.** Raised from 300 for the projection, which restates three of `motion.css`'s declarations because `.mo-eye` has no free transform property left. Separate from `motion.css` because it is the one layer a page can decline, and folding it in would raise the budget everybody pays. |
 | Static output byte count     | **unchanged**                                                                                                                                                                                                        |
 | `blob only` JS               | **unchanged**                                                                                                                                                                                                        |
 
@@ -823,10 +950,26 @@ fill-box`, the 2.8% window, amplitude folded into the closed pose. Slow-motion
    sub-pixel in a 40px grid. Watch specifically for the tilt reading as a head
    turn rather than as depth; if it does, the x·y term is too large before the
    foreshortening is.
-9. Gaze follow (`blobatar/motion`, JS). It targets the same group as saccades;
-   they now coexist by using different properties (`transform` vs `translate`),
-   but a pointer-driven gaze and an idle glance still fight for meaning, so
-   gaze should probably suppress saccades while the pointer is over the blobatar.
+9. ~~Gaze follow (§4.5).~~ **Built.** Ships as `blobatar/gaze` (the driver and
+   the pure `step` beneath it) and `blobatar/gaze.css` (the geometry), not as
+   `blobatar/motion` as this section originally named it. It targets the same
+   group as saccades and they coexist by using different properties
+   (`transform` vs `translate`).
+
+   The open question in this line answered itself: a pointer-driven gaze and an
+   idle glance do fight for meaning, and the resolution is not suppressing
+   saccades while the pointer is *over* the blobatar but standing the rove down
+   whenever the gaze is driving at all. That is `--mo-track-hold`, a cross-fade
+   rather than a switch, and it zeroes the rove's seeds rather than pausing its
+   loops so there is nothing stale to restart from.
+
+   Two things the spec above is now wrong about. §4.5 specifies a spring
+   (`stiffness: 120, damping: 14`); what shipped is an exponential filter with a
+   saccade branch, because eyes following a moving target run *smooth pursuit*,
+   which is continuous by construction, and a spring on a target that teleports
+   overshoots rather than jumping. And the layer is measured by check J in
+   `scripts/probe/entry.tsx`, which needs a browser that reports a fine pointer:
+   Chrome is launched with Blink's pointer settings for it, and Firefox skips.
 
 **Where steps 1–3 landed on size**, against the pre-motion baseline:
 

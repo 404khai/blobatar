@@ -245,6 +245,67 @@ const ENTRIES: {
     ext: "css",
     source: `@import "../../src/motion.css";`,
   },
+  {
+    // The one motion layer with a JavaScript half, and the only one a consumer
+    // can decline: §4.5 ships as its own entry precisely so that a page with no
+    // pointer driver never pays for it. Measured through the driver rather than
+    // through `step`, because the driver is what a page imports and the pure
+    // core comes with it.
+    //
+    // `docs/motion-spec.md` §10 reserved 900 B for this before it was written,
+    // and it does not fit: measured at 1194. Raised rather than shaved, because
+    // the three things over that estimate are the three the estimate predated,
+    // and each is load-bearing.
+    //
+    //  - The live media queries. `prefers-reduced-motion` and `hover: hover`
+    //    are read as `MediaQueryList`s with `change` listeners, not sampled once
+    //    at construction, so the driver attaches and detaches as they move. A
+    //    person turning reduced motion on mid-session is asking for the motion
+    //    to stop now, not on their next reload, and a driver that samples cannot
+    //    honour that. The attach/detach pair is most of this entry's overage.
+    //  - `--mo-track-hold`, its own exponential and its own coarser threshold,
+    //    which is what lets the idle rove cross-fade out instead of being
+    //    hard-zeroed by every host that wants both layers.
+    //  - Reading `--mo-track-travel` back off the element, so the excursion has
+    //    one home in the stylesheet rather than two that drift.
+    //
+    // The floor to hold it against is `motion.css`: this is the layer a page
+    // without a pointer driver declines entirely, which is the whole reason it
+    // is a separate entry and not more bytes on the file everybody pays for.
+    //
+    // Raised from 1250 for the spherical projection (§4.5's wrap). That is
+    // `project()`, the per-eye survey `getBBox` gives it, and five writes an
+    // eye per moving frame instead of two for the pair. What it buys is the
+    // thing the translate it replaced could not do at any budget: an eye that
+    // cannot leave the head, because a sine does not exceed one. The
+    // alternative was a `clipPath` per blobatar, which costs an id, and "emits
+    // no ids" is a guarantee with a test behind it.
+    // …and to 2100 for fitting the head to the silhouette rather than to its
+    // bounding box. The roster does not agree on one number — the largest safe
+    // ellipse is 0.98 of the box on `round` and 0.39 on `triangle` — so it is
+    // measured per blobatar with sixteen bisections against `isPointInFill`,
+    // once on attach, in viewBox units that a scroll cannot change.
+    name: "gaze",
+    budget: 2200,
+    external: [],
+    source: `import { gaze } from "../../src/gaze";
+             globalThis.x = gaze(globalThis.el as SVGSVGElement);`,
+  },
+  {
+    // Separate from `motion css` for the reason the stylesheet's own header
+    // gives: this file is paid only by pages that drive a gaze, and folding it
+    // into the one everybody pays for would mean raising that budget to carry
+    // rules most consumers never use.
+    // Raised from 300 with the projection: three of `motion.css`'s own
+    // declarations restated with the gaze's terms folded in, because `.mo-eye`
+    // has no free transform property left, plus the five per-eye mixes that
+    // pick a side through `--mo-sel`.
+    name: "gaze css",
+    budget: 450,
+    external: [],
+    ext: "css",
+    source: `@import "../../src/gaze.css";`,
+  },
 ];
 
 rmSync(DIR, { recursive: true, force: true });

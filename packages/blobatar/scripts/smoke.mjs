@@ -22,6 +22,7 @@ import { renderToString } from "vue/server-renderer";
 import { blobatar, palette, traits, normalizeSeed } from "blobatar";
 import { blobatar as blob } from "blobatar/blob";
 import { blobatarUri } from "blobatar/uri";
+import { step, pursuit } from "blobatar/gaze";
 import * as poses from "blobatar/expression";
 import { _parts, _layout, serializeVars } from "blobatar/internal";
 import { Blobatar } from "blobatar/react";
@@ -218,6 +219,31 @@ check("blobatar/motion.css", () => {
   const path = createRequire(import.meta.url).resolve("blobatar/motion.css");
   assert(existsSync(path), `resolved to a file that does not exist: ${path}`);
   return path.split("/").slice(-2).join("/");
+});
+
+check("blobatar/gaze.css", () => {
+  const path = createRequire(import.meta.url).resolve("blobatar/gaze.css");
+  assert(existsSync(path), `resolved to a file that does not exist: ${path}`);
+  return path.split("/").slice(-2).join("/");
+});
+
+// The pure half, which is the half that has to link under plain Node: the
+// driver touches `matchMedia` and `requestAnimationFrame` and can only run in a
+// browser, but `step` is arithmetic and `apps/video` solves a whole film with it
+// outside one. A build that shipped the driver's globals at module scope would
+// fail here rather than in a render.
+check("blobatar/gaze — the pure core runs without a DOM", () => {
+  const to = (dx, dy) => step({ x: 0, y: 0, dx, dy, radius: 100, k: 1 });
+  const right = to(500, 0);
+  assert(right.x > 0.99 && Math.abs(right.y) < 1e-9, `looked ${right.x},${right.y} at a target to the right`);
+  const home = to(0, 0);
+  assert(home.x === 0 && home.y === 0, "a target on the centre moved the eyes");
+  // The near field: on top of the blobatar the excursion eases out rather than
+  // snapping to a direction that is barely defined.
+  const close = to(5, 0);
+  assert(close.x < 0.2, `near-field excursion did not ease: ${close.x}`);
+  assert(pursuit(16, 0) === 1, "a settle of 0 did not remove the smoothing");
+  return `right ${right.x.toFixed(3)}, near ${close.x.toFixed(3)}`;
 });
 
 process.exit(failed ? 1 : 0);

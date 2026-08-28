@@ -336,6 +336,44 @@ const ENTRIES: {
              globalThis.x = Blobatar;`,
   },
   {
+    /*
+     * The hook's own code, with the driver external.
+     *
+     * The number next to it that matters is `@blobatar/react alone` above,
+     * still at its 110 B budget: the gaze layer is a separate entry precisely
+     * so that importing `Blobatar` never reaches it, and importing this module
+     * from `index.tsx` would blow that row rather than this one. Two rows, one
+     * claim, and the claim is what a consumer who never gazes pays.
+     */
+    // Raised from 400 by the `travel` option: +86 B for the effect that writes
+    // `--mo-track-travel` inline and remeasures after. That buys the layer's
+    // opt-in switch a place in the JS API, where "the driver runs and nothing
+    // moves" is otherwise caused by a CSS property nothing in this signature
+    // mentions, and it makes the driver's cached write threshold refresh itself
+    // rather than being a documented gotcha.
+    name: "@blobatar/react/gaze alone",
+    budget: 470,
+    external: ["react", "blobatar", "blobatar/gaze"],
+    ext: "tsx",
+    source: `import { useGaze } from "@blobatar/react/gaze";
+             globalThis.x = useGaze;`,
+  },
+  {
+    /* The hook with the driver resolved, which is what the import actually
+       costs a page that opts in. */
+    // Raised from 1550 when §4.5 became a spherical projection rather than a
+    // translate: the growth is all `blobatar/gaze`, whose own entry carries the
+    // reasoning. The number to read beside it is `@blobatar/react alone`, which
+    // did not move — this is what a consumer who gazes pays, and the 76 B above
+    // is still what everybody else does.
+    name: "@blobatar/react/gaze shipped",
+    budget: 2450,
+    external: ["react"],
+    ext: "tsx",
+    source: `import { useGaze } from "@blobatar/react/gaze";
+             globalThis.x = useGaze;`,
+  },
+  {
     name: "@blobatar/vue alone",
     budget: 110,
     external: ["vue", "blobatar", "blobatar/vue", "blobatar/internal", "blobatar/uri"],
