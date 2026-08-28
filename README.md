@@ -253,7 +253,7 @@ stylesheet you opt into:
 import { useGaze } from "@blobatar/react/gaze";
 import "blobatar/gaze.css";
 
-const { ref, lookAt, home } = useGaze({ travel: 3 });
+const { ref } = useGaze({ travel: 3, lookAt: "pointer" });
 <Blobatar ref={ref} name={user.email} animate="always" size={200} />;
 ```
 

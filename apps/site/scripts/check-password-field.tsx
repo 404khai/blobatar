@@ -1,5 +1,6 @@
 /**
- * Behaviour gate for `registry/password-field.tsx`.
+ * Behaviour gate for `registry/password-field.tsx`, and for the one thing in
+ * this app that consumes `useGaze` declaratively.
  *
  * Every other test in this app reads strings: the registry manifest, the
  * showcase list, the generated `llms.txt`. None of them can see this component,
@@ -19,11 +20,21 @@
  * this file would measure a component that never starts. Same flags, same
  * reason, as the library's own probe.
  *
- * Three claims, and they are the three sentences the component's header makes:
+ * Five claims, and they are the sentences the component's header makes:
  *
  *  1. The eyes follow the pointer.
  *  2. While you are typing, the caret wins. The pointer can be anywhere.
- *  3. Revealing the password sends the eyes home and changes the pose.
+ *  3. It is focus that holds them there, not the keystroke: a long pause in the
+ *     middle of a password does not hand the eyes back.
+ *  4. Leaving the field does.
+ *  5. Revealing the password sends the eyes home and changes the pose.
+ *
+ * And one that is not about this component at all: the hook's `lookAt` *option*
+ * aims a blobatar on mount and re-aims it when it changes. That belongs here
+ * because this is the only browser in this repo's gates that runs React, and
+ * because `Hero.tsx` is the consumer — the front page's blobatar follows the
+ * cursor through that option and nothing else would notice it stopping, since
+ * a face that holds still renders perfectly.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -37,7 +48,10 @@ const entry = `${DIR}/entry.tsx`;
 mkdirSync(DIR, { recursive: true });
 writeFileSync(
   entry,
-  `import { createRoot } from "react-dom/client";
+  `import { useState } from "react";
+import { createRoot } from "react-dom/client";
+import { Blobatar } from "@blobatar/react";
+import { useGaze } from "@blobatar/react/gaze";
 import { PasswordField } from "../../registry/password-field";
 import "blobatar/motion.css";
 import "blobatar/gaze.css";
@@ -117,7 +131,33 @@ createRoot(host).render(<PasswordField name="alain00" size={160} />);
         \`x+3000 and the field \${(caret.top - cy).toFixed(0)}px below the face\`,
     );
 
-    // 3 — revealing looks away.
+    // 3 — focus, not the keystroke, is what holds the eyes there.
+    //
+    // Two seconds of frames with no input at all, well past any pause a person
+    // takes mid-password. The pointer has not moved off x+3000, so if anything
+    // is standing the caret branch down on a timer the eyes are hard right by
+    // now.
+    await settle(140);
+    const heldX = aimX();
+    const heldY = aimY();
+    report(
+      "the caret still wins long after the last keystroke",
+      heldY > 0.5 && heldX < right,
+      \`aim (\${heldX.toFixed(3)}, \${heldY.toFixed(3)}) two seconds after the \` +
+        \`last keystroke, pointer still at x+3000\`,
+    );
+
+    // 4 — leaving the field hands the eyes back.
+    input.blur();
+    await settle();
+    const blurredX = aimX();
+    report(
+      "blurring the field hands the eyes back to the pointer",
+      blurredX > 0.9,
+      \`aim x \${blurredX.toFixed(3)} of a ±1 excursion, pointer at x+3000\`,
+    );
+
+    // 5 — revealing looks away.
     const posedBefore = root.classList.contains("mo-expr");
     show.click();
     await settle(60);
@@ -137,6 +177,69 @@ createRoot(host).render(<PasswordField name="alain00" size={160} />);
   } catch (err) {
     report("harness threw", false, String((err as Error)?.stack ?? err));
   }
+
+  /*
+   * 6 — the hook's declarative target, which is a second component because it
+   * is a second consumer shape.
+   *
+   * Everything above drives \`lookAt\` as a function, which is what a component
+   * with a target that changes does. The option is what a component with one
+   * that does not does — \`Hero.tsx\` on the front page is exactly this, and
+   * nothing else in this repo would notice if it stopped working, because a
+   * blobatar that quietly holds still renders perfectly.
+   *
+   * Two halves, and the second is the one worth the setup: the option has to be
+   * *re-applied* when it changes rather than read once on mount, because an
+   * option read once that looks declarative is the React trap the hook's own
+   * docstring is about.
+   */
+  try {
+    const spot = document.createElement("div");
+    document.body.appendChild(spot);
+
+    let set: (t: "pointer" | "rest") => void = () => {};
+    function Declared() {
+      const [target, setTarget] = useState<"pointer" | "rest">("pointer");
+      set = setTarget;
+      const { ref } = useGaze({ travel: 16, lookAt: target });
+      return <Blobatar ref={ref} name="alain00" size={160} animate="always" />;
+    }
+    createRoot(spot).render(<Declared />);
+    await settle(8);
+
+    const eyes = spot.querySelector(".mo-eyes") as SVGElement;
+    const aim = () => parseFloat(eyes.style.getPropertyValue("--mo-track-x") || "0");
+    const svg = spot.querySelector("svg")!;
+    const box = svg.getBoundingClientRect();
+
+    /* Mounted and never aimed by hand: if the option did not reach the driver,
+       this is a face that renders and holds still. */
+    dispatchEvent(
+      new PointerEvent("pointermove", {
+        clientX: box.left + box.width / 2 + 3000,
+        clientY: box.top + box.height / 2,
+      }),
+    );
+    await settle();
+    const declared = aim();
+
+    /* Changed, not re-mounted. The pointer stays where it is, so an option that
+       is only read once leaves the eyes hard right. */
+    set("rest");
+    await settle(60);
+    const rested = aim();
+
+    report(
+      "the hook's lookAt option aims on mount and re-aims when it changes",
+      declared > 0.9 && Math.abs(rested) < 0.05,
+      \`option "pointer" aims \${declared.toFixed(3)} of a ±1 excursion with no \` +
+        \`lookAt() call; switching it to "rest" returns to \${rested.toFixed(3)} \` +
+        \`with the pointer still parked at x+3000\`,
+    );
+  } catch (err) {
+    report("harness threw on the hook", false, String((err as Error)?.stack ?? err));
+  }
+
   await fetch("/result", { method: "POST", body: JSON.stringify(results) });
 })();
 `,
@@ -207,8 +310,8 @@ if (!bin) {
   server.stop(true);
   rmSync(DIR, { recursive: true, force: true });
   console.error(
-    "✗ password field: no Chrome on this machine, so the one gate that can see " +
-      "this component did not run. Install Chrome or set CHROME.",
+    "✗ gaze: no Chrome on this machine, so the one gate that can see the " +
+      "password field and the hook did not run. Install Chrome or set CHROME.",
   );
   process.exit(1);
 }
@@ -244,13 +347,13 @@ server.stop(true);
 rmSync(DIR, { recursive: true, force: true });
 
 if (!results) {
-  console.error("✗ password field: the page never reported back within 30s");
+  console.error("✗ gaze: the page never reported back within 30s");
   process.exit(1);
 }
 
 let failed = false;
 for (const r of results) {
-  console.log(`${r.ok ? "✓" : "✗"} password field: ${r.name} — ${r.detail}`);
+  console.log(`${r.ok ? "✓" : "✗"} gaze: ${r.name} — ${r.detail}`);
   if (!r.ok) failed = true;
 }
 process.exit(failed ? 1 : 0);

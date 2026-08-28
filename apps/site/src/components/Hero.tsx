@@ -418,8 +418,15 @@ export function Hero() {
    * Nothing else in the render can invalidate it: it writes only
    * `--mo-track-*`, which React never touches, so an expression change, a hue
    * change or a remount of the SVG's contents all leave it running.
+   *
+   * The aim is asked for and not assumed. A driver is armed by mounting and
+   * aimed by a target, so following the cursor — the thing this page wants and
+   * the thing the layer is named for — is a thing this page says out loud. It
+   * never changes here, so it is the option rather than the function: this
+   * blobatar watches the pointer for its whole life and has no second thing to
+   * look at.
    */
-  const { ref: face } = useGaze({ travel: 18 });
+  const { ref: face } = useGaze({ travel: 12, lookAt: "pointer" });
 
   const shown = burst ?? expression.value;
   /** Whether the picked expression is one of the ones the row hides. */

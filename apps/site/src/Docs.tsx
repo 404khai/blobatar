@@ -244,12 +244,15 @@ npx shadcn@latest add @blobatar/avatar`}</Code>
         <Code>{`import { useGaze } from "@blobatar/react/gaze";
 import "blobatar/gaze.css";
 
-const { ref, lookAt, home } = useGaze({ travel: 3 });
+const { ref, lookAt } = useGaze({ travel: 3, lookAt: "pointer" });
 <Blobatar ref={ref} name={user.email} animate="always" size={200} />;
 
-lookAt({ x, y });  // aim it somewhere other than the cursor — a caret, a card
-lookAt(null);      // hand the eyes back to the pointer
-home();            // park them in the middle without resuming the pointer`}</Code>
+// the option is where it usually looks; the function is where it looks now
+lookAt({ x, y });     // a point in client coordinates — a caret, a card
+lookAt(el);           // an element: its centre, re-read as the page moves
+lookAt("pointer");    // the cursor
+lookAt("rest");       // its own centre, held: deliberately not looking
+lookAt(null);         // nothing — the idle glance comes back`}</Code>
         <P>
           A separate subpath, so it costs nothing unless you import it — the
           same bargain <Inline>@blobatar/react-native/animated</Inline> makes.

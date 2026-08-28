@@ -366,8 +366,12 @@ const ENTRIES: {
     // reasoning. The number to read beside it is `@blobatar/react alone`, which
     // did not move — this is what a consumer who gazes pays, and the 76 B above
     // is still what everybody else does.
+    // …and to 2650 for the target vocabulary, which is the same story again:
+    // the driver grew by the element-watching and the stand-down ramp, the hook
+    // shrank a little by losing `home()` to `lookAt("rest")`, and
+    // `@blobatar/react alone` did not move.
     name: "@blobatar/react/gaze shipped",
-    budget: 2450,
+    budget: 2650,
     external: ["react"],
     ext: "tsx",
     source: `import { useGaze } from "@blobatar/react/gaze";

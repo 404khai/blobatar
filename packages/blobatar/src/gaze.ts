@@ -439,7 +439,184 @@ export function step(i: StepInput): StepResult {
   return { x: i.x + (tx - i.x) * f, y: i.y + (ty - i.y) * f, tx, ty, f };
 }
 
+/**
+ * A blobatar's face, as the projection needs it: where the eyes rest, and how
+ * big the head they turn on is.
+ *
+ * The radii are semi-axes in viewBox units and the marks are fractions of them,
+ * so a `Mark` is already normalised for `project` and neither number changes
+ * when the page scrolls or the blobatar is drawn at a different size.
+ */
+export interface Face {
+  marks: Mark[];
+  /** The face's radius on each axis, in viewBox units. */
+  rx: number;
+  ry: number;
+}
+
+/**
+ * Measure one blobatar's face off its own rendered geometry.
+ *
+ * Exported because the driver is not the only thing that has to know where an
+ * eye rests. `apps/video` solves its pursuit forwards at module load and cannot
+ * run a driver at all, but it still has to land the same eye in the same place,
+ * and the fitted head is the one input it cannot derive from a name. A second
+ * copy of the bisection below would keep rendering plausibly while the two
+ * quietly disagreed about where the limb is, which is the failure this file
+ * spends its whole length trying not to have.
+ *
+ * `el` is the `<svg>`. Returns `null` for a subtree with no layout box: a
+ * blobatar that is `display: none` or detached, and so cannot be looked at
+ * anyway. A caller holding a previous measurement should keep the one it has.
+ *
+ * `getBBox` is the element's own geometry and ignores every transform on it and
+ * above it, so this is the *rest* position however far the gaze, the saccade or
+ * the expression have currently moved things. That is what makes it safe to
+ * call at any time rather than only before anything starts.
+ */
+export function survey(el: Element): Face | null {
+  const head = el.querySelector<SVGGraphicsElement>(".mo-bob > g:not(.mo-eyes)");
+  const eyes = [...el.querySelectorAll<SVGGraphicsElement>(".mo-eye")];
+  if (!head || !eyes.length) return null;
+  try {
+    const b = head.getBBox();
+    /*
+     * The largest ellipse of the body's own proportions that fits inside the
+     * silhouette, found by bisection along sixteen rays from the centre.
+     *
+     * The box on its own is not the head. `capsule` is a stadium whose box
+     * an ellipse overflows at the ends, `triangle`'s box is mostly not
+     * triangle, and `round`'s per-point radii dip 15% below its widest.
+     * Fitted rather than assumed because the roster does not agree on one
+     * number: it lands at 0.98 on `round` and 0.39 on `triangle`, and a
+     * constant safe for the second would have halved the excursion on the
+     * first for no reason.
+     *
+     * Shrinking the head rather than clamping the eye afterwards is what
+     * keeps this a projection. The turn is `travel / radius`, so a smaller
+     * head turns proportionally further for the same excursion and a small
+     * glance moves exactly as far as it did — only the saturation comes
+     * sooner, which is correct: there is less head to turn.
+     */
+    const fill = [...head.querySelectorAll<SVGGeometryElement>("path,circle")];
+    const cx0 = b.x + b.width / 2;
+    const cy0 = b.y + b.height / 2;
+    const hit = (t: number, c: number, s2: number) =>
+      fill.some((f) =>
+        f.isPointInFill(
+          new DOMPoint(cx0 + ((t * b.width) / 2) * c, cy0 + ((t * b.height) / 2) * s2),
+        ),
+      );
+    let fit = 1;
+    for (let a = 0; a < 16; a++) {
+      const r = (a / 16) * Math.PI * 2;
+      const c = Math.cos(r);
+      const s2 = Math.sin(r);
+      if (hit(1, c, s2)) continue;
+      let lo = 0;
+      let hi = 1;
+      for (let i = 0; i < 12; i++) {
+        const mid = (lo + hi) / 2;
+        if (hit(mid, c, s2)) lo = mid;
+        else hi = mid;
+      }
+      fit = Math.min(fit, lo);
+    }
+
+    /*
+     * Inset by the eyes' own half-extent, because a centre inside the
+     * silhouette is not an eye inside it. These are capsules up to 22 units
+     * tall on a face 77 across, so an eye whose middle sits exactly on the
+     * boundary has a third of itself outside.
+     */
+    let ix = 0;
+    let iy = 0;
+    const centres = eyes.map((e) => {
+      const g = e.getBBox();
+      ix = Math.max(ix, g.width / 2);
+      iy = Math.max(iy, g.height / 2);
+      return { x: g.x + g.width / 2 - cx0, y: g.y + g.height / 2 - cy0 };
+    });
+    let rx = Math.max(1, (b.width / 2) * fit - ix);
+    let ry = Math.max(1, (b.height / 2) * fit - iy);
+
+    /*
+     * …opened back up if the eyes do not fit in what that leaves, which
+     * `triangle` manages: its fitted ellipse is 0.39 of its box and its eyes
+     * sit wider than that. A head that does not contain its own eyes starts
+     * them at the limb, fully foreshortened and unable to move.
+     */
+    let need = 0;
+    for (const c of centres) need = Math.max(need, Math.hypot(c.x / rx, c.y / ry));
+    if (need > 0.85) {
+      rx *= need / 0.85;
+      ry *= need / 0.85;
+    }
+    return { marks: centres.map((c) => ({ x: c.x / rx, y: c.y / ry })), rx, ry };
+  } catch {
+    /* Not laid out yet. */
+    return null;
+  }
+}
+
 /* ------------------------------------------------------------------ driver */
+
+/**
+ * What a pair of eyes can be pointed at.
+ *
+ * One vocabulary, used by `lookAt` and by `GazeOptions.target` alike, because
+ * "where it starts out looking" and "where it looks now" are the same question
+ * asked at two moments and answering them differently is how a caller ends up
+ * with two mental models of one driver.
+ *
+ * The union is four things and they are not four modes. Everything below the
+ * aim is arithmetic on a single point: the members differ only in where that
+ * point comes from and, for the last two, in whether the idle glance is allowed
+ * back afterwards. Nothing here reimplements the pursuit, the near field or the
+ * saccade branch, and a target swapped for another is a substitution rather
+ * than a switch — the eyes glide from wherever they are, and `SNAP` decides
+ * which of those is a glide and which is a jump.
+ *
+ * - `{ x, y }` — a point in **client** coordinates. A caret, a drop shadow, a
+ *   spot in the viewport. The caller owns re-aiming it when the page moves,
+ *   which is the honest split: a point is a point and the driver cannot know
+ *   what produced it.
+ * - `Element` — that element's box centre, re-read whenever the driver
+ *   re-measures its own, so it survives scrolling and reflow without the caller
+ *   listening for either. This is the common case and the reason it is not left
+ *   to `{ x, y }`: a caller doing it by hand writes the two listeners this
+ *   already runs, and usually forgets the second.
+ * - `"pointer"` — the cursor. The pointer is one *source* of a target and not
+ *   the target itself, which is why it is a word here rather than the absence
+ *   of one.
+ * - `"rest"` — the blobatar's own centre, held. The near-field ease takes the
+ *   excursion to zero because there is no direction to look in at something you
+ *   are already on, so the eyes glide to the middle over the same curve as
+ *   everything else and stay. The idle glance stays stood down: this is a face
+ *   deliberately not looking, which is a pose and not an absence.
+ * - `null` — nothing. The eyes ease home *and* the idle saccade comes back, so
+ *   the blobatar goes on living its own life with the driver attached and
+ *   watching. This is where a driver starts: constructing one arms the layer
+ *   and aims it at nothing, and it costs nothing until it is aimed — the eyes
+ *   are already home, the stand-down is already zero, and the loop parks on its
+ *   first frame. `null` is the empty target and it means the empty thing.
+ *
+ * `null` and `"rest"` are the pair worth reading twice, because "stop looking
+ * at that" is genuinely two requests. A password field revealing its contents
+ * wants `"rest"` — the joke is a face pointedly not reading your screen, and a
+ * face that went back to glancing idly around the room would be telling the
+ * truth about nothing. A tour that has finished pointing at things wants
+ * `null`, because the creature should go back to being a creature.
+ *
+ * Neither is `stop()`, which is teardown: it removes every listener and both
+ * properties, and the eyes snap rather than glide.
+ */
+export type GazeTarget =
+  | { x: number; y: number }
+  | Element
+  | "pointer"
+  | "rest"
+  | null;
 
 export interface GazeOptions {
   /** Pursuit time constant in ms. Defaults to `SETTLE`. */
@@ -447,40 +624,43 @@ export interface GazeOptions {
   /** Saccade threshold in units of the excursion. Defaults to `SNAP`. */
   snap?: number;
   /**
-   * A fixed point in client coordinates to watch instead of the pointer.
+   * What to watch. Defaults to `null`, which is nothing.
    *
-   * Sugar for constructing the driver already aimed. `lookAt` is the same seam
-   * afterwards.
+   * Sugar for constructing the driver already aimed, and `lookAt` is the same
+   * seam afterwards taking the same union. `gaze(svg, { target: "pointer" })`
+   * is the cursor-following blobatar most pages want, and it is spelled out
+   * rather than assumed: constructing a driver arms the layer, and what it
+   * looks at is the caller's to say. A default that started following the
+   * pointer would make the one member of the union nobody had to ask for the
+   * one that moves the eyes.
+   *
+   * **The likeliest way to end up with a face that never moves is now two
+   * things rather than one.** `--mo-track-travel` is registered at `0px`, so a
+   * page that loads `gaze.css` and sets the excursion nowhere has a driver
+   * running and no eyes moving; a driver that was never aimed is the same
+   * symptom from the other side. Both are visible from the call site, which is
+   * the trade: nothing happens implicitly, so nothing happens by accident
+   * either.
    */
-  at?: { x: number; y: number } | null;
+  target?: GazeTarget;
 }
 
 /** A running gaze. */
 export interface Gaze {
   /**
-   * Watch a fixed point in client coordinates, or `null` to hand the eyes back
-   * to the pointer.
+   * Point the eyes at something. See `GazeTarget` for the five things that
+   * something can be.
    *
-   * The pointer is one *source* of a target, not the target itself. Everything
-   * below is arithmetic on a point and does not care where the point came from,
-   * so this is a substitution rather than a second mode: the eyes glide to the
-   * fixed point, hold it while the cursor does whatever it likes, and pursue
-   * the cursor again from wherever they are the moment it is cleared. `SNAP`
-   * decides which of those is a glide and which is a jump, exactly as it does
-   * for the pointer.
+   * The pointer is one *source* of a target and not the target itself, which is
+   * the whole shape of this seam: it takes a point, an element, or one of the
+   * two words, and everything downstream is the same arithmetic either way.
    *
-   * **Client coordinates, so a caller pinning something in the page re-aims on
-   * scroll.** That is the caller's call and not something to guess at here.
-   * Watching a spot in the viewport and watching an element that scrolls past
-   * are both things somebody wants, and only one can be the default; the
-   * element case is `el.getBoundingClientRect()` re-read on scroll, which is
-   * what this driver does with its own box and for the same reason.
-   *
-   * It also settles what the pointer leaving the window means while a point is
-   * set: nothing. A target that is present because the caller says so does not
-   * stop being present because the cursor went to another window.
+   * It also settles what the pointer leaving the window means while something
+   * else is being watched: nothing. A target that is present because the caller
+   * says so does not stop being present because the cursor went to another
+   * window.
    */
-  lookAt: (p: { x: number; y: number } | null) => void;
+  lookAt: (t: GazeTarget) => void;
   /**
    * Re-measure the box.
    *
@@ -562,8 +742,30 @@ export function gaze(el: SVGSVGElement, opts: GazeOptions = {}): Gaze {
   let dirty = false;
   let on = false;
 
-  /** A fixed client coordinate to watch instead of the pointer, or `null`. */
-  let at: { x: number; y: number } | null = opts.at ?? null;
+  /**
+   * What the eyes are pointed at, split into the two questions a frame asks.
+   *
+   * `at` is a resolved client coordinate or `null` for "the pointer", and
+   * `resting` overrides both with this blobatar's own centre. Between them that
+   * is the only thing the aim arithmetic below needs to know. `hold` carries
+   * the rest: whether the idle glance stays stood down, which is the only thing
+   * `"rest"` and `null` disagree about. Every member of `GazeTarget` is one of
+   * those combinations, and holding them as state rather than as a mode enum is
+   * what stops the frame loop growing a branch per member.
+   *
+   * `watched` is the element behind `at` when the target was one, kept because
+   * its box has to be read again every time this driver re-reads its own.
+   */
+  let at: { x: number; y: number } | null = null;
+  let watched: Element | null = null;
+  /** Whether the target is this blobatar's own centre, which is `"rest"` and
+      `null` both. Held as a flag rather than as a resolved point, so a resting
+      blobatar that scrolls goes on resting instead of drifting off the centre
+      it was measured at. */
+  let resting = false;
+  /** Where the stand-down is heading: 1 while the driver owns the eyes, 0 once
+      it has let go. See `h`. */
+  let hold = 1;
 
   /**
    * Where the excursion goes. Resolved once rather than per frame: a
@@ -591,109 +793,51 @@ export function gaze(el: SVGSVGElement, opts: GazeOptions = {}): Gaze {
   let yaw = 0;
   let pitch = 0;
 
+  /**
+   * Where each eye sits on the sphere, and the head they turn on.
+   *
+   * The measurement is `survey()`, shared with anything else that has to agree
+   * with this driver about where an eye rests, so there is one bisection and
+   * one answer. A blobatar with no layout box yet leaves the marks as they
+   * were, and the next measure picks them up.
+   */
+  const face = () => {
+    const f = survey(el);
+    if (!f) return;
+    marks = f.marks;
+    frx = f.rx;
+    fry = f.ry;
+  };
+
   const resolve = () => {
     target = el.querySelector<SVGElement>(".mo-eyes") ?? el;
     eyes = [...el.querySelectorAll<SVGGraphicsElement>(".mo-eye")];
-    survey();
+    face();
   };
 
   /**
-   * Where each eye sits on the sphere, as a fraction of the face radius.
+   * Re-read the watched element's centre.
    *
-   * `getBBox` is the element's own geometry and ignores every transform on it
-   * and above it, so this is the *rest* position however far the gaze, the
-   * saccade or the expression have currently moved things. That is what makes
-   * it safe to call from `remeasure()` at any time rather than only before the
-   * driver starts.
+   * Called from `measure`, so it rides on exactly the events that already move
+   * this driver's own box: scroll, resize, and the `ResizeObserver` — which
+   * `start` points at the watched element too, so an element that changes size
+   * without the page moving is caught as well. That is the whole argument for
+   * `Element` being in the union: it is this call and one `observe`, against
+   * every caller otherwise writing the same two listeners by hand.
    *
-   * It throws on a subtree with no layout box — `display: none`, a detached
-   * node — which is a blobatar that cannot be looked at anyway, so the marks
-   * are simply left as they were and the next measure picks them up.
+   * What it does not catch is an element moved by something none of those fire
+   * for, a sibling collapsing above it inside a stable box being the usual one.
+   * `remeasure()` is the seam for that, and it is the same seam the driver
+   * already documents for its own box.
    */
-  const survey = () => {
-    const head = el.querySelector<SVGGraphicsElement>(".mo-bob > g:not(.mo-eyes)");
-    if (!head || !eyes.length) return;
-    try {
-      const b = head.getBBox();
-      /*
-       * The largest ellipse of the body's own proportions that fits inside the
-       * silhouette, found by bisection along sixteen rays from the centre.
-       *
-       * The box on its own is not the head. `capsule` is a stadium whose box
-       * an ellipse overflows at the ends, `triangle`'s box is mostly not
-       * triangle, and `round`'s per-point radii dip 15% below its widest.
-       * Fitted rather than assumed because the roster does not agree on one
-       * number: it lands at 0.98 on `round` and 0.39 on `triangle`, and a
-       * constant safe for the second would have halved the excursion on the
-       * first for no reason.
-       *
-       * Shrinking the head rather than clamping the eye afterwards is what
-       * keeps this a projection. The turn is `travel / radius`, so a smaller
-       * head turns proportionally further for the same excursion and a small
-       * glance moves exactly as far as it did — only the saturation comes
-       * sooner, which is correct: there is less head to turn.
-       */
-      const fill = [...head.querySelectorAll<SVGGeometryElement>("path,circle")];
-      const cx0 = b.x + b.width / 2;
-      const cy0 = b.y + b.height / 2;
-      const hit = (t: number, c: number, s2: number) =>
-        fill.some((f) =>
-          f.isPointInFill(
-            new DOMPoint(cx0 + ((t * b.width) / 2) * c, cy0 + ((t * b.height) / 2) * s2),
-          ),
-        );
-      let fit = 1;
-      for (let a = 0; a < 16; a++) {
-        const r = (a / 16) * Math.PI * 2;
-        const c = Math.cos(r);
-        const s2 = Math.sin(r);
-        if (hit(1, c, s2)) continue;
-        let lo = 0;
-        let hi = 1;
-        for (let i = 0; i < 12; i++) {
-          const mid = (lo + hi) / 2;
-          if (hit(mid, c, s2)) lo = mid;
-          else hi = mid;
-        }
-        fit = Math.min(fit, lo);
-      }
-
-      /*
-       * Inset by the eyes' own half-extent, because a centre inside the
-       * silhouette is not an eye inside it. These are capsules up to 22 units
-       * tall on a face 77 across, so an eye whose middle sits exactly on the
-       * boundary has a third of itself outside.
-       */
-      let ix = 0;
-      let iy = 0;
-      const centres = eyes.map((e) => {
-        const g = e.getBBox();
-        ix = Math.max(ix, g.width / 2);
-        iy = Math.max(iy, g.height / 2);
-        return { x: g.x + g.width / 2 - cx0, y: g.y + g.height / 2 - cy0 };
-      });
-      frx = Math.max(1, (b.width / 2) * fit - ix);
-      fry = Math.max(1, (b.height / 2) * fit - iy);
-
-      /*
-       * …opened back up if the eyes do not fit in what that leaves, which
-       * `triangle` manages: its fitted ellipse is 0.39 of its box and its eyes
-       * sit wider than that. A head that does not contain its own eyes starts
-       * them at the limb, fully foreshortened and unable to move.
-       */
-      let need = 0;
-      for (const c of centres) need = Math.max(need, Math.hypot(c.x / frx, c.y / fry));
-      if (need > 0.85) {
-        frx *= need / 0.85;
-        fry *= need / 0.85;
-      }
-      marks = centres.map((c) => ({ x: c.x / frx, y: c.y / fry }));
-    } catch {
-      /* Not laid out yet. */
-    }
+  const follow = () => {
+    if (!watched) return;
+    const r = watched.getBoundingClientRect();
+    at = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   };
 
   const measure = () => {
+    follow();
     const r = el.getBoundingClientRect();
     cx = r.left + r.width / 2;
     cy = r.top + r.height / 2;
@@ -706,7 +850,7 @@ export function gaze(el: SVGSVGElement, opts: GazeOptions = {}): Gaze {
     /* The silhouette is in viewBox units, so it does not move when the page
        does: it is surveyed once, on attach, and this is only the retry for a
        blobatar that had no layout box yet when the driver reached it. */
-    if (!marks.length) survey();
+    if (!marks.length) face();
     /* The excursion as an angle: `travel` is the arc a mark at the centre of
        the face sweeps, so the turn is that arc over the radius — one per axis,
        because the radii differ. An eye off the middle covers less than that,
@@ -750,12 +894,20 @@ export function gaze(el: SVGSVGElement, opts: GazeOptions = {}): Gaze {
     }
 
     const k = pursuit(dt, settle);
-    /* The one place the pointer is privileged, and only as a default. */
+    /*
+     * The one place the pointer is privileged, and only as a default.
+     *
+     * `"rest"` and `null` are the centre, and they are not a third branch here:
+     * aiming at your own centre is `dx = dy = 0`, which the near-field ease
+     * already resolves to an excursion of zero because there is no direction to
+     * look in at something you are already on. The two words differ in `hold`,
+     * below, and in nothing else.
+     */
     const s = step({
       x,
       y,
-      dx: (at ? at.x : px) - cx,
-      dy: (at ? at.y : py) - cy,
+      dx: resting ? 0 : (at ? at.x : px) - cx,
+      dy: resting ? 0 : (at ? at.y : py) - cy,
       radius,
       k,
       snap,
@@ -776,9 +928,15 @@ export function gaze(el: SVGSVGElement, opts: GazeOptions = {}): Gaze {
     /* On the same exponential and the same arrival rule. `HOLD_EPS` is coarser
        than `eps` by an order of magnitude and deliberately so: this scales the
        rove's seeds, and a 1% change in the amplitude of a glance nobody is
-       watching for is not a thing anyone can see. */
-    h += (1 - h) * k;
-    if (1 - h <= HOLD_EPS) h = 1;
+       watching for is not a thing anyone can see.
+
+       It runs toward `hold` rather than toward 1, which is what makes letting
+       go a motion instead of an edit: `lookAt(null)` walks this back down the
+       same curve it came up, so the idle saccade fades in over the time it
+       takes the eyes to reach the middle rather than snapping on the moment
+       they are released. */
+    h += (hold - h) * k;
+    if (Math.abs(hold - h) <= HOLD_EPS) h = hold;
     else moved = true;
 
     if (Math.abs(h - wh) > HOLD_EPS) {
@@ -890,6 +1048,7 @@ export function gaze(el: SVGSVGElement, opts: GazeOptions = {}): Gaze {
     resolve();
     measure();
     resized.observe(el);
+    if (watched) resized.observe(watched);
     addEventListener("pointermove", onMove, { passive: true });
     addEventListener("pointerleave", onLeave, { passive: true });
     addEventListener("scroll", onGeom, { passive: true, capture: true });
@@ -932,15 +1091,58 @@ export function gaze(el: SVGSVGElement, opts: GazeOptions = {}): Gaze {
   still.addEventListener("change", sync);
   sync();
 
+  /**
+   * The one place a `GazeTarget` is turned into the state the frame loop reads.
+   *
+   * A setter rather than a value read per frame. A settled blobatar runs no
+   * frames, so a driver that only *read* its target would never notice one
+   * being set. The pointer moving is what keeps the loop alive for every other
+   * input, and this one is set by code rather than by a hand.
+   *
+   * The element is duck-typed rather than `instanceof Element`, which is not
+   * pedantry: an element from another document — an `<iframe>`, a template
+   * cloned across realms — is a real element and fails that test, and the
+   * failure would be silent, since it falls through to the point branch and
+   * reads `undefined` coordinates as `NaN`.
+   *
+   * It is the *element* that is sniffed for and not the point, which looks
+   * backwards and is the way round that survives this library's own domain:
+   * `"x" in t` would be shorter and would take an `<svg><rect>` — a perfectly
+   * ordinary thing to want the eyes to watch — down the point branch, where its
+   * `x` is an `SVGAnimatedLength` rather than a number and every frame after
+   * that is `NaN`.
+   */
+  const aim = (t: GazeTarget) => {
+    if (watched && on) resized.unobserve(watched);
+    watched = at = null;
+    resting = t === null || t === "rest";
+    /* The whole difference between a face deliberately not looking and a face
+       handed back to its own idle life. Everything else about the two is
+       identical, down to the curve they travel home on. */
+    hold = t === null ? 0 : 1;
+    /* The two lines above have already handled every word and `null`, so what
+       survives this is an object, and an object is an element or a point. */
+    if (typeof t !== "object" || !t) return;
+
+    if ("getBoundingClientRect" in t) {
+      watched = t;
+      if (on) resized.observe(t);
+      follow();
+      return;
+    }
+
+    /* Copied rather than held. A caller keeping one object and mutating it
+       would otherwise be re-aiming the driver without a `lookAt`, on whichever
+       frame happened to read it, which is a target that moves without anyone
+       saying so. */
+    at = { x: t.x, y: t.y };
+  };
+
+  aim(opts.target ?? null);
+
   return {
-    lookAt: (p) => {
-      /*
-       * A setter rather than a value read per frame. A settled blobatar runs no
-       * frames, so a driver that only *read* a fixed point would never notice
-       * one being set. The pointer moving is what keeps the loop alive for
-       * every other input, and this one is set by code rather than by a hand.
-       */
-      at = p && { x: p.x, y: p.y };
+    lookAt: (t) => {
+      aim(t);
       wake();
     },
     remeasure: onGeom,

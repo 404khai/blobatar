@@ -317,16 +317,33 @@ The idle glance stands down on its own while the gaze is driving, so the eyes
 are not being aimed at two things at once, and it fades back in when the driver
 detaches rather than snapping.
 
-`gaze()` returns a handle. `stop()` tears it down and releases the properties;
-`lookAt(point)` aims the eyes somewhere other than the cursor, in client
-coordinates, and `lookAt(null)` hands them back. The hook exposes the same
-seam, plus `home()` for parking the eyes in the middle without resuming the
-pointer:
+`gaze()` returns a handle. `lookAt` is the one seam for aiming it, and it takes
+five kinds of thing:
 
 ```ts
-g.lookAt({ x: caretX, y: caretY }); // watch a caret, a card, anything
-g.lookAt(null); // back to the pointer
+g.lookAt({ x: caretX, y: caretY }); // a point in client coordinates — a caret
+g.lookAt(button); // an element: its centre, re-read as the page moves
+g.lookAt("pointer"); // the cursor
+g.lookAt("rest"); // its own centre, held: deliberately not looking
+g.lookAt(null); // nothing — the eyes ease home and the idle glance comes back
 ```
+
+A driver starts at `null`, so `gaze(svg)` arms the layer and moves nothing until
+it is aimed. `gaze(svg, { target: "pointer" })` is the cursor-following blobatar
+most pages are after, and it is spelled out rather than assumed: constructing a
+driver is not the same as deciding what it should watch.
+
+`"rest"` and `null` are both "stop looking at that" and they are not the same
+request. `"rest"` keeps the idle glance stood down, so the stillness reads as a
+face choosing not to look; `null` hands the blobatar back to its own life with
+the driver still attached. Neither is `stop()`, which is teardown: it removes
+every listener and both properties, and the eyes snap rather than glide.
+
+Passing an element is the one worth reaching for. The driver already re-reads
+its own box on scroll, resize and its own resizes, so a watched element rides on
+the same machinery and keeps its aim through all three — which is exactly the
+pair of listeners a caller otherwise writes by hand around `getBoundingClientRect`,
+and usually only one of them.
 
 It follows the same rules as the rest of the motion layer, and for the same
 reasons: nothing attaches under `prefers-reduced-motion` or without a fine

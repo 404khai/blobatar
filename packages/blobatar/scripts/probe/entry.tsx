@@ -44,6 +44,12 @@
  * properties and `blobatar/gaze.css` is a stylesheet turning them into a
  * transform, and neither half means anything without the other. See `checkGaze`.
  *
+ * **K — the gaze's target vocabulary.** J proves the layer composes while it is
+ * following a pointer; this one proves the other four things `lookAt` takes are
+ * four behaviours rather than four spellings of one. A watched element survives
+ * a scroll, `"rest"` holds the middle with the idle rove still stood down, and
+ * `null` gives the rove back. See `checkTargets`.
+ *
  * F and G exist because C's evidence was narrower than it read: it froze the
  * idle layers and only ever went `idle → happy`, which is one of three
  * mechanisms under conditions no real page has. Neither found a defect. That is
@@ -1119,7 +1125,9 @@ async function checkGaze() {
      least one jump at the seeded period. */
   const roving = await roveOver(200);
 
-  const g = gaze(svg);
+  /* Aimed explicitly: a driver is armed by construction and aimed by asking,
+     so a bare `gaze(svg)` is a blobatar looking at nothing. */
+  const g = gaze(svg, { target: "pointer" });
 
   const point = async (x: number, y: number, frames = 40) => {
     dispatchEvent(new PointerEvent("pointermove", { clientX: x, clientY: y }));
@@ -1269,6 +1277,212 @@ async function checkGaze() {
 }
 
 /**
+ * K — the target vocabulary means what it says.
+ *
+ * `lookAt` takes five kinds of thing and four of them are new arithmetic rather
+ * than a rename, so this is the check that they are actually four behaviours
+ * and not one behaviour with four spellings. It has to be here for the same
+ * reason J does: `bun test` can see the driver's state but not where a pair of
+ * eyes ended up, which is a composition of the driver's writes with a
+ * stylesheet.
+ *
+ * Five claims:
+ *
+ *  0. **A driver that has not been aimed looks at nothing.** `null` is the
+ *     default, so constructing one arms the layer and moves nothing: the eyes
+ *     stay home and the idle glance is left running. It is claim zero because
+ *     everything after it is measured against a blobatar that was doing its own
+ *     thing a moment earlier.
+ *  1. **An element is watched, not sampled.** The eyes aim at a box, the page
+ *     scrolls, and they are still aimed at it. A caller passing
+ *     `getBoundingClientRect()` by hand gets claim 1's first half and fails its
+ *     second, which is exactly the bug the `Element` member exists to remove.
+ *  2. **`"rest"` is the centre, held.** The excursion goes to zero on the
+ *     near-field ease, and the idle rove stays stood down — the pose is a face
+ *     choosing not to look, so a rove creeping back would be it looking again.
+ *  3. **`null` lets go.** The excursion goes to zero *and* the rove comes back,
+ *     which is the half that distinguishes it from `"rest"` and the only thing
+ *     that does.
+ *  4. **The driver is still attached afterwards.** `null` is a target and not a
+ *     teardown, so pointing it back at the pointer works without a new driver.
+ *     That is what stops a caller reaching for `stop()` to mean "stop looking"
+ *     and then having to rebuild a driver whose whole state is where the eyes
+ *     currently are.
+ */
+async function checkTargets() {
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;left:0;top:0";
+  document.body.appendChild(host);
+  createRoot(host).render(<Blobatar name="alain00" animate="always" size={SIZE} />);
+  await frame();
+  await frame();
+
+  const name = "K lookAt starts at nothing, watches an element, rests, and lets go";
+  if (!matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    report(
+      name,
+      true,
+      "not measurable in this engine — it reports no fine pointer, so the driver " +
+        "correctly declines to attach. Run the gate in Chrome for this one.",
+      true,
+    );
+    host.remove();
+    return;
+  }
+
+  const svg = host.querySelector("svg")!;
+  const eyes = host.querySelector(".mo-eyes")! as SVGGElement;
+  const eye = host.querySelectorAll(".mo-eye")[1] as SVGGElement;
+  const TRAVEL = 3;
+  eyes.style.setProperty("--mo-track-travel", `${TRAVEL}px`);
+  const perUnit = SIZE / 100;
+
+  const rest = (() => {
+    const b = eye.getBBox();
+    return new DOMPoint(b.x + b.width / 2, b.y + b.height / 2);
+  })();
+  /** Where the eye actually is on screen, through every transform above it. */
+  const at = () => rest.matrixTransform(eye.getScreenCTM()!).x;
+  const settle = async (n = 40) => {
+    for (let i = 0; i < n; i++) await frame();
+  };
+
+  /** How far the idle rove is moving the group, as in J. */
+  const roveOver = async (frames: number) => {
+    const seen: number[] = [];
+    for (let i = 0; i < frames; i++) {
+      await frame();
+      seen.push(parseFloat(getComputedStyle(eyes).translate) || 0);
+    }
+    return Math.max(...seen) - Math.min(...seen);
+  };
+
+  const roving = await roveOver(200);
+
+  const g = gaze(svg);
+
+  /*
+   * 0 — a driver that has not been aimed is looking at nothing.
+   *
+   * The default is `null`, so constructing one arms the layer and moves no
+   * eyes: the excursion stays home and the idle glance is left entirely alone.
+   * Worth measuring rather than assuming, because the failure it guards is the
+   * quiet kind — a default that followed the pointer would pass every other
+   * claim in this check and simply do something nobody asked for.
+   */
+  const armedRove = await roveOver(120);
+  const armedHold = parseFloat(
+    getComputedStyle(host.querySelector(".mo-root")!).getPropertyValue("--mo-track-hold") ||
+      "0",
+  );
+
+  /*
+   * A target off to the right, in the page rather than in the viewport: it is
+   * placed in a tall scrolling body so that claim 1's second half has something
+   * to be true of. `position:absolute` in the document, not `fixed`, because a
+   * box that does not move when the page scrolls cannot tell a watched element
+   * apart from a point sampled once.
+   */
+  const spacer = document.createElement("div");
+  spacer.style.cssText = "position:absolute;top:0;left:0;width:1px;height:4000px";
+  document.body.appendChild(spacer);
+  const mark = document.createElement("div");
+  mark.style.cssText =
+    "position:absolute;left:2000px;top:900px;width:40px;height:40px";
+  document.body.appendChild(mark);
+
+  g.lookAt(mark);
+  await settle();
+  const watching = at();
+
+  /*
+   * The page moves under the target. The blobatar is `position:fixed`, so it
+   * stays put and the *element* is what travels — 900px up, from below the face
+   * to above it, which flips the vertical component of an aim that is tracking
+   * it and does nothing at all to one that is not.
+   */
+  const before = parseFloat(eyes.style.getPropertyValue("--mo-track-y") || "0");
+  scrollTo(0, 1800);
+  await settle();
+  const after = parseFloat(eyes.style.getPropertyValue("--mo-track-y") || "0");
+  const tracked = before > 0.3 && after < -0.3;
+  scrollTo(0, 0);
+  await settle();
+
+  /*
+   * 2 — rest.
+   *
+   * Measured against the midpoint of a full left-to-right swing rather than
+   * against a remembered "resting" position, because there isn't one to
+   * remember: breathe and bob are still running, so the eye's screen position
+   * at any instant carries whatever phase they happen to be at. The midpoint of
+   * two opposite aims cancels that, and it is the position "the middle" means.
+   */
+  const r = svg.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const cy = r.top + r.height / 2;
+  g.lookAt({ x: cx + 4000, y: cy });
+  await settle();
+  const xr = at();
+  g.lookAt({ x: cx - 4000, y: cy });
+  await settle();
+  const xl = at();
+  const full = xr - xl;
+  const mid = (xr + xl) / 2;
+
+  g.lookAt("rest");
+  await settle(60);
+  const rested = Math.abs(at() - mid);
+  const restHold = parseFloat(
+    getComputedStyle(host.querySelector(".mo-root")!).getPropertyValue("--mo-track-hold"),
+  );
+  const restRove = await roveOver(200);
+
+  /* 3 — let go. The excursion is already home, so the rove is the whole claim. */
+  g.lookAt(null);
+  await settle(80);
+  const freeHold = parseFloat(
+    getComputedStyle(host.querySelector(".mo-root")!).getPropertyValue("--mo-track-hold"),
+  );
+  const freeRove = await roveOver(200);
+
+  /* 4 — still attached: the pointer works again without a new driver. */
+  g.lookAt("pointer");
+  dispatchEvent(new PointerEvent("pointermove", { clientX: cx + 4000, clientY: cy }));
+  await settle(60);
+  const revived = Math.abs(at() - mid);
+
+  g.stop();
+  mark.remove();
+  spacer.remove();
+
+  report(
+    name,
+    armedRove > roving * 0.5 &&
+      armedHold < 0.02 &&
+      tracked &&
+      full > 2 * TRAVEL * perUnit * 0.5 &&
+      rested < full * 0.12 &&
+      restHold > 0.98 &&
+      restRove < roving * 0.05 &&
+      freeHold < 0.02 &&
+      freeRove > roving * 0.5 &&
+      revived > full * 0.25,
+    `unaimed, the rove is untouched (${armedRove.toFixed(2)}px of ` +
+      `${roving.toFixed(2)}px) at hold ${armedHold.toFixed(3)}; ` +
+      `watching an element: aims ${watching.toFixed(1)}px and follows it across ` +
+      `a scroll (y ${before.toFixed(2)} → ` +
+      `${after.toFixed(2)}); "rest" returns to within ${rested.toFixed(1)}px of ` +
+      `the middle of a ${full.toFixed(1)}px swing, at hold ` +
+      `${restHold.toFixed(3)} with the rove still down (${restRove.toFixed(2)}px ` +
+      `of ${roving.toFixed(2)}px); null drops hold to ${freeHold.toFixed(3)} and ` +
+      `gives the rove back (${freeRove.toFixed(2)}px); the pointer still moves ` +
+      `it ${revived.toFixed(1)}px afterwards`,
+  );
+  host.remove();
+}
+
+/**
  * Each check runs on its own, and a thrower names itself.
  *
  * One `try` around the whole sequence used to be the shape here, and it hid
@@ -1291,6 +1505,7 @@ const CHECKS: [string, () => Promise<void>][] = [
   ["checkShake", checkShake],
   ["checkPacing", checkPacing],
   ["checkGaze", checkGaze],
+  ["checkTargets", checkTargets],
 ];
 
 (async () => {

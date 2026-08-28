@@ -285,8 +285,17 @@ const ENTRIES: {
     // ellipse is 0.98 of the box on `round` and 0.39 on `triangle` — so it is
     // measured per blobatar with sixteen bisections against `isPointInFill`,
     // once on attach, in viewBox units that a scroll cannot change.
+    // …and to 2400 for the target vocabulary: `lookAt` takes an element, the
+    // two words, or a point, where it used to take a point or `null`. The bytes
+    // are the element being watched rather than sampled — its centre re-read on
+    // the measure the driver already does, and a second `observe` on the one
+    // `ResizeObserver` it already has — plus the stand-down becoming a ramp
+    // toward a target instead of toward 1, which is what makes `lookAt(null)`
+    // hand the idle glance back over a curve rather than switch it on. Both
+    // were previously the caller's problem, and the element one cost every
+    // caller two scroll listeners to solve worse.
     name: "gaze",
-    budget: 2200,
+    budget: 2400,
     external: [],
     source: `import { gaze } from "../../src/gaze";
              globalThis.x = gaze(globalThis.el as SVGSVGElement);`,

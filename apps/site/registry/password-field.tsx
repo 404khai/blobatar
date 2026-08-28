@@ -24,10 +24,11 @@
  * where the pointer is, which no keyframe can know. `blobatar/gaze` is that
  * function; this file is one opinion about what to point it at.
  *
- * The opinion is: the caret while you are typing, the pointer the rest of the
- * time. Those are the same seam in the driver, `lookAt`, because a target is a
- * point and the driver does not care where the point came from. Nothing here
- * reimplements the pursuit, the near field or the saccade branch.
+ * The opinion is: the caret for as long as the field has focus, the pointer
+ * once you have left it. Those are the same seam in the driver, `lookAt`,
+ * because a target is a point and the driver does not care where the point came
+ * from. Nothing here reimplements the pursuit, the near field or the saccade
+ * branch.
  *
  * ## What it does not do
  *
@@ -54,16 +55,6 @@ import { useGaze } from "@blobatar/react/gaze";
 import { sleepy } from "blobatar/expression";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-
-/**
- * How long after the last keystroke the eyes go back to the pointer.
- *
- * Long enough that the gaps inside real typing do not hand the eyes back and
- * forth, and short enough that stopping to think is read as stopping. Typing
- * cadence for connected text sits well under half a second between keys, so
- * this is roughly three of those.
- */
-const TYPING_HOLD = 1400;
 
 /**
  * The glyph a hidden field is measured with.
@@ -165,19 +156,28 @@ export function PasswordField({
   ...props
 }: PasswordFieldProps) {
   const [shown, setShown] = useState(false);
-  const [typing, setTyping] = useState(false);
+  /*
+   * Focus, not a keystroke timer, is what holds the eyes on the caret.
+   *
+   * The earlier version stood the caret branch down a beat after you stopped
+   * typing, and the beat is the bug: a person stops to think mid-password, the
+   * eyes leave the field for whatever the pointer is over, and the component
+   * looks away exactly when the field still has the caret in it. A focused
+   * password field is a field you are still in, so the eyes stay until you
+   * leave it.
+   */
+  const [focused, setFocused] = useState(false);
   /* Uncontrolled by default, so the component is useful in a form that does not
      want to hold the password in React state at all. */
   const [own, setOwn] = useState(defaultValue ?? "");
   const text = value ?? own;
 
   /*
-   * `home` is why this uses the hook rather than the driver directly: aiming
-   * the eyes at the blobatar's own box needs that box, and the hook is the
-   * layer holding it. `lookAt` is stable for the life of the component, so the
-   * callback below can depend on it without churning.
+   * The hook rather than the driver directly, for the ref and the teardown.
+   * `lookAt` is stable for the life of the component, so the callback below can
+   * depend on it without churning.
    */
-  const { ref: face, lookAt, home } = useGaze({
+  const { ref: face, lookAt } = useGaze({
     /*
      * The excursion, in viewBox units, and what opts this blobatar into the
      * layer at all. Three is a little over twice the idle glance's widest stop:
@@ -194,7 +194,6 @@ export function PasswordField({
     travel: 16,
   });
   const input = useRef<HTMLInputElement>(null);
-  const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fieldId = id ?? "blobatar-password";
 
   /*
@@ -209,23 +208,21 @@ export function PasswordField({
   const aim = useCallback(() => {
 
     /*
-     * Revealed: the eyes go home and stay there.
+     * Revealed: the eyes go to the middle and stay there.
      *
-     * `home()` and not `lookAt(null)`, and the difference is the whole gag.
-     * Released, the eyes would go back to following the pointer, which is the
-     * opposite of not looking. `home` aims them at the blobatar's own centre,
-     * where the driver's near-field ease takes the excursion to zero because
-     * there is no direction to look in at something you are already on. So they
-     * glide to the middle over the same curve everything else here uses, and
-     * hold.
+     * `"rest"` and not `null`, and the difference is the whole gag. Let go, the
+     * blobatar would get its idle glance back and start looking around the room
+     * on its own, which reads as a creature minding its own business rather
+     * than as one pointedly not reading your screen. `"rest"` keeps the idle
+     * saccade stood down, so the stillness is deliberate and legible as such.
      */
     if (shown) {
-      home();
+      lookAt("rest");
       return;
     }
 
-    /* Typing: watch the caret, re-read on every keystroke because it moved. */
-    if (typing && input.current) {
+    /* Focused: watch the caret, re-read whenever it may have moved. */
+    if (focused && input.current) {
       const at = caretAt(input.current);
       if (at) {
         lookAt(at);
@@ -234,19 +231,19 @@ export function PasswordField({
     }
 
     /* Otherwise the pointer, which is the driver's own default. */
-    lookAt(null);
-  }, [shown, typing, lookAt, home]);
+    lookAt("pointer");
+  }, [shown, focused, lookAt]);
 
   useEffect(aim, [aim, text]);
 
   /*
    * The caret is in the page, so it moves when the page scrolls or reflows and
    * nothing about this component's state changes when it does. Only while
-   * typing: the pointer branch is the driver's own business and it already
+   * focused: the pointer branch is the driver's own business and it already
    * watches both of these for its own box.
    */
   useEffect(() => {
-    if (!typing || shown) return;
+    if (!focused || shown) return;
     const on = () => aim();
     addEventListener("scroll", on, { passive: true, capture: true });
     addEventListener("resize", on, { passive: true });
@@ -254,16 +251,15 @@ export function PasswordField({
       removeEventListener("scroll", on, { capture: true });
       removeEventListener("resize", on);
     };
-  }, [typing, shown, aim]);
+  }, [focused, shown, aim]);
 
-  /** Mark the field as being typed in, and start the clock that ends it. */
-  const touched = () => {
-    setTyping(true);
-    if (idle.current) clearTimeout(idle.current);
-    idle.current = setTimeout(() => setTyping(false), TYPING_HOLD);
-  };
-
-  useEffect(() => () => void (idle.current && clearTimeout(idle.current)), []);
+  /*
+   * Re-aim after something that may have moved the caret without changing the
+   * text. `aim` reads `selectionStart` off the DOM, which the browser has
+   * already updated by the time these handlers run, so this is a straight call
+   * rather than another piece of state for the effect above to chase.
+   */
+  const track = () => aim();
 
   return (
     <div className={cn("flex w-full max-w-sm flex-col items-center gap-6", className)}>
@@ -312,22 +308,21 @@ export function PasswordField({
             onChange={(e) => {
               if (value === undefined) setOwn(e.target.value);
               onValueChange?.(e.target.value);
-              touched();
+              track();
             }}
             /* Moving the caret without changing the text is still aiming. */
-            onKeyUp={touched}
-            onClick={touched}
-            onSelect={touched}
+            onKeyUp={track}
+            onClick={track}
+            onSelect={track}
             onFocus={(e) => {
-              touched();
+              setFocused(true);
               onFocus?.(e);
             }}
             onBlur={(e) => {
-              /* Leaving the field ends the typing branch immediately: the eyes
-                 should be back on the pointer before you have finished moving
-                 to whatever you clicked. */
-              if (idle.current) clearTimeout(idle.current);
-              setTyping(false);
+              /* Leaving the field hands the eyes back to the pointer at once:
+                 they should be following you before you have finished moving to
+                 whatever you clicked. */
+              setFocused(false);
               onBlur?.(e);
             }}
             {...props}

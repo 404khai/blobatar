@@ -64,10 +64,21 @@ value however that value was written. Set both and the rule is what you get,
 silently, and the symptom is a face that renders perfectly and never moves.
 There is no default, so the two never collide unless you opt into both.
 
-`useGaze` also hands back `lookAt(point)` to aim the eyes somewhere other than
-the cursor, in client coordinates, `lookAt(null)` to hand them back, and
-`home()` to park them in the middle without resuming the pointer. All three are
-stable across renders. `useGaze({ settle, snap })` tunes the pursuit.
+A blobatar looks at nothing until it is aimed, `"pointer"` included. Where that
+never changes, say so in the options and there is nothing else to write:
+
+```tsx
+const { ref } = useGaze({ travel: 3, lookAt: "pointer" });
+```
+
+`lookAt` is also handed back for aiming that does change, and both take the same
+things: a point in client coordinates, an element (`lookAt(button.current)`),
+`"pointer"` for the cursor, `"rest"` to park the eyes in the middle without
+resuming it, or `null` for nothing, which gives the blobatar its idle glance
+back. The option is re-applied whenever it changes and the function wins in
+between, so a component can declare its usual target and still aim by hand.
+`lookAt` and `remeasure` are stable across renders. `useGaze({ settle, snap })`
+tunes the pursuit.
 
 Nothing attaches under `prefers-reduced-motion` or without a fine pointer, and
 both are watched rather than sampled once. This is a large-size effect: on a

@@ -50,19 +50,51 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { gaze, type Gaze, type GazeOptions } from "blobatar/gaze";
+import { gaze, type Gaze, type GazeOptions, type GazeTarget } from "blobatar/gaze";
+
+export type { GazeTarget };
 
 /**
- * The driver's tuning, minus `at`.
+ * The driver's tuning, plus where to look.
  *
- * `GazeOptions.at` is deliberately not forwarded. On the driver it is
- * construction-time sugar for starting already aimed, and a construction-time
- * option that looks declarative is a trap in React: passing `at={point}` and
- * watching it do nothing on the second render is exactly the bug the shape
- * invites. `lookAt` is the seam for aiming, at every point in the component's
- * life including the first.
+ * `GazeOptions.target` is not forwarded under its own name, and the difference
+ * is not cosmetic. On the driver it is construction-time sugar: it aims the
+ * driver as it is built and is never read again. A construction-time option
+ * that looks declarative is the classic React trap — passing `target={point}`
+ * and watching it do nothing on the second render — so what this hook takes
+ * instead is `lookAt`, which is applied *whenever it changes* and is therefore
+ * the declarative thing it looks like.
  */
 export type UseGazeOptions = Pick<GazeOptions, "settle" | "snap"> & {
+  /**
+   * Where to look, declaratively. Omit it and the eyes are yours to aim with
+   * the returned `lookAt`.
+   *
+   * This is the whole integration for a page whose answer does not change:
+   *
+   * ```tsx
+   * const { ref } = useGaze({ travel: 3, lookAt: "pointer" });
+   * ```
+   *
+   * It takes the same `GazeTarget` union as the function, and it is re-applied
+   * whenever it changes rather than only on mount — including on the render
+   * where the blobatar first appears, so there is no window in which a
+   * declared target has not been asked for yet. A point is compared by its
+   * coordinates rather than by identity, so an inline `{ x, y }` re-aims when
+   * the numbers move and not merely because the object is new.
+   *
+   * **Omitted and `null` are different.** Omitted means "I will aim this
+   * myself", and the hook then never writes over what your `lookAt` calls have
+   * asked for. `null` is a target like any other: look at nothing. A component
+   * that passes `lookAt={cond ? "pointer" : null}` is declaring both, which is
+   * the point of the distinction.
+   *
+   * Do not drive a caret through this. A target that changes on every keystroke
+   * is a render per keystroke to say something the driver could have been told
+   * directly; the function is the seam for that, and the two mix — the last
+   * thing asked for wins, whichever asked.
+   */
+  lookAt?: GazeTarget;
   /**
    * The excursion, in viewBox units. Omit and the stylesheet owns it.
    *
@@ -117,28 +149,34 @@ export interface UseGazeResult {
    */
   ref: (node: SVGSVGElement | null) => void;
   /**
-   * Watch a fixed point in client coordinates, or `null` to hand the eyes back
-   * to the pointer.
+   * Point the eyes at something: a point in client coordinates, an element,
+   * `"pointer"`, `"rest"`, or `null` for nothing. See `GazeTarget`.
+   *
+   * **A blobatar looks at nothing until this is called**, `"pointer"` included:
+   * a driver is armed by mounting and aimed by asking. One line in an effect is
+   * the cursor-following blobatar most pages are after:
+   *
+   * ```tsx
+   * const { ref, lookAt } = useGaze({ travel: 3 });
+   * useEffect(() => lookAt("pointer"), [lookAt]);
+   * ```
+   *
+   * A ref works wherever an element does — `lookAt(button.current)` — because
+   * the union takes the element itself and a ref's `.current` is one. There is
+   * deliberately no ref member: a ref is a box React fills in later, and a
+   * driver holding the box rather than what came out of it would be reading
+   * `null` on the first frame after mount and every frame after a swap.
    *
    * Stable for the life of the component, so it is safe in a dependency array
-   * and safe to hand to a child. Calling it before the blobatar has mounted is
-   * a no-op rather than an error.
-   */
-  lookAt: (p: { x: number; y: number } | null) => void;
-  /**
-   * Aim the eyes at the blobatar's own centre, which is how you say "stop
-   * looking" without handing them back to the pointer.
+   * and safe to hand to a child — and the effect above is exactly why it has to
+   * be: a `lookAt` that changed identity would re-aim on every render.
    *
-   * The driver's near-field ease takes the excursion to zero as a target
-   * approaches the centre, because there is no direction to look in at
-   * something you are already on. So this glides the eyes home over the same
-   * curve everything else uses and holds them there, where `lookAt(null)` would
-   * resume following the cursor and `stop()` would snap them.
-   *
-   * It lives here rather than on the driver because it needs the element's box,
-   * and the hook is the layer that has it.
+   * Calling it before the blobatar has mounted is a queued request rather than
+   * a no-op. The target is remembered and handed to the driver the moment there
+   * is one, which is what makes the effect above work at all: it runs a render
+   * before the driver exists, and it never runs again.
    */
-  home: () => void;
+  lookAt: (t: GazeTarget) => void;
   /**
    * Re-measure the box.
    *
@@ -149,7 +187,12 @@ export interface UseGazeResult {
   remeasure: () => void;
 }
 
-export function useGaze({ settle, snap, travel }: UseGazeOptions = {}): UseGazeResult {
+export function useGaze({
+  settle,
+  snap,
+  travel,
+  lookAt: declared,
+}: UseGazeOptions = {}): UseGazeResult {
   /*
    * State rather than a ref, and it is what makes the callback ref above work.
    * A ref assignment does not re-render, so an effect could never see the
@@ -160,6 +203,30 @@ export function useGaze({ settle, snap, travel }: UseGazeOptions = {}): UseGazeR
   const [node, setNode] = useState<SVGSVGElement | null>(null);
   const driver = useRef<Gaze | null>(null);
 
+  /**
+   * The last target asked for, held so that it survives not having a driver
+   * yet.
+   *
+   * A driver is built in an effect, and an effect runs after the ref it depends
+   * on has landed — which is one render later, because the callback ref sets
+   * state. So a consumer's own `useEffect(() => lookAt("pointer"), [lookAt])`
+   * fires on the render *before* the driver exists, and against a bare
+   * `driver.current?.lookAt(…)` it does nothing at all. Its dependencies have
+   * not changed by the time the driver arrives, so it never fires again either,
+   * and the eyes simply never move.
+   *
+   * That is the trap the driver's `null` default would otherwise set for every
+   * consumer at once, since aiming is now something every consumer does. So
+   * `lookAt` records the intent whether or not there is anything to carry it
+   * out, and the effect below hands it to each driver it builds. Aiming before
+   * mount is a queued request rather than a silent no-op.
+   *
+   * It is also what makes the driver survive being rebuilt. `settle` and `snap`
+   * changing constructs a new driver, and a new driver is aimed at `null`:
+   * without this, retuning the pursuit would quietly stop the gaze.
+   */
+  const target = useRef<GazeTarget>(null);
+
   /*
    * `settle` and `snap` are primitives, so an inline `useGaze({ settle: 90 })`
    * does not rebuild the driver on every render the way an object identity in
@@ -169,7 +236,7 @@ export function useGaze({ settle, snap, travel }: UseGazeOptions = {}): UseGazeR
    */
   useEffect(() => {
     if (!node) return;
-    const g = gaze(node, { settle, snap });
+    const g = gaze(node, { settle, snap, target: target.current });
     driver.current = g;
     return () => {
       driver.current = null;
@@ -208,19 +275,39 @@ export function useGaze({ settle, snap, travel }: UseGazeOptions = {}): UseGazeR
     };
   }, [node, travel]);
 
-  const lookAt = useCallback((p: { x: number; y: number } | null) => {
-    driver.current?.lookAt(p);
+  const lookAt = useCallback((t: GazeTarget) => {
+    target.current = t;
+    driver.current?.lookAt(t);
   }, []);
+
+  /*
+   * The declared target, applied on mount and on every change.
+   *
+   * Keyed on a value rather than on the target itself, because a point is the
+   * one member of the union a caller writes inline: `lookAt={{ x, y }}` is a
+   * new object on every render, and keying on identity would re-aim the driver
+   * every time the component rendered for any reason at all. An element and the
+   * two words are already stable by identity, so the key is simply themselves.
+   *
+   * `undefined` is not a target: it is the caller saying they will aim it, and
+   * this stays out of their way entirely rather than aiming at `null` on their
+   * behalf.
+   */
+  const key =
+    declared && typeof declared === "object" && "x" in declared
+      ? `${declared.x},${declared.y}`
+      : declared;
+
+  useEffect(() => {
+    if (declared !== undefined) lookAt(declared);
+    /* `declared` is deliberately not a dependency: `key` is its value, and the
+       object identity it would add is the churn this is built to avoid. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lookAt, key]);
 
   const remeasure = useCallback(() => {
     driver.current?.remeasure();
   }, []);
 
-  const home = useCallback(() => {
-    if (!node) return;
-    const r = node.getBoundingClientRect();
-    driver.current?.lookAt({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
-  }, [node]);
-
-  return { ref: setNode, lookAt, home, remeasure };
+  return { ref: setNode, lookAt, remeasure };
 }
