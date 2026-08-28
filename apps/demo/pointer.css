@@ -1,0 +1,192 @@
+/**
+ * The gaze layer's harness-only half.
+ *
+ * The channel registrations, the translate on `.mo-eyes` and the rule that
+ * stands the idle rove down are `blobatar/gaze.css` now, imported alongside
+ * this in `frontend.tsx`. What is left here is the sphere: the cues that make
+ * the eyes read as marks on a curved head rather than as stickers sliding
+ * across a flat one, which is the half still being asked about rather than
+ * answered.
+ *
+ * The library registers the channels `inherits: true`, so the two `.mo-eye`
+ * groups read the magnitudes off `.mo-eyes` and the driver writes one element
+ * instead of three. The invalidation is still scoped to the eyes rather than to
+ * the blobatar's whole subtree, which was this harness's finding and the reason
+ * the library's driver resolves `.mo-eyes` at all.
+ *
+ * Still outranks `candidates.css` on specificity, and still not on order: see
+ * that file's header.
+ */
+
+/*
+ * Unsigned, and written separately by the driver rather than derived with
+ * `abs()`, so this file stays the arithmetic `motion.css` would recognise. At
+ * their initial 0 every term below vanishes and the eyes are exactly the shape
+ * the library drew them.
+ */
+@property --mo-track-mx {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --mo-track-my {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/*
+ * The four coefficients, set once on the grid. Initial 0 so the layer is off
+ * until something asks for it, which is what lets the wrap toggle be a toggle
+ * rather than a remount.
+ */
+@property --mo-track-fx {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --mo-track-fy {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --mo-track-fd {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --mo-track-ft {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+.grid[data-gaze] .mo-eye {
+  /*
+   * Foreshortening plus the differential.
+   *
+   * The differential is signed and rides this eye's own `--mo-wrap` side, so the
+   * eye leading into the turn compresses harder than the trailing one. `App.tsx`
+   * ties its coefficient to a fixed fraction of the shared one rather than
+   * giving it a slider of its own, and the fraction is the library's constraint
+   * rather than a convenience: `motion.css` requires it "under half the shared
+   * one at every stop", because that is what guarantees the pair never scales
+   * *past* 1, and an eye growing on a glance is the tell that breaks the
+   * illusion instantly.
+   */
+  scale: calc(
+      1 - var(--mo-track-fx) * var(--mo-track-mx) - var(--mo-track-fd) *
+        var(--mo-track-x) * var(--mo-wrap, 1)
+    )
+    calc(1 - var(--mo-track-fy) * var(--mo-track-my));
+  /*
+   * **Restated from `motion.css` in order to extend it, and this is the copy the
+   * header calls unshippable.** The first two terms are that file's, verbatim:
+   * the pose's tilt mirrored per side, less however much of the seeded lean the
+   * pose claims. Dropping either would take the expression's brows off on every
+   * gazing blobatar.
+   *
+   * The third is the sphere's. It is the product x·y, so it vanishes on the pure
+   * horizontals and verticals where a real face shows no tilt either, and it
+   * carries `--mo-wrap`, so the two eyes converge toward the pole instead of
+   * rolling together.
+   */
+  rotate: calc(
+    (
+        var(--mo-t) * var(--mo-wrap, 1) - var(--mo-lean, 0) * var(--mo-lock) +
+          var(--mo-track-ft) * var(--mo-track-x) * var(--mo-track-y) *
+          var(--mo-wrap, 1)
+      ) * 1deg
+  );
+}
+
+/**
+ * ## The idle glance stands down *in proportion to* how much the gaze is driving
+ *
+ * Two systems aiming the same pair of eyes at different things. The saccade
+ * roves on its own six-fixation clock and the gaze points at the pointer, and
+ * with both live the eyes read as unable to decide: the deliberate look is
+ * continually interrupted by a rove that has no reason, which is worse than
+ * either alone. `animate="always"` is where it is worst, because that is where
+ * the idle layer is at full amplitude the whole time.
+ *
+ * ### Why this is a fade and not a switch
+ *
+ * It used to be a switch: `[data-gaze]` present meant the seeds went to zero,
+ * for every blobatar in the grid. Under `all` that is right, because under
+ * `all` every blobatar really is being driven. Under `near` it was a bug, and
+ * a bad one, because it took the seeds off the blobatars the gate had just
+ * decided *not* to drive. Outside `reach` the gaze writes 0 and the switch
+ * wrote 0 over the rove, so the far field went completely dead-eyed: the one
+ * state neither layer is supposed to be able to produce, and the exact opposite
+ * of what `near` is for. The whole argument for the gate is that the page keeps
+ * a small live neighbourhood around the cursor and stays *alive* elsewhere.
+ *
+ * So the stand-down rides `--mo-track-hold`, which the driver writes as the
+ * same falloff it aims with. At 1 the seeds are zero and this is the old
+ * behaviour exactly, which is every blobatar under `all`. At 0 the rove is
+ * untouched. In between the two layers cross-fade over the same smoothstep the
+ * excursion uses, so a blobatar hands its eyes from the rove to the pointer as
+ * you approach rather than switching between them.
+ *
+ * ### The seeds have to be copied before they can be damped
+ *
+ * `--mo-look-x: calc(var(--mo-look-x) * ...)` is a cycle. A custom property
+ * referring to itself is invalid at computed-value time even when the value it
+ * wants is the inherited one, so the damped declaration cannot read what it is
+ * replacing. It needs a second name on a second element, which is why the rule
+ * below copies the four seeds onto the `<svg>` (where `motionVars` writes them
+ * inline, so the copy sees the real values) and the damping reads the copy one
+ * level down on `.mo-root`. Two rules, no per-frame work: the driver writes one
+ * number and the cross-fade is arithmetic the style engine was doing anyway.
+ *
+ * ### Zeroing the channel, not pausing the animation
+ *
+ * `animation-play-state: paused` was the obvious move and it is the wrong one
+ * twice over. It freezes the loop wherever it happens to be, so the eyes keep a
+ * stale glance baked in as a constant offset the gaze then works from — the one
+ * outcome worse than the rove itself. And `mo-wrap` shares `animation-name` with
+ * `mo-blink` on one element while `mo-saccade` shares its list with the ballot's
+ * two candidates on another, so pausing by position means counting entries in
+ * two lists that live in two other files.
+ *
+ * Setting the seeds to zero has neither problem. Every stop of `mo-saccade`
+ * multiplies `--mo-look-x/y`, and every stop of `mo-wrap` multiplies
+ * `--mo-look-x/y` or the unsigned `--mo-look-m*`, so at zero both loops evaluate
+ * to the identity at every keyframe. They go on running, cost what they always
+ * cost, and position nothing — which is the same bargain `--mo-shake` and
+ * `--mo-rock` already make, and it means there is nothing to restart when gaze
+ * is switched off. The seeds come back and the rove resumes mid-cycle rather
+ * than snapping to phase zero.
+ *
+ * ### What deliberately survives
+ *
+ * Blink, breathe and bob. None of them is aiming anything: they are what makes a
+ * blobatar read as alive rather than as a diagram, and `motion.css` calls blink
+ * "the layer to keep if only one survives". A blobatar that watches you, breathes
+ * and blinks is the thing being built. One that also glances away at random is
+ * two things.
+ *
+ * On `.mo-root` rather than on the `<svg>`, where `motionVars` writes these
+ * inline: a rule cannot outrank an inline style on the same element, and it does
+ * not need to. `.mo-root` is one level down and everything that reads them is
+ * below that, so the override lands on the whole subtree and the markup is left
+ * exactly as the library emitted it.
+ */
+
+/*
+ * The copy. Unregistered on purpose: these are never animated and never
+ * interpolated, they are substituted into the `calc()` below once per change,
+ * so registering them would buy nothing and cost four more declarations the
+ * style engine has to type-check on every blobatar.
+ *
+ * The fallbacks are `motion.css`'s own, repeated here for the same reason it
+ * repeats them at every use: a blobatar rendered without `animate` carries no
+ * inline seeds at all, and the copy has to resolve to something the damping can
+ * multiply rather than to nothing.
+ */
+

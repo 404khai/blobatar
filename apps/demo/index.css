@@ -102,11 +102,6 @@ code {
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.08s;
-}
-
-.cell:hover {
-  transform: scale(1.12);
 }
 
 .cell svg {
@@ -208,9 +203,38 @@ textarea {
   resize: vertical;
 }
 
-/* The library brings its own hover reaction when animating; two stacked scales
-   on two different clocks is not a thing worth looking at. */
-.grid[data-animate] .cell:hover {
+/**
+ * No hover scaling anywhere in the grid, from either source.
+ *
+ * There were two, and the demo's own was already suppressed whenever animation
+ * was on — two stacked scales on two different clocks is not a thing worth
+ * looking at — so it has simply gone, along with the transition that drove it.
+ *
+ * The rule below is the library's, and it is *suppressed here rather than
+ * disliked*. `.mo-root:hover` lifts by `translateY(-1.5px) scale(1.04)`, which is
+ * the right reaction for the single large blobatar it was designed around and
+ * the wrong one for a field of four hundred.
+ *
+ * The reason is legibility, not speed. A cell that grows under the pointer moves
+ * its own centre, so the thing the gaze layer is aimed at shifts in the moment
+ * you arrive at it, and judging where a blobatar is looking while it is also
+ * being scaled is judging two effects at once — which is the same argument the
+ * pair and ballot modes are built on.
+ *
+ * **It was not measurably faster and the comment here first claimed it was.**
+ * Sweep rates across the grid moved by less than the run-to-run variance of the
+ * harness, so there is no performance claim to make. The in-grid figure does sit
+ * below the over-header one, but that gap is mostly proximity rather than hover:
+ * a pointer above the grid has far fewer blobatars inside `reach`, so it is two
+ * different workloads being compared, not one workload with and without a lift.
+ *
+ * `--mo-amp` is deliberately left alone. Hover still wakes the idle layers,
+ * because that is the behaviour under test; only the geometry is stood down.
+ *
+ * Scoped to `.grid`, so the focus sheet keeps the real reaction. A single large
+ * blobatar is exactly the case the library built it for.
+ */
+.grid .mo-root:hover {
   transform: none;
 }
 
@@ -289,4 +313,35 @@ textarea {
    the neighbours it is being compared against off the edge. */
 .cell.trio:hover {
   transform: none;
+}
+
+/*
+ * The gaze target. See `App.tsx` for why the harness draws it at all: a field
+ * aimed 40px off reads exactly like a field aimed correctly until there is
+ * something on screen to check it against.
+ *
+ * `fixed`, because the driver aims in client coordinates and this is the same
+ * point drawn. `translate(-50%, -50%)` is on the transform rather than done with
+ * offsets so the drag can write one property and land the cookie's *centre* on
+ * the pointer, which is the point the blobatars are looking at.
+ */
+.cookie {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  font-size: 34px;
+  line-height: 1;
+  cursor: grab;
+  /* Or the browser scrolls the page instead of giving us the drag. */
+  touch-action: none;
+  user-select: none;
+  /* A drop shadow rather than a ring: the cookie sits over a field of blobatars
+     and has to read as *above* them without drawing a box that competes with the
+     cells for being the thing you are looking at. */
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35));
+}
+
+.cookie:active {
+  cursor: grabbing;
 }

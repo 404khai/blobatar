@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun --hot server.ts",
-    "check": "true"
+    "check": "true",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@blobatar/react": "workspace:*",

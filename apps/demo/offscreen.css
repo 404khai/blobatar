@@ -1,0 +1,82 @@
+/**
+ * The two culling candidates. See `offscreen.ts` for what they are for and what
+ * they cost.
+ *
+ * Both hang off `data-cull` on the grid, an attribute React owns and sets, for
+ * the reason the gaze layer learned the hard way: a class written imperatively
+ * onto an element a framework composes is a race the writer loses silently.
+ * Absent, neither rule exists and the grid is exactly what it was.
+ */
+
+/*
+ * Candidate A: the browser decides, and no JavaScript is involved.
+ *
+ * `content-visibility: auto` skips style, layout and paint for content that is
+ * offscreen, which is strictly more than pausing the animations: the animations
+ * stop as a consequence of the subtree not being rendered rather than as the
+ * thing being asked for.
+ *
+ * No `contain-intrinsic-size`, and that is not an omission. Skipped content
+ * needs a stand-in size only when the box cannot be sized without it, and
+ * `.cell` can: its width comes from the grid track and `aspect-ratio: 1` gives
+ * the height. Adding a guessed size on top would be a second, worse answer
+ * competing with a definite one, and getting it wrong is what makes a scrollbar
+ * jump as you scroll.
+ */
+.grid[data-cull="auto"] .cell {
+  content-visibility: auto;
+}
+
+/*
+ * Candidate B: we decide, and only the animations stop.
+ *
+ * The universal selector is doing real work rather than being lazy. The idle
+ * layers are spread over five elements inside each blobatar — `.mo-breathe`,
+ * `.mo-bob`, `.mo-eyes`, `.mo-eye` and the shape under it — and naming them here
+ * would be this file's copy of the library's structure, going stale the first
+ * time a layer moves. Inside an offscreen cell there is nothing animating that
+ * is not meant to stop.
+ *
+ * `animation-play-state` freezes rather than resets, so a cell scrolled away
+ * mid-blink comes back mid-blink instead of snapping open. That is the right
+ * behaviour on the way back and it is also the source of the phase drift
+ * `offscreen.ts` documents.
+ */
+.grid[data-cull="pause"] .cell[data-off] * {
+  animation-play-state: paused;
+}
+
+/*
+ * Candidate C: pause every blobatar that is not hovered.
+ *
+ * The largest of the three by a distance, and the only one that reaches the
+ * resting page. `animate="hover"` pauses **nothing** today: `motion.css`
+ * declares every loop `infinite` on every blobatar unconditionally and hover
+ * only ramps `--mo-amp` from 0 to 1, so the twelve animations per blobatar tick
+ * at `hover` exactly as they do at `always` and only their output is gated. At
+ * 200 blobatars that is 2400 running animations and ~15fps with nothing moving
+ * and gaze switched off.
+ *
+ * That is a stated trade rather than an oversight. `motion.css` argues for one
+ * code path running everywhere so hover-out has nothing to start or stop and no
+ * layer jump-cuts. The claim this rule makes is that the trade can be kept and
+ * paid for anyway, because **`animation-play-state` freezes rather than
+ * resets**: at `--mo-amp: 0` every loop already resolves to the identity, so
+ * pausing changes nothing anyone can see, and hovering resumes from the frozen
+ * phase rather than restarting at zero. The jump-cut the design pays to avoid is
+ * still avoided.
+ *
+ * `:not(.mo-always)` is what keeps it honest. `animate="always"` means the
+ * blobatar is meant to be moving whether or not a pointer is near it, and this
+ * rule is inert there by construction rather than by luck.
+ *
+ * The cost is the same phase drift the other two carry, and here it is
+ * continuous rather than occasional: every blobatar's clock stops whenever
+ * nobody is on it, so the field's seeded offsets erode toward whatever the hover
+ * history happened to be. Invisible in a crowd whose phases are random on
+ * purpose. A real change to what `idle.ts` means, and the thing a library
+ * version owes an answer for.
+ */
+.grid[data-cull="unhovered"] .mo-root:not(:hover):not(.mo-always) * {
+  animation-play-state: paused;
+}

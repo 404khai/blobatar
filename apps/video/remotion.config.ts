@@ -31,7 +31,9 @@ Config.overrideWebpackConfig((current) => ({
       "@blobatar/react$": src("react.tsx"),
       "@blobatar/vue$": src("vue.ts"),
       "blobatar/animate$": src("animate.ts"),
+      "blobatar/gaze$": src("gaze.ts"),
       "blobatar/motion.css$": src("motion.css"),
+      "blobatar/gaze.css$": src("gaze.css"),
     },
   },
 }));

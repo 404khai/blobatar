@@ -10,7 +10,9 @@ import { Triangles, END as TRI_END } from "./Triangles";
 import { Adapters } from "./Adapters";
 import { END as SWAP_END } from "./swap";
 import { Thanks } from "./Thanks";
+import { Gaze } from "./Gaze";
 import { END as STARS_END } from "./stars";
+import { END as WATCH_END } from "./watch";
 
 export const RemotionRoot: FC = () => (
   <>
@@ -66,6 +68,21 @@ export const RemotionRoot: FC = () => (
       id="Adapters"
       component={Adapters}
       durationInFrames={SWAP_END}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+    {/*
+      The gaze announce. Same stage, same crowd, same creature, and the camera
+      makes the same move the launch film makes, so the two cut together. What
+      is different is that the thing being demonstrated is not on screen: the
+      pointer is, and the claim is what a hundred and twenty pairs of eyes do
+      about it.
+    */}
+    <Composition
+      id="Gaze"
+      component={Gaze}
+      durationInFrames={WATCH_END}
       fps={FPS}
       width={WIDTH}
       height={HEIGHT}
