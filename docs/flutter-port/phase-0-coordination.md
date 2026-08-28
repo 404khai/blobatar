@@ -1,16 +1,13 @@
 # Phase 0 — coordination and contract freeze record
 
-Status: recorded, pending maintainer answers on the open items  
+Status: recorded — decisions superseded where noted below  
 Date: 2026-08-28  
-Issue: [Alain00/blobatar#29](https://github.com/Alain00/blobatar/issues/29)  
-Coordination comment:
-[issue #29 comment](https://github.com/Alain00/blobatar/issues/29#issuecomment-5458106206)
+Issue: [Alain00/blobatar#29](https://github.com/Alain00/blobatar/issues/29)
 
 This document records what Phase 0 settled, what the issue thread settled, and
-what stays open before Phase 1 adds Dart code. It corrects one stale claim in
-[the plan](../flutter-port-plan.md): the issue is no longer commentless. The
-thread now contains two other ports, a maintainer ruling, and a published
-reference-vector schema.
+what stays open. The coordination comment this phase posted on issue #29 was
+later removed; the decisions that matter stand or fall on their own and are
+noted below.
 
 ## What the issue thread settled
 
@@ -48,14 +45,14 @@ The thread grew after this plan was written. In order:
 
 | Item | Decision | Status |
 | --- | --- | --- |
-| Port location | The fork, `404khai/blobatar`, branch `feat/flutter-dart-port`. No port PR against this monorepo. | Settled by the maintainer's ruling. |
-| Reference version | Blobatar `2.4.0`, generation 2. Vectors pin that release. | Proposed in the coordination comment; confirmed unless the maintainer objects. |
+| Port location | The fork, `404khai/blobatar`, at `packages/flutter`. This is the fork's official SDK: developed here, published to pub.dev as `blobatar`, and offered upstream to `Alain00/blobatar` once complete. | Revised decision — supersedes the maintainer's "lives in its own repo" ruling for this port. |
+| Reference version | Blobatar `2.4.0`, generation 2. Vectors pin that release. | Settled; the fixture is generated from a v2.4.0 checkout. |
 | Gaze layer (new in `2.6.0`) | Pointer-driven, has a JavaScript half, and is outside the frozen gen-2 seed-to-look contract. Out of port scope; noted as a documented non-goal. | Proposed; open to maintainer override. |
-| Vector schema | Converge on the schema Rart3001 published, refined in [`reference-vectors.md`](./reference-vectors.md), so the ecosystem keeps one definition of correct. | Proposed; awaiting the maintainer's file-shape decision. |
-| Package name | Not self-assigned. The coordination comment asks the maintainer to confirm which name, if any, this port may use. Nothing publishes until answered. | Open. |
-| SDK range | Current stable Dart/Flutter at Phase 1 start, widened only as far as CI can actually test. Exact floor recorded in the Phase 1 `pubspec.yaml`. | Open, to be fixed in Phase 1. |
+| Vector schema | The fixture and schema in [`reference-vectors.md`](./reference-vectors.md), generated only by `tools/export-reference-vectors.ts` from the pinned release. | In use since Phase 1. |
+| Package name | `blobatar` on pub.dev, with the maintainer consulted before publishing (`blobatar_flutter` was the fallback). | To be confirmed before publication. |
+| SDK range | Current stable Dart/Flutter at Phase 1 start (`sdk: ^3.6.0`), widened only as far as CI can actually test. | Recorded in the Phase 1 `pubspec.yaml`. |
 | License | MIT, matching upstream, with attribution to the original author. | Proposed. |
-| First PR target | No port PR targets this monorepo. The only upstream-facing PR candidate is the reference-vector artifact itself, once the maintainer confirms its shape. | Settled by the maintainer's ruling. |
+| First PR target | Phased PRs target this repository's `main`; the finished SDK is offered upstream once the maintainer approves. | Revised decision. |
 
 ## Open parity questions
 
@@ -98,10 +95,11 @@ relative tolerance for trig-derived layout numbers only). See
 ## Exit criteria check
 
 - [x] Maintainer-facing scope and package-name decision raised in the issue
-      discussion (the coordination comment).
+      discussion. (The coordination comment has since been removed; the open
+      questions remain on issue #29.)
 - [x] Reference version and vector schema written down before Dart code
       ([`reference-vectors.md`](./reference-vectors.md)).
-- [ ] Maintainer answers on package name, vector file shape, and the two
-      parity calls above. Blocking publication and the upstream vector-artifact
-      PR, not blocking Phase 1 development in the fork.
+- [ ] Maintainer answers on package name and the two parity calls. Blocking
+      publication and the upstream hand-off, not blocking Phase 1 in this
+      repository.
 
