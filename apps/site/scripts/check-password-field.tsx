@@ -53,6 +53,17 @@ import { createRoot } from "react-dom/client";
 import { Blobatar } from "@blobatar/react";
 import { useGaze } from "@blobatar/react/gaze";
 import { PasswordField } from "../../registry/password-field";
+/*
+ * The app's own stylesheet, and it is load-bearing rather than cosmetic.
+ *
+ * Without it this page renders the field at the user agent's defaults — 13px
+ * Arial, 2px of padding — and every measurement below is then about a component
+ * nobody ships. That is not hypothetical: the field's own sizing was wrong for a
+ * release while every claim here passed, because the thing that was wrong is a
+ * class this file was not loading. A gate that styles its subject differently
+ * from production is measuring a different subject.
+ */
+import "../../styles.css";
 import "blobatar/motion.css";
 import "blobatar/gaze.css";
 
@@ -240,6 +251,61 @@ createRoot(host).render(<PasswordField name="alain00" size={160} />);
     report("harness threw on the hook", false, String((err as Error)?.stack ?? err));
   }
 
+  /*
+   * 7 — the follow is big enough to see.
+   *
+   * Every other claim here is about *where* the eyes point, and all of them
+   * passed while the gaze was, in practice, invisible: the field was small
+   * enough that a keystroke moved the caret 8px against a 150px drop, and the
+   * eye answered with 0.8px. Correct by every assertion above and reported as
+   * broken by the person looking at it.
+   *
+   * So this one is about magnitude, in screen pixels, on the rendered eye —
+   * which is the only unit the complaint was ever in. It is a design
+   * constraint as much as a correctness one: the aim is an angle, so the field
+   * must stay large relative to its distance from the face, and shrinking the
+   * font or pushing the two apart will fail here rather than in someone's eyes.
+   */
+  try {
+    const spot = document.createElement("div");
+    document.body.appendChild(spot);
+    createRoot(spot).render(<PasswordField name="alain00" />);
+    await settle(8);
+
+    const input = spot.querySelector("input") as HTMLInputElement;
+    const eye = spot.querySelectorAll(".mo-eye")[1] as SVGGraphicsElement;
+    const b = eye.getBBox();
+    const centre = new DOMPoint(b.x + b.width / 2, b.y + b.height / 2);
+    const at = () => centre.matrixTransform(eye.getScreenCTM()!).x;
+    const set = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+
+    input.focus();
+    await settle();
+    const empty = at();
+
+    /* Twelve characters: a real password, and short of the length at which the
+       field scrolls and the caret stops moving. */
+    set.call(input, "hunter2hunt");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle(60);
+    const typed = at();
+    const swept = typed - empty;
+
+    const cs = getComputedStyle(input);
+    report(
+      "typing sweeps the eyes far enough to be seen",
+      swept > 18,
+      \`the eye travels \${swept.toFixed(1)}px from an empty field to eleven \` +
+        \`characters at \${cs.fontSize}/\${cs.letterSpacing} tracking \` +
+        \`(needs > 18px; it was 10px before the field was resized)\`,
+    );
+  } catch (err) {
+    report("harness threw on the sweep", false, String((err as Error)?.stack ?? err));
+  }
+
   await fetch("/result", { method: "POST", body: JSON.stringify(results) });
 })();
 `,
@@ -247,6 +313,10 @@ createRoot(host).render(<PasswordField name="alain00" size={160} />);
 
 const build = await Bun.build({
   entrypoints: [entry],
+  /* `styles.css` is Tailwind source, so it needs the same plugin the app's own
+     build and dev server use. Imported here rather than listed in `bunfig.toml`,
+     which only configures `Bun.serve`'s static builds. */
+  plugins: [(await import("bun-plugin-tailwind")).default],
   target: "browser",
   define: { "process.env.NODE_ENV": '"development"' },
 });

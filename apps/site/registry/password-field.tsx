@@ -110,11 +110,19 @@ function caretAt(input: HTMLInputElement): { x: number; y: number } | null {
   const r = input.getBoundingClientRect();
   const inset =
     (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0);
+  /* The far edge is where the *text* stops, not where the field does. The
+     reveal toggle sits inside the box on 80px of padding, so clamping to the
+     border edge would let the eyes aim at a strip of the field no caret can
+     ever be in — a fifth of the field's width, on the side the eyes swing
+     furthest to. */
+  const stop =
+    r.right -
+    ((parseFloat(cs.borderRightWidth) || 0) + (parseFloat(cs.paddingRight) || 0));
   return {
-    /* Clamped to the field, so a value longer than the box aims at the edge the
-       caret is actually parked against rather than off into the page. The input
-       scrolls its own content, which `scrollLeft` is what accounts for. */
-    x: Math.min(r.left + inset - input.scrollLeft + w, r.right),
+    /* Clamped to the run of text, so a value longer than the box aims at the
+       edge the caret is actually parked against rather than off into the page.
+       The input scrolls its own content, which `scrollLeft` accounts for. */
+    x: Math.min(Math.max(r.left + inset - input.scrollLeft + w, r.left + inset), stop),
     y: r.top + r.height / 2,
   };
 }
@@ -128,7 +136,13 @@ export type PasswordFieldProps = Omit<
   onValueChange?: (value: string) => void;
   /** The seed for the face. Give it the account, so a person meets the same one. */
   name?: string;
-  /** Rendered size of the face in pixels. */
+  /**
+   * Rendered size of the face in pixels.
+   *
+   * The excursion is in viewBox units, so it scales with this: a bigger face
+   * does not merely draw the same gaze larger, it moves the eyes further in
+   * pixels for the same angle. That is most of why the default is not small.
+   */
   size?: number;
   /**
    * Passed to the face. A house style belongs here rather than on each usage:
@@ -143,7 +157,7 @@ export type PasswordFieldProps = Omit<
 
 export function PasswordField({
   name = "alain00",
-  size = 128,
+  size = 160,
   blobatar,
   label = "Password",
   className,
@@ -262,7 +276,10 @@ export function PasswordField({
   const track = () => aim();
 
   return (
-    <div className={cn("flex w-full max-w-sm flex-col items-center gap-6", className)}>
+    /* `gap-4`, not `gap-6`: every pixel between the face and the field is drop
+       the aim has to divide the caret's travel by, so the two being close is
+       what makes the look legible as a look. */
+    <div className={cn("flex w-full max-w-sm flex-col items-center gap-4", className)}>
       <Blobatar
         ref={face}
         /*
@@ -304,7 +321,35 @@ export function PasswordField({
             type={shown ? "text" : "password"}
             value={text}
             autoComplete="current-password"
-            className="pr-20"
+            /*
+             * Deliberately large, and the size is a functional decision rather
+             * than a stylistic one.
+             *
+             * The eyes aim at the caret by *angle*, so what they can express is
+             * how far the caret moves compared to how far away it is. At the
+             * default field size that ratio is hopeless: 8px of caret travel
+             * per keystroke against 150px of drop to the field moves a 128px
+             * face's eye by 0.8px, which is a real gaze nobody can see. It read
+             * as a broken feature and was measured as a working one.
+             *
+             * `text-2xl` and the tracking are what fix it, and the tracking
+             * does most of the work: it is 0.3em of extra width per character,
+             * so a keystroke is worth about 20px of caret rather than 8. Dots
+             * want the air anyway — a run of `•` at normal tracking reads as a
+             * smear rather than as a count of what you typed.
+             *
+             * `caretAt` copies `letterSpacing` onto its mirror, so the
+             * measurement follows this automatically and none of it is a second
+             * number to keep in sync.
+             *
+             * `md:text-2xl` is not redundant. The base `Input` carries
+             * `text-base md:text-sm`, and a responsive utility beats a plain
+             * one at that width whatever the order here — so `text-2xl` alone
+             * is a field that is 24px on a phone and 14px on the desktop this
+             * component is demonstrated on. It was written that way first, and
+             * the measurement is what caught it.
+             */
+            className="h-14 pr-24 text-2xl tracking-[0.3em] md:text-2xl"
             onChange={(e) => {
               if (value === undefined) setOwn(e.target.value);
               onValueChange?.(e.target.value);
