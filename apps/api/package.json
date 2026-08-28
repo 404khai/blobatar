@@ -6,7 +6,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "bun test",
-    "check": "bun test"
+    "check": "bun test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "//dependencies": "Both generations come from npm package majors: the current `blobatar` normally links to this workspace, while `blobatar-v1` aliases the frozen v1 release for `?gen=1`. A clone made by the Deploy to Cloudflare button installs this directory alone, so workspace protocols would be unresolvable.",
   "dependencies": {

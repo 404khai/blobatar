@@ -20,7 +20,16 @@ const operations = Object.entries(document.paths).flatMap(([path, item]) =>
 );
 const getAvatar = document.paths["/avatar/{name}"].get;
 const params = getAvatar.parameters;
-const named = (name: string) => params.find((p: any) => p.name === name);
+/*
+ * `any`, like the predicates below it and for the same reason: this walks the
+ * emitted document as a document. `parameters` is a heterogeneous literal, so
+ * the inferred element type is a union in which only some members carry `enum`
+ * or `minimum`, and every assertion here is precisely about whether a given
+ * member has the field the parser implies it should. Typing the walk defeats
+ * the test rather than strengthening it.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: see above
+const named = (name: string): any => params.find((p: any) => p.name === name);
 
 describe("the spec describes the parser", () => {
   test("every accepted query parameter appears, and nothing else does", () => {

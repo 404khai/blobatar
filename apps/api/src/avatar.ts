@@ -18,8 +18,34 @@ import {
  */
 type Renderer = (name: string, options?: UrlOptions) => string;
 
+/*
+ * `blobatar1` is cast, and the cast is the honest statement rather than a
+ * silencing.
+ *
+ * `UrlOptions` is `Pick<BlobatarOptions, ...>` off gen2, and `expression` is
+ * the one parameter a URL can spell where the two generations genuinely
+ * diverge: gen2's `Expression.vars` takes a `Pose` that has gained `edy2` and
+ * `rock`, so a gen2 expression is not assignable to gen1's parameter and
+ * `Renderer` cannot be satisfied by both. That is a true statement about the
+ * types and a false one about this endpoint.
+ *
+ * What the endpoint actually passes is one of the `EXPRESSIONS` values, and
+ * gen1 reads only the fields it knows: every one of the thirteen expressions
+ * both packages export renders byte-identically through gen1 whether it is
+ * handed gen1's object or gen2's, across seeds, and `thinking` — the gen2-only
+ * pose whose channels caused the divergence — still renders well-formed rather
+ * than throwing or emitting `NaN`. Verified by rendering all of them both ways.
+ *
+ * So the alternative to the cast is worse in both directions: widening
+ * `UrlOptions.expression` to `unknown` would take the parameter out of the
+ * validation `parseOptions` does, and giving each generation its own renderer
+ * type would make the endpoint's dispatch generic over a difference it does not
+ * have. The narrow assertion, with the measurement behind it, is the smaller
+ * lie. If a future generation reads a channel an older one lacks, this is the
+ * line that has to be revisited, which is why it says so.
+ */
 const RENDERERS: Record<Generation, Renderer> = {
-  1: blobatar1,
+  1: blobatar1 as Renderer,
   2: blobatar2,
 };
 
