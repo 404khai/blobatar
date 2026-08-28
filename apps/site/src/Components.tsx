@@ -25,6 +25,7 @@ import { AgentList, type Agent } from "@/components/ui/agent-list";
 import { Sidebar, SidebarContent, SidebarProvider } from "@/components/ui/sidebar";
 import { GroupChat, type ChatMessage } from "@/components/ui/group-chat";
 import { Install } from "@/components/ui/install";
+import { PasswordField } from "@/components/ui/password-field";
 import { PresenceAvatar, type PresenceState } from "@/components/ui/presence-avatar";
 import { UserTable, type User } from "@/components/ui/user-table";
 import { SiteFooter } from "@/components/SiteNav";
@@ -43,6 +44,7 @@ const DEMOS: Record<ShowcaseItem, () => ReactNode> = {
   "presence-avatar": PresenceAvatarDemo,
   "agent-list": AgentListDemo,
   "user-table": UserTableDemo,
+  "password-field": PasswordFieldDemo,
   "group-chat": GroupChatDemo,
 };
 
@@ -60,7 +62,7 @@ export function Components() {
         Components
       </h1>
       <p className="text-muted mt-5 max-w-2xl text-balance leading-relaxed">
-        Four pieces of interface built on blobatar, each one a shadcn registry
+        Five pieces of interface built on blobatar, each one a shadcn registry
         item. The generator stays in the packages, so the faces keep their
         guarantee; what gets copied into your project is the composition, which
         is the part you will want to edit.
@@ -345,6 +347,28 @@ function AgentListDemo() {
         </SidebarContent>
       </Sidebar>
     </SidebarProvider>
+  );
+}
+
+/**
+ * The one demo that is about motion rather than about layout, so it is the one
+ * that has to be *used* rather than looked at.
+ *
+ * Seeded and typed into, with nothing pre-filled: an empty field is what puts
+ * the caret at the left edge, which is where the difference between watching
+ * the pointer and watching the caret is largest and most obvious. A demo that
+ * arrived with a value already in it would open with the eyes pointing at the
+ * end of a string nobody typed.
+ */
+function PasswordFieldDemo() {
+  return (
+    <div className="flex justify-center py-4">
+      <PasswordField
+        name="alain00"
+        label="Password"
+        placeholder="Type something, then press Show"
+      />
+    </div>
   );
 }
 

@@ -10,11 +10,19 @@
       "blobatar/uri": ["../../packages/blobatar/src/uri.ts"],
       "blobatar/expression": ["../../packages/blobatar/src/expression.ts"],
       "@blobatar/react": ["../../packages/react/src/index.tsx"],
+      "@blobatar/react/gaze": ["../../packages/react/src/gaze.ts"],
       "blobatar/react": ["../../packages/blobatar/src/react.tsx"],
-      "blobatar/motion.css": ["../../packages/blobatar/src/motion.css"]
+      "blobatar/gaze": ["../../packages/blobatar/src/gaze.ts"],
+      "blobatar/motion.css": ["../../packages/blobatar/src/motion.css"],
+      "blobatar/gaze.css": ["../../packages/blobatar/src/gaze.css"]
     }
   },
-  "include": ["."],
+  // `bun-env.d.ts` carries the ambient `*.css` / `*.svg` declarations. It
+  // lives at the root, where the root config picks it up by including
+  // everything, and an app that narrows `include` to its own directory drops
+  // it: every `import "./styles.css"` then fails with TS2882 even though the
+  // declaration exists three directories up.
+  "include": [".", "../../bun-env.d.ts"],
 
   /*
    * `registry/` holds the sources `shadcn build` inlines into `public/r`. They

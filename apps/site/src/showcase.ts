@@ -22,7 +22,8 @@ export type ShowcaseItem =
   | "presence-avatar"
   | "agent-list"
   | "user-table"
-  | "group-chat";
+  | "group-chat"
+  | "password-field";
 
 export type Showcase = {
   /** The registry item name. The URL, the anchor, and the install argument. */
@@ -39,6 +40,12 @@ export type Showcase = {
  * who starts at the top has already met it by the time it turns up inside
  * something else. The chat is last because it is the biggest and the least
  * surprising.
+ *
+ * The password field sits out of that order on purpose. It is the only item
+ * here that is about motion rather than composition, and it is the only one a
+ * reader has to put their hands on to see what it does, so it goes late enough
+ * that the faces are already familiar and early enough not to be the thing
+ * after the long one.
  */
 export const SHOWCASE: Showcase[] = [
   {
@@ -58,6 +65,12 @@ export const SHOWCASE: Showcase[] = [
     title: "User table",
     blurb:
       "A table of people is a wall of similar strings. A face per row is the one column that differs for every row without being text, which is what makes a row findable on the way back.",
+  },
+  {
+    item: "password-field",
+    blurb:
+      "The one input that deliberately stops telling you what you did. It watches the caret while the dots are up, and looks away the moment you ask to read your own password back.",
+    title: "Password field",
   },
   {
     item: "group-chat",

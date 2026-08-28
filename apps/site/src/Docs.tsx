@@ -226,6 +226,61 @@ npx shadcn@latest add @blobatar/avatar`}</Code>
         </P>
       </Section>
 
+      <Section id="motion" title="Motion, and the eyes">
+        <P>
+          Animation is opt-in and off by default. With{" "}
+          <Inline>blobatar/motion.css</Inline> loaded and an{" "}
+          <Inline>animate</Inline> prop set, a blobatar breathes, bobs, blinks
+          and glances, all of it seeded from the name so that a grid reads as a
+          crowd rather than a drill team. That layer is pure CSS: the browser
+          runs it and nothing in JavaScript is involved.
+        </P>
+        <P>
+          One layer is not, and cannot be. A gaze is a function of where the
+          pointer is, which no keyframe can know, so it ships as its own entry
+          point and its own stylesheet — a page that never imports them pays
+          nothing for it.
+        </P>
+        <Code>{`import { useGaze } from "@blobatar/react/gaze";
+import "blobatar/gaze.css";
+
+const { ref, lookAt, home } = useGaze({ travel: 3 });
+<Blobatar ref={ref} name={user.email} animate="always" size={200} />;
+
+lookAt({ x, y });  // aim it somewhere other than the cursor — a caret, a card
+lookAt(null);      // hand the eyes back to the pointer
+home();            // park them in the middle without resuming the pointer`}</Code>
+        <P>
+          A separate subpath, so it costs nothing unless you import it — the
+          same bargain <Inline>@blobatar/react-native/animated</Inline> makes.
+          Outside React, <Inline>gaze(svgEl)</Inline> from{" "}
+          <Inline>blobatar/gaze</Inline> is the same driver without the hook.
+        </P>
+        <P>
+          <Inline>travel</Inline> is the excursion, and it is what opts a
+          blobatar in. <Inline>--mo-track-travel</Inline> starts at{" "}
+          <Inline>0px</Inline>, so with the stylesheet loaded and the excursion
+          set nowhere every face on the page holds still. It is in viewBox units
+          — the blobatar is 100 across, so 3 is 3% of the face. Outside React,
+          or for a whole field of them at once, set the property instead: it
+          inherits, and it can be made responsive.
+        </P>
+        <Code>{`.hero .mo-eyes { --mo-track-travel: 3px; }`}</Code>
+        <P>
+          The idle glance stands down on its own while the gaze is driving, so
+          the eyes are never being aimed at two things at once. Nothing attaches
+          under <Inline>prefers-reduced-motion</Inline> or without a fine
+          pointer, both are watched rather than sampled once, and a settled
+          blobatar under a still pointer schedules no frames at all.
+        </P>
+        <P>
+          The blobatar at the top of this site is running it, and{" "}
+          <A href="/components#password-field">the password field</A> is a
+          worked example: it watches the caret while you type and looks away
+          when you reveal what you typed.
+        </P>
+      </Section>
+
       <Section id="machine-readable" title="Machine-readable">
         <P>
           Three files, at fixed paths, none of which need JavaScript to read:

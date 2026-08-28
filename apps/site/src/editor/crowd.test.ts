@@ -43,6 +43,11 @@ describe("other names, same config", () => {
   test("every name it hands back is one the list actually holds", () => {
     // The walk is modular arithmetic over `NAMES.length`; an off-by-one there
     // is an `undefined` in a `name` prop and a blobatar of the empty string.
-    for (const n of crowd("zoya")) expect(NAMES).toContain(n);
+    // Widened, because `NAMES` is a tuple of string literals and `toContain`
+    // types its argument as the element type: without this the assertion only
+    // compiles for values the compiler already knows are in the list, which is
+    // the opposite of what it is checking.
+    const names: readonly string[] = NAMES;
+    for (const n of crowd("zoya")) expect(names).toContain(n);
   });
 });

@@ -49,6 +49,7 @@ import {
 } from "@/frameworks";
 import { EggMark, eggFor } from "@/eggs";
 import { cn } from "@/lib/utils";
+import { useGaze } from "@blobatar/react/gaze";
 import {
   createParser,
   debounce,
@@ -382,6 +383,44 @@ export function Hero() {
 
   useEffect(() => () => clearTimeout(release.current ?? undefined), []);
 
+  /**
+   * The gaze layer: this blobatar's eyes follow the pointer. See
+   * `@blobatar/react/gaze` for the hook and `blobatar/gaze` for what it drives.
+   * The one decision that is actually this page's is the excursion, and it is
+   * the option below rather than a rule in `styles.css`.
+   *
+   * It used to be the rule, and the rule was silently winning. `useGaze` writes
+   * `--mo-track-travel` inline on the element it is given, which is the
+   * `<svg>`, and `gaze.css` reads it on the `.mo-eyes` group inside. A
+   * `.hero-blobatar .mo-eyes { --mo-track-travel: … }` matches that group
+   * directly, and a declaration on the element always beats a value inherited
+   * from an ancestor, so the eyes never saw what the hook wrote and `travel`
+   * did nothing at all. One owner, here.
+   *
+   * The pointer gate the rule used to sit behind is not lost with it. The
+   * driver watches `(hover: hover) and (pointer: fine)` itself and only
+   * attaches while it matches, so on a touch screen `--mo-track-x/y` stay at
+   * their registered `0` and the excursion has nothing to multiply.
+   *
+   * In viewBox units, so this is 3% of a face 100 units across rather than
+   * three screen pixels. The idle saccade's widest stop is a median 1.4 units,
+   * so a little over twice an idle glance. It has to be: that one is a rove and
+   * this is a deliberate look, carried by two small capsules.
+   *
+   * No `egg` key any more, and that is the hook earning its place rather than a
+   * tidy-up. This used to be an effect keyed on `egg` because a mark takes the
+   * face's slot entirely, so the ref is null on those renders and there is
+   * nothing to drive — a dependency that had to be remembered, and that says
+   * nothing about gaze to anyone reading it. `useGaze` hands back a callback
+   * ref, so the driver's life follows the element's exactly and a blobatar that
+   * is swapped out simply detaches.
+   *
+   * Nothing else in the render can invalidate it: it writes only
+   * `--mo-track-*`, which React never touches, so an expression change, a hue
+   * change or a remount of the SVG's contents all leave it running.
+   */
+  const { ref: face } = useGaze({ travel: 18 });
+
   const shown = burst ?? expression.value;
   /** Whether the picked expression is one of the ones the row hides. */
   const extra = MORE.some((p) => p.name === expression.name);
@@ -632,6 +671,7 @@ export function Hero() {
                   />
                 ) : (
                   <Blobatar
+                    ref={face}
                     name={seed || " "}
                     animate="always"
                     {...opts}
@@ -1144,4 +1184,3 @@ function SlidersIcon() {
     </svg>
   );
 }
-

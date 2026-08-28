@@ -14,6 +14,11 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 // `styles.css` cancels the library's hover reaction, and both rules are
 // unlayered and equally specific, so the later file is the one that wins.
 import "blobatar/motion.css";
+// The gaze layer's geometry (§4.5). Separate from `motion.css` because it is
+// the one layer with a JavaScript half, so it is the one a page can decline;
+// this page does not. Inert until something sets `--mo-track-travel`, which
+// `styles.css` does on the hero alone.
+import "blobatar/gaze.css";
 import "./styles.css";
 
 // Nothing here injects an analytics script. Cloudflare Web Analytics is
