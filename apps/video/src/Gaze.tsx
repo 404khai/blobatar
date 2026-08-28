@@ -4,6 +4,7 @@ import { Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "re
 import type { Expression } from "blobatar/expression";
 import { idle, surprised } from "blobatar/expression";
 import { morph } from "./reel";
+import { WithFaces, gazeVars, type Faces } from "./face";
 import { MONO, SANS } from "./fonts";
 import {
   B_CARD,
@@ -25,7 +26,12 @@ import {
   HERO_Y,
   PULL_TO,
   WIDTH,
+  GRID,
   HERO,
+  ROLL,
+  ROW_AT,
+  ROW_END,
+  SHOWCASE_CELLS,
   camera,
   ICON,
   cookieScaleAt,
@@ -36,11 +42,11 @@ import {
 } from "./watch";
 import "blobatar/motion.css";
 import "./seek.css";
-/* The library's half of §4.5: the channel registrations, the translate on
-   `.mo-eyes`, and the idle stand-down. `./gaze.css` is only what this film
-   adds on top. */
+/* §4.5 and §4.8 entire: the channel registrations, the per-eye projection on
+   `.mo-eye`, and the idle stand-down. The film adds no stylesheet of its own
+   any more — the sphere cues it used to approximate with a `scale` are what
+   the library now ships, computed properly from the projection. */
 import "blobatar/gaze.css";
-import "./gaze.css";
 
 const BG = "#0b0b0c";
 const TEXT = "#f2f2f3";
@@ -73,19 +79,28 @@ const HERO_INDEX = HERO_ROW * COLS + HERO_COL;
  * fast that happens would read as one of them being wrong.
  *
  * What it buys here is different, though. There the arrival *is* the beat. Here
- * it is cover for a fact about the shot: the crowd is mounted twenty frames
- * before the pull back and is already tracking the cursor, so the blobatars
- * reaching full opacity are blobatars whose eyes are in the right place
- * already. Fading them in mid-pursuit is what makes the wide shot land as
- * "they were all watching" rather than as a hundred and nineteen creatures
- * turning to look at once.
+ * it is cover for a fact about the shot: the crowd is mounted before the move
+ * and is already tracking, so the blobatars reaching full opacity are blobatars
+ * whose eyes are in the right place already. Fading them in mid-pursuit is what
+ * makes the wide shot land as "they were all watching" rather than as a hundred
+ * and eleven creatures turning to look at once.
+ *
+ * ## Two passes, because the pull back is now two moves
+ *
+ * The showcase row arrives on the first move and the field arrives on the
+ * second. That is what keeps the row beat a shot of nine silhouettes rather
+ * than of nine silhouettes in a crowd: at 1.45 the frame holds about six rows,
+ * so without this the field is already there and the outlines the beat exists
+ * to show are one texture among sixty.
+ *
+ * Both passes are the same stagger at the same rate, started from different
+ * frames, and both open outward from the hero by the same radial distance the
+ * launch film uses. The block's is simply the near half of it.
  */
-function cellOpacity(frame: number, dist: number): number {
-  const at = B_PULL + dist * 3.2;
-  return (
-    ramp(frame, at, at + 14, 0, 1, Easing.out(Easing.cubic)) *
-    ramp(frame, B_CARD + 6, B_CARD + 46, 1, 0.45)
-  );
+function cellOpacity(frame: number, index: number, dist: number): number {
+  const dim = ramp(frame, B_CARD + 6, B_CARD + 46, 1, 0.45);
+  const at = SHOWCASE_CELLS.has(index) ? B_PULL + dist * 6 : ROW_END + dist * 3.2;
+  return ramp(frame, at, at + 14, 0, 1, Easing.out(Easing.cubic)) * dim;
 }
 
 /**
@@ -101,13 +116,15 @@ const Cell: FC<{
   name: string;
   index: number;
   frame: number;
+  faces: Faces;
   pose?: Expression;
   hero?: boolean;
-}> = ({ name, index, frame, pose, hero }) => {
+}> = ({ name, index, frame, faces, pose, hero }) => {
   const col = index % COLS;
   const row = Math.floor(index / COLS);
   const dist = Math.hypot(col - HERO_COL, row - HERO_ROW);
-  const [gx, gy, mx, my] = lookAt(frame, index);
+  const [gx, gy] = lookAt(frame, index);
+  const face = faces.get(name);
 
   return (
     <div
@@ -120,11 +137,16 @@ const Cell: FC<{
           height: CELL,
           display: "grid",
           placeItems: "center",
-          opacity: hero ? ramp(frame, B_CARD + 6, B_CARD + 46, 1, 0.45) : cellOpacity(frame, dist),
+          opacity: hero
+            ? ramp(frame, B_CARD + 6, B_CARD + 46, 1, 0.45)
+            : cellOpacity(frame, index, dist),
+          /* The signed direction is still written, because it is the layer's
+             public channel and `check-gaze.ts` reads it back off a rendered
+             frame to prove the film and the solve agree. Nothing in
+             `gaze.css` positions anything from it any more. */
           "--mo-track-x": gx.toFixed(4),
           "--mo-track-y": gy.toFixed(4),
-          "--mo-track-mx": mx.toFixed(4),
-          "--mo-track-my": my.toFixed(4),
+          ...(face ? gazeVars(face, gx, gy, travelAt(frame)) : null),
         } as CSSProperties
       }
     >
@@ -325,16 +347,20 @@ export const Gaze: FC = () => {
   const pose = burst > 0 ? morph(idle, surprised, burst) : undefined;
 
   /*
-   * The crowd mounts before it is seen. Twenty frames of head start is what
-   * lets the pull back reveal a field that is already tracking rather than one
-   * that starts from centre the instant it becomes visible, which is the
-   * difference between "they were watching" and "they noticed".
+   * The row and the field mount before they are seen, each twenty frames ahead
+   * of its own arrival. That head start is what lets a move reveal blobatars
+   * that are already tracking rather than ones that start from centre the
+   * instant they become visible, which is the difference between "they were
+   * watching" and "they noticed".
    *
    * It is also the render budget: every mounted blobatar is twelve animated
-   * nodes the style engine walks per frame, and holding 119 of them out of the
-   * tree for the first four and a half seconds is most of the close shot's cost.
+   * nodes the style engine walks per frame. Holding the field out of the tree
+   * until the row beat is over keeps the close shot at one blobatar and the row
+   * beat at nine, where mounting all 120 up front would have paid for a hundred
+   * and eleven invisible ones through both.
    */
-  const crowded = frame >= B_PULL - 20;
+  const rowed = frame >= B_PULL - 20;
+  const crowded = frame >= ROW_END - 20;
 
   return (
     <div
@@ -343,7 +369,12 @@ export const Gaze: FC = () => {
           "--vid-t": `${(frame / FPS) * 1000}ms`,
           /* Held still while the pose is moving. See `blinkTimeAt`. */
           "--vid-blink-t": `${blinkTimeAt(frame)}ms`,
-          "--mo-track-travel": `${travelAt(frame).toFixed(2)}px`,
+          /* The excursion is not published as a property any more. The
+             stylesheet no longer reads it: under §4.8 the turn happens in
+             `project()`, so the film folds `travelAt` straight into the
+             per-eye channels and there is nothing left for `.mo-eyes` to
+             resolve. The driver still reads it off the cascade because it has
+             to get the number from somewhere; the film has it in hand. */
           "--mo-track-hold": holdAt(frame).toFixed(4),
           width: WIDTH,
           height: HEIGHT,
@@ -364,18 +395,38 @@ export const Gaze: FC = () => {
           }px) scale(${cam.scale})`,
         }}
       >
-        {crowded &&
-          Array.from({ length: COUNT }, (_, i) => {
-            if (i === HERO_INDEX) return null;
-            // The hero's cell is skipped, so the crowd list stays in step with
-            // the grid by counting cells before it rather than by index.
-            const n = i - (i > HERO_INDEX ? 1 : 0);
-            return (
-              <Cell key={i} name={CAST[n]!} index={i} frame={frame} pose={pose} />
-            );
-          })}
+        <WithFaces names={ROLL}>
+          {(faces) => (
+            <>
+              {rowed &&
+                Array.from({ length: COUNT }, (_, i) => {
+                  if (i === HERO_INDEX) return null;
+                  // The showcase row is on screen from the first move; the rest
+                  // of the field only from the second.
+                  if (!SHOWCASE_CELLS.has(i) && !crowded) return null;
+                  return (
+                    <Cell
+                      key={i}
+                      name={GRID[i]!}
+                      index={i}
+                      frame={frame}
+                      faces={faces}
+                      pose={pose}
+                    />
+                  );
+                })}
 
-        <Cell name={HERO} index={HERO_INDEX} frame={frame} pose={pose} hero />
+              <Cell
+                name={HERO}
+                index={HERO_INDEX}
+                frame={frame}
+                faces={faces}
+                pose={pose}
+                hero
+              />
+            </>
+          )}
+        </WithFaces>
       </div>
 
       {frame < SWAP && <Cursor frame={frame} />}

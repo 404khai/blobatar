@@ -14,7 +14,7 @@
     "render:gaze": "remotion render src/index.ts Gaze out/gaze.mp4",
     "render:square": "remotion render src/index.ts LaunchSquare out/launch-square.mp4",
     "still": "remotion still src/index.ts Launch",
-    "check": "bun scripts/check-crowd.ts && bun scripts/check-endpoint.ts && bun scripts/check-triangles.ts && bun scripts/check-adapters.ts && bun scripts/check-stars.ts && bun scripts/check-watch.ts",
+    "check": "bun scripts/check-crowd.ts && bun scripts/check-endpoint.ts && bun scripts/check-triangles.ts && bun scripts/check-adapters.ts && bun scripts/check-stars.ts && bun scripts/check-watch.ts && bun scripts/check-gaze.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -27,6 +27,8 @@
     "remotion": "^4.0.512"
   },
   "devDependencies": {
+    "@remotion/bundler": "^4.0.512",
+    "@remotion/renderer": "^4.0.512",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "vue": "^3.5.0"

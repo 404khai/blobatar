@@ -27,6 +27,7 @@ import {
   ENTER,
   HEIGHT,
   PULL_TO,
+  SHOWCASE,
   SWAP,
   burstAt,
   cookieScaleAt,
@@ -203,6 +204,41 @@ if (widest - narrowest > 0.005) {
       `${(widest * 100).toFixed(0)}% of a blobatar, so it grows as the grid ` +
       `zooms out. See cookieScaleAt in src/watch.ts`,
   );
+}
+
+/*
+ * The showcase beat shows nine *different* silhouettes.
+ *
+ * This is the one assertion in the film that guards a claim rather than a
+ * number. The beat exists to show that the fitted head adapts to whatever
+ * outline it is given, and it makes that case by putting nine of them on screen
+ * at once. A seed whose band moved would quietly turn that into eight shapes and
+ * a duplicate, which renders perfectly and is no longer an argument.
+ *
+ * Pure, so it lives here rather than in `check-gaze.ts`: a name's silhouette
+ * comes from the band table and needs no browser. `check-gaze.ts` measures how
+ * big each of those heads is, which does.
+ */
+const seen = new Map<string, string>();
+for (const s of SHOWCASE) {
+  const shape = layout(traits(s.name)).shape;
+  const already = seen.get(shape);
+  if (already) {
+    fail(
+      `the showcase has two ${shape}s, ${already} and ${s.name}, so the beat ` +
+        `shows eight silhouettes rather than nine. Reseed one in SHOWCASE`,
+    );
+  }
+  if (shape === "organic") {
+    fail(
+      `${s.name} is an organic, which the showcase deliberately leaves out: it ` +
+        `is the least distinct outline on the roster. Reseed it in SHOWCASE`,
+    );
+  }
+  seen.set(shape, s.name);
+}
+if (seen.size !== 9) {
+  fail(`the showcase has ${seen.size} cells, not the nine the 3x3 block needs`);
 }
 
 if (holdAt(ENTER) !== 0) fail("the idle rove is already standing down before the cursor arrives");
