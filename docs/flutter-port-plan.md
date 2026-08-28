@@ -1,18 +1,20 @@
 # Flutter/Dart port plan
 
-Status: planning only  
+Status: implementing — Phase 1 (deterministic Dart core) landed  
 Branch: `feat/flutter-dart-port`  
 Reference: Blobatar `2.4.0` / generation 2  
 Upstream request: [issue #29](https://github.com/Alain00/blobatar/issues/29)
 
 This document plans a native Dart/Flutter port of Blobatar. It does not copy
-another implementation from the issue. When this plan was drafted the issue had
-no comments; the thread has since grown to include two other ports, a
-maintainer ruling on where a Dart port lives and how the pub.dev name is
-decided, and a published reference-vector schema. Phase 0 recorded that
-coordination in the [phase 0 record](flutter-port/phase-0-coordination.md), and
-the reference-vector strategy in
-[reference vectors](flutter-port/reference-vectors.md).
+another implementation from the issue. The issue thread grew to include two
+other ports, a maintainer ruling on the pub.dev name, and a published
+reference-vector schema; Phase 0 recorded that coordination in the
+[phase 0 record](flutter-port/phase-0-coordination.md), and the reference-vector
+strategy in [reference vectors](flutter-port/reference-vectors.md).
+
+This port is the fork's own official SDK: it is developed in this repository,
+published to pub.dev, and offered upstream to `Alain00/blobatar` once complete.
+Per phase it lands as a PR against this repository's `main`.
 
 ## Repository analysis
 
@@ -38,12 +40,13 @@ The relevant ownership seams are:
 | [`packages/blobatar/src/animate.ts`](../packages/blobatar/src/animate.ts) and [`motion.css`](../packages/blobatar/src/motion.css) | Seeded idle-motion parameters and CSS composition rules to translate into elapsed-time Flutter animation. |
 | [`packages/blobatar/test/`](../packages/blobatar/test) and [`packages/harness/`](../packages/harness) | Hash/color/geometry/golden/expression/motion coverage and cross-adapter behavior that the Dart package must mirror. |
 
-The Dart package should be a sibling package with the conventional Flutter
-layout (`pubspec.yaml`, `lib/`, `test/`, and `example/`). Keep the pure
-deterministic engine separate from the Flutter widget and painter so Dart-only
-consumers can use the renderer without importing Flutter. Confirm the final
-directory and pub.dev package name with the maintainer before Phase 1; the issue
-author proposed `blobatar`, with `blobatar_flutter` as the fallback.
+The Dart package lives at `packages/flutter` with the conventional Flutter
+layout (`pubspec.yaml`, `lib/`, `test/`, and — from Phase 2 — `example/`). The
+directory deliberately has no `package.json`, so the Bun workspace and turbo
+ignore it. Keep the pure deterministic engine separate from the Flutter widget
+and painter so Dart-only consumers can use the renderer without importing
+Flutter. The pub.dev package name is `blobatar` (to be confirmed with the
+maintainer before publishing; `blobatar_flutter` was the fallback).
 
 ## Invariants for every phase
 
@@ -208,9 +211,10 @@ Scope:
   and any remaining differences from the JavaScript package.
 - Run the repository’s relevant TypeScript checks unchanged; the port must not
   modify generation-2 source or golden fixtures.
-- Open one focused PR against `Alain00/blobatar:main`, link issue #29, explain
-  the implementation boundary, list any deviations, and include the parity
-  test evidence. Do not publish to pub.dev before maintainer approval.
+- Offer the finished SDK upstream to `Alain00/blobatar` once the maintainer
+  approves: explain the implementation boundary, list any deviations, and
+  include the parity test evidence. Do not publish to pub.dev before
+  maintainer approval.
 
 Exit criteria:
 
@@ -231,9 +235,10 @@ upstream https://github.com/Alain00/blobatar.git
 ```
 
 Work on `feat/flutter-dart-port`, periodically fetch `upstream`, and keep each
-phase reviewable. Do not push or open the PR until the corresponding phase is
-complete and its tests pass. After each phase, use the commit subject listed
-above, then stop for explicit approval before beginning the next phase.
+phase reviewable. After each phase, use the commit subject listed above, push
+to `origin`, and open a phase PR against `origin/main` with the details of the
+work. Do not publish to pub.dev and do not open a PR against the upstream
+repository until the maintainer approves.
 
 ## Sources
 

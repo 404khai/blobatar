@@ -1,0 +1,214 @@
+/**
+ * Reference-vector exporter for the Dart/Flutter port.
+ *
+ * Runs the generation-2 TypeScript implementation at a pinned release and
+ * writes the cross-language fixture the Dart package checks itself against.
+ * The source of truth is the tree at `BLOBATAR_TS_SRC` (default: a v2.4.0
+ * checkout), never the Dart port's own output — see
+ * `docs/flutter-port/reference-vectors.md`.
+ *
+ *   BLOBATAR_TS_SRC=/tmp/blobatar-v240/packages/blobatar/src \
+ *     bun tools/export-reference-vectors.ts
+ */
+
+import { execSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const SRC =
+  process.env.BLOBATAR_TS_SRC ??
+  "/tmp/blobatar-v240/packages/blobatar/src";
+
+const { normalizeSeed, seedState, stream } = await import(`${SRC}/hash.ts`);
+const { traits } = await import(`${SRC}/traits.ts`);
+const { ramp, toHex } = await import(`${SRC}/color.ts`);
+const { _layout } = await import(`${SRC}/blobatar.ts`);
+const { superellipse } = await import(`${SRC}/shape.ts`);
+
+const OUT =
+  process.env.BLOBATAR_VECTORS_OUT ??
+  "packages/flutter/test/fixtures/reference-vectors.json";
+
+/** The trait keys gen-2's layout reads, hand-written like test/keys.ts. */
+const KEYS = [
+  "shape", "hue", "tone",
+  "body.r", "body.ratio", "body.x", "body.y", "body.n", "body.rot", "body.pts",
+  ...Array.from({ length: 8 }, (_, i) => `body.r${i}`),
+  "gaze.x", "gaze.y",
+  "eye.rx", "eye.ratio", "eye.scale", "eye.stretch", "eye.gap", "eye.n",
+  "eye.dy", "eye.lean", "eye.lean2",
+  "capsule.squat", "nub.n", "nub.a0", "nub.r0", "nub.a1", "nub.r1",
+  "cloud.n", "cloud.r0", "droplet.tip", "poly.round",
+  "sun.n", "sun.dist", "sun.r", "sun.rot",
+];
+
+const HASH_SEEDS = [
+  "", " ", "a", "alain", "Alain", "  ALAIN@Example.COM  ",
+  "café", "cafe\u0301", "日本語", "Ελλάδα", "🦊", "🦋", "🦊🐻",
+  "أحمد", "🇫🇷", "a\uFEFFb", "İ", "ß", "Straße", "STRAẞE",
+  "ünïcødé", "\t\nmixed case\r\n", "0", "00000000-0000-4000-8000-000000000000",
+  // Final_Sigma: word-initial/isolated sigmas stay σ; word-final become ς.
+  "Σ", " Σ ", "Σ\u0301", "ΣΣ", "ΟΣ", "ΟΣΔ", "ΑΣ",
+];
+
+const HUES = [0, 45, 90, 137.5, 210, 300, 359, 360];
+const TONES = [0, 0.1, 0.2, 0.35, 0.36, 0.5, 0.61, 0.62, 0.79, 0.8, 0.92, 0.93, 0.999, 1];
+
+/** Overrides that pin each silhouette band, for deterministic shape coverage. */
+const SHAPE_PINS: [string, number][] = [
+  ["round", 0], ["organic", 0.3], ["boxy", 0.5], ["capsule", 0.65],
+  ["nub", 0.75], ["cloud", 0.82], ["droplet", 0.88], ["hexagon", 0.93],
+  ["sun", 0.96], ["triangle", 0.99],
+];
+
+const OVERRIDE_CASES: [string, Record<string, number | number[]>][] = [
+  ["alain", { "eye.gap": 0.82 }],
+  ["alain", { "eye.rx": 0 }],
+  ["alain", { a: 0, b: 0.5, c: 0.999999 }],
+  ["alain", { high: 1, way: 99, low: -3 }],
+  ["alain", { shape: 0.95, "eye.ratio": 0 }],
+  ["alain", { shape: [0.11, 0.965] }],
+  ["alain", { shape: [] }],
+  ["alain", { "eye.gap": [0.3, 0.9] }],
+  ["user-7", { "body.r": 1, "eye.rx": 0.999999 }],
+];
+
+const cases: unknown[] = [];
+
+const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
+
+const ellipseOut = (e: Record<string, number>) => ({
+  cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry,
+  ...(e.n !== undefined ? { n: e.n } : {}),
+  ...(e.rot !== undefined ? { rot: e.rot } : {}),
+});
+
+function caseOut(name: string, opts?: Record<string, unknown>) {
+  const l = _layout(name, opts);
+  return {
+    seed: name,
+    options: opts ?? {},
+    shape: l.shape,
+    body: {
+      ...ellipseOut(l.body),
+      radii: l.body.radii,
+      ...(l.body.sides !== undefined ? { sides: l.body.sides } : {}),
+      ...(l.body.round !== undefined ? { round: l.body.round } : {}),
+    },
+    face: ellipseOut(l.face),
+    eyes: l.eyes.map(ellipseOut),
+    petals: l.petals.map((p: Record<string, number>) => ({ cx: p.cx, cy: p.cy, r: p.r })),
+    extra: l.extra,
+    bodyPath: l.draw ? l.draw(l.body) : superellipse(l.body),
+    eyePaths: l.eyes.map((e: Record<string, number>) => superellipse(e)),
+    palette: { bg: l.palette.bg, head: l.palette.head, eye: l.palette.eye },
+  };
+}
+
+function main() {
+  let exportedWith = "unknown";
+  try {
+    exportedWith = execSync("git rev-parse HEAD", { cwd: SRC, stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    // Not a git tree (e.g. an extracted tarball); the version pin still holds.
+  }
+
+  // Silhouette-band coverage: scan seeds until every band has its quota.
+  const quota = 25;
+  const seen = new Map<string, number>();
+  for (let i = 0; seen.size < 10 || [...seen.values()].some((n) => n < quota); i++) {
+    const seed = `user-${i}`;
+    const l = _layout(seed);
+    seen.set(l.shape, (seen.get(l.shape) ?? 0) + 1);
+    cases.push(caseOut(seed));
+    if (i > 20000) throw new Error("band scan did not converge");
+  }
+
+  // Option variants: each band pinned, hue/tone pins, renderer toggles.
+  for (const [, v] of SHAPE_PINS) {
+    cases.push(caseOut("fixed-avatar", { traits: { shape: v } }));
+  }
+  for (const hue of [0, 210, 359]) cases.push(caseOut("hue-case", { hue }));
+  for (const tone of [0, 0.5, 0.999]) cases.push(caseOut("tone-case", { tone }));
+  cases.push(caseOut("both-case", { hue: 300, tone: 0.8 }));
+  cases.push(caseOut("contrast:off", { contrast: false }));
+  cases.push(caseOut("normalize:off", { normalize: false }));
+  for (const [seed, overrides] of OVERRIDE_CASES) {
+    cases.push(caseOut(seed, { traits: overrides }));
+  }
+
+  const vectors = {
+    meta: {
+      schemaVersion: 1,
+      upstream: "https://github.com/Alain00/blobatar",
+      version: "2.4.0",
+      generation: "gen2",
+      exportedWith,
+      sourceDir: SRC,
+      caseCount: cases.length,
+      shapeCounts: Object.fromEntries(
+        [...seen.entries()].sort(([a], [b]) => a.localeCompare(b)),
+      ),
+      comparisonRules: {
+        exact: ["hash-state", "stream-floats", "palette-hex", "path-strings", "shape-names"],
+        relativeTolerance: {
+          layout: 1e-9,
+          note:
+            "dart:math cos/sin/pow/asin call the host C math library; IEEE 754 does not " +
+            "mandate one bit-exact implementation. Cross-engine differences of one ULP are " +
+            "expected in trig-derived layout floats and are not parity failures. Values " +
+            "rounded by r2 (path data) must still match exactly.",
+        },
+      },
+    },
+    hash: HASH_SEEDS.map((seed) => {
+      const state = seedState(seed);
+      const streams: Record<string, number> = {};
+      for (const k of KEYS) streams[k] = stream(state, k);
+      return {
+        seed,
+        normalized: normalizeSeed(seed),
+        state,
+        streams,
+      };
+    }),
+    overrides: OVERRIDE_CASES.map(([seed, overrides]) => {
+      const t = traits(seed, true, overrides);
+      const values: Record<string, number> = {};
+      for (const k of [...Object.keys(overrides), "shape", "hue", "tone"]) {
+        values[k] = t(k);
+      }
+      return { seed, overrides, values };
+    }),
+    palette: HUES.flatMap((hue) =>
+      TONES.map((tone) => {
+        const r = ramp(hue, true, tone);
+        const rRaw = ramp(hue, false, tone);
+        const hexed: Record<string, string> = {};
+        for (const k in r) hexed[k] = toHex(r[k]);
+        return {
+          hue, tone,
+          ramp: { bg: { ...r.bg }, head: { ...r.head }, eye: { ...r.eye } },
+          rampUnenforced: {
+            bg: { ...rRaw.bg }, head: { ...rRaw.head }, eye: { ...rRaw.eye },
+          },
+          hex: hexed,
+        };
+      }),
+    ),
+    cases,
+  };
+
+  mkdirSync(resolve(OUT, ".."), { recursive: true });
+  writeFileSync(OUT, JSON.stringify(vectors, null, 1) + "\n");
+  console.log(
+    `wrote ${OUT}: ${vectors.cases.length} layout cases, ` +
+      `${vectors.hash.length} hash vectors, ${vectors.palette.length} palette vectors`,
+  );
+  console.log(`shape counts: ${JSON.stringify(vectors.meta.shapeCounts)}`);
+}
+
+main();
+

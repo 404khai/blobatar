@@ -1,0 +1,24 @@
+name: blobatar
+description: >-
+  Deterministic geometric blobatars from any string. A faithful Dart port of
+  the blobatar generation-2 engine (hash, traits, OKLCh palette, layout
+  geometry), independent of Flutter so Dart-only consumers can use it.
+version: 0.1.0
+homepage: https://github.com/404khai/blobatar
+repository: https://github.com/404khai/blobatar
+issue_tracker: https://github.com/404khai/blobatar/issues
+documentation: https://github.com/404khai/blobatar/tree/main/packages/flutter
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  # Dart has no built-in Unicode normalization; the JS core normalizes seeds
+  # with String.prototype.normalize("NFC") and the paste-a-name case depends on
+  # decomposed and precomposed input hashing equally. See
+  # docs/flutter-port/phase-0-coordination.md (NFC parity question).
+  unorm_dart: ^0.3.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0
