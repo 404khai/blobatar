@@ -41,4 +41,4 @@ export { normalizeSeed } from "./hash";
  * `scripts/smoke.mjs` links the built barrel under Node on every build and is
  * what will tell you if this stops being true.
  */
-export const VERSION = "2.5.0";
+export const VERSION = "2.6.0";

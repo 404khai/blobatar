@@ -1,5 +1,13 @@
 # @blobatar/cli
 
+## 2.6.0
+
+### Patch Changes
+
+- Updated dependencies [5163644]
+- Updated dependencies [27939a5]
+  - blobatar@2.6.0
+
 ## 2.5.0
 
 ### Patch Changes
