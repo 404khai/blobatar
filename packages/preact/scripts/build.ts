@@ -23,14 +23,19 @@ import { $ } from "bun";
 rmSync("dist", { recursive: true, force: true });
 
 const build = await Bun.build({
-  entrypoints: ["src/index.tsx"],
+  entrypoints: ["src/index.tsx", "src/gaze.ts"],
   outdir: "dist",
+  // Pinned, not inferred: Bun derives the output root from the common ancestor
+  // of the entrypoints, so a second entry would otherwise move every file under
+  // `dist/src/` and break every path in the `exports` map at once.
+  root: "src",
   target: "browser",
   format: "esm",
   minify: true,
   sourcemap: "linked",
   external: [
     "blobatar",
+    "blobatar/gaze",
     "blobatar/internal",
     "blobatar/uri",
     "preact",

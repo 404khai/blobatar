@@ -257,21 +257,19 @@ const { ref } = useGaze({ travel: 3, lookAt: "pointer" });
 <Blobatar ref={ref} name={user.email} animate="always" size={200} />;
 ```
 
-Svelte has the same layer as an attachment, since an action cannot cross a
-component boundary and a ref is not something that adapter can hand back:
+Every adapter has it, under the shape its framework reaches an element with —
+same options, same targets, same layer:
 
-```svelte
-<script>
-  import { gaze } from "@blobatar/svelte/gaze";
-  import "blobatar/gaze.css";
-
-  const eyes = gaze({ travel: 3, target: "pointer" });
-</script>
-
-<Blobatar {@attach eyes} name="alain@example.com" animate="always" size={200} />
+```tsx
+useGaze({ travel: 3, lookAt: "pointer" })          // React    → ref
+useGaze({ travel: 3, lookAt: "pointer" })          // Preact   → elementRef
+useGaze(blobRef, { travel: 3, target: "pointer" }) // Vue      → takes your ref
+createGaze({ travel: 3, target: "pointer" })       // Solid    → is the ref
+gaze({ travel: 3, target: "pointer" })             // Svelte   → {@attach}
 ```
 
-Anywhere else, `gaze(svgEl)` is the same thing without the binding.
+Each package's README has the two-line integration. Anywhere else, `gaze(svgEl)`
+is the same thing without the binding.
 
 `npx shadcn@latest add @blobatar/password-field` is a worked example of it.
 

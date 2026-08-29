@@ -32,6 +32,7 @@ import { transformFileSync } from "@babel/core";
 
 const EXTERNAL = [
   "blobatar",
+  "blobatar/gaze",
   "blobatar/internal",
   "blobatar/uri",
   "solid-js",
@@ -110,8 +111,42 @@ for (const [entry, out] of [
 
 rmSync(".solid", { recursive: true, force: true });
 
+/**
+ * The gaze entry, built once for every condition.
+ *
+ * It carries no JSX and no component, so Solid's compiler has nothing to do to
+ * it and there is no DOM/SSR pair to keep apart — which is why `./gaze` in the
+ * `exports` map is a single `default` beside the three the component needs. One
+ * build, and every consumer resolves the same file.
+ */
+{
+  const build = await Bun.build({
+    entrypoints: ["src/gaze.ts"],
+    outdir: "dist",
+    naming: "gaze.js",
+    target: "browser",
+    format: "esm",
+    minify: true,
+    sourcemap: "linked",
+    external: EXTERNAL,
+    define: { "process.env.NODE_ENV": '"production"' },
+  });
+
+  if (!build.success) {
+    for (const log of build.logs) console.error(log);
+    process.exit(1);
+  }
+
+  for (const o of build.outputs) {
+    if (o.kind !== "sourcemap") continue;
+    const map = await Bun.file(o.path).json();
+    delete map.sourcesContent;
+    await Bun.write(o.path, JSON.stringify(map));
+  }
+}
+
 await $`bunx tsc -p tsconfig.build.json`;
 
-for (const name of ["dist/source.jsx", "dist/index.js", "dist/server.js"]) {
+for (const name of ["dist/source.jsx", "dist/index.js", "dist/server.js", "dist/gaze.js"]) {
   console.log(`✓ ${name}`);
 }

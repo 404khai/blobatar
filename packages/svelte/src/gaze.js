@@ -90,27 +90,33 @@ export function gaze(options = {}) {
     if (node.tagName !== "svg") return;
 
     /*
-     * The excursion goes on the eyes, not on the `<svg>` the React hook writes
-     * it to, and the difference is Svelte owning that element's `style`.
-     * `Blobatar.svelte` renders `style={styleStr}`, so any prop change — a new
-     * `name`, a new `hue` — rewrites the whole declaration and takes an inline
-     * property written from here with it. Measured rather than feared: a
-     * blobatar whose name changed kept gazing with the excursion gone, which is
-     * a face that renders perfectly and never moves.
+     * The excursion goes on the root `<g>`, and both halves of that are forced.
      *
-     * `.mo-eyes` arrives through `{@html}` as one opaque string, so Svelte
-     * writes nothing inside it and a declaration there is uncontested. It is
-     * also where `gaze.css` reads the property and where the driver reads it
-     * back, so the resolution here is core's own, fallback included: a value on
-     * the `<svg>` while the driver read the eyes would leave the excursion and
-     * the write threshold describing different blobatars.
+     * Not the `<svg>`, which is where the React hook writes it: Svelte renders
+     * `style={styleStr}` there and writes it as one attribute, so any prop
+     * change — a new `name`, a new `hue` — replaces the whole declaration and
+     * takes an inline property written from here with it.
+     *
+     * Not `.mo-eyes` either, which was the first fix and was worse for being
+     * subtler. The eyes arrive inside `parts.inner`, which reaches the DOM
+     * through `{@html}` as one opaque string, so a prop change does not edit
+     * that element — it replaces it, and the property goes with the node it was
+     * written on. The old element keeps reporting the value it was given, which
+     * is why this needed a browser and a re-query to see at all.
+     *
+     * The root `<g>` is the one element in between that Svelte owns as an
+     * element and never writes a `style` on: `{@html}` swaps its children, its
+     * `class` is the only attribute that updates, and it is an ancestor of
+     * whatever `.mo-eyes` currently is. The property inherits from there, which
+     * also puts this back where the React hook has it — a rule matching the
+     * eyes directly still wins.
      *
      * Written before the driver is built, which is the ordering that needs no
-     * `remeasure` afterwards — the driver reads the excursion when it measures,
+     * `remeasure` afterwards: the driver reads the excursion when it measures,
      * and it measures on construction.
      */
-    const eyes = node.querySelector(".mo-eyes") ?? node;
-    if (travel !== undefined) eyes.style.setProperty("--mo-track-travel", `${travel}px`);
+    const root = node.querySelector("g.mo-root") ?? node;
+    if (travel !== undefined) root.style.setProperty("--mo-track-travel", `${travel}px`);
 
     const g = start(node, { settle, snap, target: aimed });
     driver = g;
@@ -128,7 +134,7 @@ export function gaze(options = {}) {
       g.stop();
       /* Removed rather than restored: nothing was overwritten, so this hands
          the element back to the stylesheet, which is where it would have been. */
-      if (travel !== undefined) eyes.style.removeProperty("--mo-track-travel");
+      if (travel !== undefined) root.style.removeProperty("--mo-track-travel");
     };
   };
 

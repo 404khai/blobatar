@@ -1,26 +1,28 @@
 /**
- * The Svelte gaze binding, checked in a real browser.
+ * Every adapter's gaze binding, checked in a real browser.
  *
- * `@blobatar/svelte/gaze` is an attachment, and an attachment is the one thing
- * about this adapter that no test in this package can see. The suite renders
- * Svelte with `generate: "server"` because its assertions are about markup, and
- * attachments do not run on the server at all — so `bun test` would stay green
- * against a binding that never reached an element. That is not a hypothetical
- * gap: the mechanism it rests on is `{@attach}` on a *component* arriving as a
- * symbol-keyed prop and being carried onto the element by `Blobatar.svelte`'s
- * `{...rest}` spread, three moving parts none of which this repository owns.
+ * The bindings are four shapes — a hook, a ref, a composable, an attachment —
+ * because four frameworks disagree about how a caller reaches an element, and
+ * each shape rests on plumbing this repository does not own: a symbol-keyed
+ * prop carried by a spread, a `ref` read out of a rest object by Solid's own
+ * `spread`, `$el` off a Vue component instance, a callback ref Preact declines
+ * to give a function component. None of it is visible to a test that reads
+ * markup, and one of them — Svelte's — does not run under `generate: "server"`
+ * at all, which is what the suite renders. So `bun test` would stay green
+ * against a binding that never reached an element.
  *
- * Check D is the other reason this exists. The excursion is written on
- * `.mo-eyes` rather than on the `<svg>` because Svelte rewrites that element's
- * whole `style` attribute whenever a prop changes, and the first draft — which
- * wrote it where the React hook does — passed every other check here while
- * losing the excursion the moment a `name` changed.
+ * Check D is the other reason this exists. The Svelte binding writes the
+ * excursion on `.mo-eyes` rather than on the `<svg>` because Svelte rewrites
+ * that element's whole `style` attribute whenever a prop changes; the first
+ * draft, which wrote it where the React hook does, passed every other check
+ * here while losing the excursion the moment a `name` changed. Every adapter is
+ * asked the same question rather than only the one that failed it.
  *
  * Modelled on `packages/blobatar/scripts/probe-compose.ts`, including the
  * handoff: the page posts its verdicts rather than being read out of the
  * browser, so there is no protocol client in this repository. One engine rather
- * than that file's two — what is under test is Svelte's own plumbing and a
- * couple of custom properties, not a rendering divergence.
+ * than that file's two — what is under test is each framework's own plumbing
+ * and a couple of custom properties, not a rendering divergence.
  */
 
 import { mkdirSync, rmSync } from "node:fs";
@@ -33,8 +35,8 @@ const CHROME = [process.env.CHROME, "google-chrome", "google-chrome-stable", "ch
 
 if (!CHROME) {
   console.warn(
-    "! svelte gaze probe SKIPPED — no Chrome found.\n" +
-      "  It is the only check that can see whether the attachment reaches the element.\n" +
+    "! gaze probe SKIPPED — no Chrome found.\n" +
+      "  It is the only check that can see whether a binding reaches its element.\n" +
       "  Install Chrome, or set CHROME=/path/to/binary, before trusting a green run.",
   );
   process.exit(0);
@@ -44,8 +46,10 @@ if (!CHROME) {
  * The consumer's compiler, which is the job this package already does once for
  * the test suite (`test/svelte-plugin.ts`). Not shared with it: that one is
  * `generate: "server"` and registered globally for `bun test`, and this one has
- * to emit DOM code and handle `.svelte.js` too, since the fixture's props are a
- * `$state` proxy.
+ * to emit DOM code and handle `.svelte.js` too, since the Svelte fixture's
+ * props are a `$state` proxy. The other four fixtures need no transform at all
+ * — they call `createElement`, `h` and `createComponent` by hand, which is what
+ * each framework's JSX compiles to anyway.
  */
 const svelte: import("bun").BunPlugin = {
   name: "svelte-client",
@@ -71,13 +75,16 @@ rmSync(DIR, { recursive: true, force: true });
 mkdirSync(DIR, { recursive: true });
 
 const build = await Bun.build({
-  entrypoints: [`${import.meta.dir}/gaze/fixture.svelte.js`],
+  entrypoints: [`${import.meta.dir}/gaze/fixture.js`],
   outdir: DIR,
   target: "browser",
   plugins: [svelte],
-  // The same condition `bun test` passes, and for the same reason: the adapter
-  // is source-resolved, so without it the package does not resolve at all and
-  // the fixture's by-name imports would be measuring nothing.
+  // The same condition `bun test` passes, and for the same reason: the Svelte
+  // adapter is source-resolved, so without it the package does not resolve at
+  // all and that fixture's by-name imports would be measuring nothing. It
+  // changes nothing for the other four — Solid's own condition is `solid`, so
+  // it resolves the DOM build under `default`, which is what a consumer without
+  // `vite-plugin-solid` gets.
   conditions: ["svelte"],
   define: { "process.env.NODE_ENV": '"production"' },
 });
@@ -97,8 +104,7 @@ const css = await Promise.all(
 await Bun.write(
   `${DIR}/index.html`,
   `<style>${css.join("\n")}\nbody{margin:0}</style>` +
-    `<body><div id="app"></div><div id="still"></div>` +
-    `<script type="module" src="fixture.svelte.js"></script>`,
+    `<body><script type="module" src="fixture.js"></script>`,
 );
 
 type Result = { name: string; ok: boolean; detail: string };
@@ -160,7 +166,7 @@ server.stop(true);
 let failed = false;
 if (!results) {
   failed = true;
-  console.error("✗ svelte gaze probe — the page never reported a result");
+  console.error("✗ gaze probe — the page never reported a result");
 } else {
   for (const r of results) {
     failed ||= !r.ok;

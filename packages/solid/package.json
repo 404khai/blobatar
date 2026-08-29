@@ -22,6 +22,10 @@
       "node": "./dist/server.js",
       "default": "./dist/index.js"
     },
+    "./gaze": {
+      "types": "./dist/gaze.d.ts",
+      "default": "./dist/gaze.js"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
