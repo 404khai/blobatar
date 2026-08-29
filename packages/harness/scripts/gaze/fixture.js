@@ -3,7 +3,10 @@
  * every adapter's gaze binding in turn, and posts its verdicts back.
  *
  * Every import goes through a package name, so the `exports` maps and the
- * conditions are under test alongside the behaviour.
+ * conditions are under test alongside the behaviour — and every fixture is
+ * written in its framework's own source syntax and compiled by that framework's
+ * own compiler, so what is checked is the line a consumer copies out of a README
+ * rather than the call it happens to compile to.
  *
  * Sequential rather than parallel, and it is not only tidiness: check C moves
  * the pointer and every driver on the page answers, so four bindings settling
@@ -11,12 +14,12 @@
  */
 
 import { verify } from "./checks.js";
-import * as react from "./react.js";
-import * as preact from "./preact.js";
+import * as react from "./react.jsx";
+import * as preact from "./preact.jsx";
 import * as vue from "./vue.js";
-import * as solid from "./solid.js";
+import * as solid from "./solid.solid.jsx";
 import * as svelte from "./svelte.svelte.js";
-import * as hydrated from "./solid-hydrate.js";
+import * as hydrated from "./solid-hydrate.solid.jsx";
 
 const results = [];
 const check = (name, ok, detail) => results.push({ name, ok, detail: String(detail) });

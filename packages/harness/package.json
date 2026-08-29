@@ -14,7 +14,11 @@
     "check": "bun run typecheck && bun run test && bun run size",
     "//test": "`--conditions=svelte` and the preload are both for one adapter, and they do different things. `@blobatar/svelte` is source-resolved (ADR-0010): its only entry sits behind the `svelte` export condition, which Bun does not apply by default — without the flag the package does not resolve at all, and skipping it here would mean this file stops resolving adapters through their real `exports` maps, which is the reason it lives in this package. The preload teaches Bun to load the `.svelte` file the condition points at."
   },
+  "//devDependencies": "`@babel/core` and `babel-preset-solid` are here for one reason: `scripts/probe-gaze.ts` compiles its Solid fixture the way a consumer's toolchain does. Everything else a fixture needs is already in the framework it belongs to — `svelte/compiler` ships with Svelte and `vue/compiler-sfc` with Vue — and Solid is the one whose compiler is a separate package.",
   "devDependencies": {
+    "@babel/core": "^7",
+    "@types/babel__core": "^7.20.5",
+    "babel-preset-solid": "^1.9.15",
     "@blobatar/cli": "workspace:*",
     "@blobatar/preact": "workspace:*",
     "@blobatar/react": "workspace:*",

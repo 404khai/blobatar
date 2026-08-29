@@ -22,7 +22,7 @@
  */
 
 import { createSignal } from "solid-js";
-import { createComponent, hydrate } from "solid-js/web";
+import { hydrate } from "solid-js/web";
 import { Blobatar } from "@blobatar/solid";
 import { createGaze } from "@blobatar/solid/gaze";
 import { settle } from "./checks.js";
@@ -49,15 +49,7 @@ export async function run(check) {
   eyes.lookAt("pointer");
 
   hydrate(
-    () =>
-      createComponent(Blobatar, {
-        ref: eyes,
-        get name() {
-          return name();
-        },
-        animate: "always",
-        size: 200,
-      }),
+    () => <Blobatar ref={eyes} name={name()} animate="always" size={200} />,
     container,
   );
   await settle(3);
@@ -82,13 +74,18 @@ export async function run(check) {
      different path in Solid from a `ref` on a created one, and the binding is
      worth nothing on a server-rendered page if it does not fire. */
   const travel = container.querySelector("svg")?.style.getPropertyValue("--mo-track-travel");
-  check(at("D", "the binding runs on a hydrated tree"), travel === "3px", `--mo-track-travel: ${travel || "(nothing)"}`);
+  check(
+    at("D", "the binding runs on a hydrated tree"),
+    travel === "3px",
+    `--mo-track-travel: ${travel || "(nothing)"}`,
+  );
 
   /* E — and it is a driver, not just a property. */
-  const before = getComputedStyle(container.querySelector(".mo-eyes")).getPropertyValue("--mo-track-x");
+  const eye = () => getComputedStyle(container.querySelector(".mo-eyes")).getPropertyValue("--mo-track-x");
+  const before = eye();
   dispatchEvent(new PointerEvent("pointermove", { clientX: 20, clientY: 20, bubbles: true }));
   await settle();
-  const after = getComputedStyle(container.querySelector(".mo-eyes")).getPropertyValue("--mo-track-x");
+  const after = eye();
   check(at("E", "the eyes track after hydration"), after !== before, `${before.trim()} → ${after.trim()}`);
 
   /* F — reactivity survived the takeover. Hydration that adopts the DOM and

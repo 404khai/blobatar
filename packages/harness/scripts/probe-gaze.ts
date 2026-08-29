@@ -11,15 +11,22 @@
  * at all, which is what the suite renders. So `bun test` would stay green
  * against a binding that never reached an element.
  *
- * Checks D and E are the other reason this exists. The Svelte binding writes the
- * excursion on `.mo-eyes` rather than on the `<svg>` because Svelte rewrites
- * that element's whole `style` attribute whenever a prop changes; the first
- * draft, which wrote it where the React hook does, passed every other check
- * here while losing the excursion the moment a `name` changed. Every adapter is
- * asked the same question rather than only the one that failed it — and asking
- * it of all five is what turned up the Solid adapter rebuilding its whole
- * `<svg>` on any prop change, which left the binding holding a detached node
- * and every idle animation restarting from phase zero.
+ * Every fixture is written in its framework's own source syntax — `.svelte`,
+ * `.vue`, Solid JSX, React JSX, Preact JSX behind its pragma — and compiled
+ * here by that framework's own compiler. So what each check asks about is the
+ * line a consumer copies out of a README rather than the call it compiles to.
+ * See `compilers` below for what that costs and why it is worth it.
+ *
+ * Checks D and E are the other reason this exists. The Svelte binding writes
+ * the excursion on the root `<g>` rather than on the `<svg>`, because Svelte
+ * rewrites that element's whole `style` attribute whenever a prop changes; the
+ * first draft, which wrote it where the React hook does, passed every other
+ * check here while losing the excursion the moment a `name` changed, and the
+ * second, which wrote it on `.mo-eyes`, lost it to a node replacement instead.
+ * Every adapter is asked the same question rather than only the one that failed
+ * it — and asking it of all five is what turned up the Solid adapter rebuilding
+ * its whole `<svg>` on any prop change, which left the binding holding a
+ * detached node and every idle animation restarting from phase zero.
  *
  * Modelled on `packages/blobatar/scripts/probe-compose.ts`, including the
  * handoff: the page posts its verdicts rather than being read out of the
@@ -29,7 +36,10 @@
  */
 
 import { mkdirSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { transformSync } from "@babel/core";
 import { compile, compileModule } from "svelte/compiler";
+import { compileScript, compileTemplate, parse } from "vue/compiler-sfc";
 
 const DIR = `${import.meta.dir}/gaze/out`;
 const CHROME = [process.env.CHROME, "google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]
@@ -46,16 +56,27 @@ if (!CHROME) {
 }
 
 /**
- * The consumer's compiler, which is the job this package already does once for
- * the test suite (`test/svelte-plugin.ts`). Not shared with it: that one is
- * `generate: "server"` and registered globally for `bun test`, and this one has
- * to emit DOM code and handle `.svelte.js` too, since the Svelte fixture's
- * props are a `$state` proxy. The other four fixtures need no transform at all
- * — they call `createElement`, `h` and `createComponent` by hand, which is what
- * each framework's JSX compiles to anyway.
+ * The consumers' compilers, one per fixture, and the point of having them all
+ * is that each fixture is written in its framework's own source syntax.
+ *
+ * The alternative was writing what those syntaxes compile to — `createElement`,
+ * `h`, `createComponent`, a `createAttachmentKey`-keyed prop — which is correct
+ * and checks the chain each one starts, while leaving the line a consumer
+ * actually copies out of a README unchecked. It also gets one thing wrong that
+ * nothing else can see: a hand-written component call opens no component
+ * boundary, and Solid's hydration keys are numbered against those.
+ *
+ * Nothing here is a new dependency except Solid's transform. Svelte's compiler
+ * ships with Svelte and Vue's with Vue, which is why the `.vue` half is
+ * assembled by hand below rather than through a bundler plugin nobody has: it
+ * is the two calls `@vitejs/plugin-vue` makes, and no more.
+ *
+ * `test/svelte-plugin.ts` is the same job once over, and is not shared with
+ * this: that one is `generate: "server"` and registered globally for
+ * `bun test`, and this one has to emit DOM code.
  */
-const svelte: import("bun").BunPlugin = {
-  name: "svelte-client",
+const compilers: import("bun").BunPlugin = {
+  name: "fixture-compilers",
   setup(build) {
     build.onLoad({ filter: /\.svelte\.js$/ }, async (args) => ({
       contents: compileModule(await Bun.file(args.path).text(), {
@@ -64,6 +85,7 @@ const svelte: import("bun").BunPlugin = {
       }).js.code,
       loader: "js",
     }));
+
     build.onLoad({ filter: /(?<!\.svelte)\.svelte$/ }, async (args) => ({
       contents: compile(await Bun.file(args.path).text(), {
         filename: args.path,
@@ -71,6 +93,50 @@ const svelte: import("bun").BunPlugin = {
       }).js.code,
       loader: "js",
     }));
+
+    /*
+     * Solid's transform, with `hydratable` on for the same reason the adapter's
+     * own build turns it on: the hydration fixture needs the client's keys to
+     * be numbered the way the SSR build numbered the server's.
+     */
+    build.onLoad({ filter: /\.solid\.jsx$/ }, async (args) => {
+      const out = transformSync(await Bun.file(args.path).text(), {
+        filename: args.path,
+        babelrc: false,
+        configFile: false,
+        presets: [["babel-preset-solid", { generate: "dom", hydratable: true }]],
+      });
+      if (!out?.code) throw new Error(`babel produced nothing for ${args.path}`);
+      return { contents: out.code, loader: "js" };
+    });
+
+    /*
+     * The SFC, assembled the way every Vue toolchain assembles one: parse,
+     * compile the `<script setup>` block, compile the template against the
+     * bindings that block declared, and hand back a component object. The
+     * `bindings` argument is the part worth naming — it is how the template
+     * knows `blob` is a ref rather than a plain value, and skipping it produces
+     * a component that renders and quietly ignores half its script.
+     */
+    build.onLoad({ filter: /\.vue$/ }, async (args) => {
+      const source = await Bun.file(args.path).text();
+      const id = createHash("sha256").update(args.path).digest("hex").slice(0, 8);
+      const { descriptor } = parse(source, { filename: args.path });
+      const script = compileScript(descriptor, { id, inlineTemplate: false });
+      const template = compileTemplate({
+        source: descriptor.template!.content,
+        filename: args.path,
+        id,
+        compilerOptions: { bindingMetadata: script.bindings },
+      });
+      return {
+        contents:
+          `${script.content.replace("export default", "const __sfc =")}\n` +
+          `${template.code}\n` +
+          `__sfc.render = render;\nexport default __sfc;\n`,
+        loader: "js",
+      };
+    });
   },
 };
 
@@ -81,7 +147,7 @@ const build = await Bun.build({
   entrypoints: [`${import.meta.dir}/gaze/fixture.js`],
   outdir: DIR,
   target: "browser",
-  plugins: [svelte],
+  plugins: [compilers],
   // The same condition `bun test` passes, and for the same reason: the Svelte
   // adapter is source-resolved, so without it the package does not resolve at
   // all and that fixture's by-name imports would be measuring nothing. It

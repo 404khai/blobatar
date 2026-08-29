@@ -1,18 +1,17 @@
 /**
  * `@blobatar/svelte/gaze`, mounted for `checks.js`.
  *
- * `.svelte.js` rather than `.js` because the props are a `$state` proxy: check
- * D turns on a prop actually changing, and a plain object handed to `mount`
- * never does.
- *
- * `createAttachmentKey` is what `{@attach eyes}` compiles to on a component —
- * a prop under a symbol key — so this exercises the same path a template does.
+ * The component lives in `Host.svelte` so that `{@attach eyes}` goes through
+ * the Svelte compiler rather than being hand-written as the symbol-keyed prop
+ * it compiles to. This module is the harness around it, and is `.svelte.js`
+ * because the props it hands over are a `$state` proxy: check F turns on a prop
+ * actually changing, and a plain object handed to `mount` never does.
  */
 
 import { mount as mountComponent, unmount } from "svelte";
-import { createAttachmentKey } from "svelte/attachments";
-import { Blobatar } from "@blobatar/svelte";
 import { gaze } from "@blobatar/svelte/gaze";
+import Host from "./Host.svelte";
+import Still from "./Still.svelte";
 import { settle } from "./checks.js";
 
 export async function mount(container) {
@@ -22,25 +21,15 @@ export async function mount(container) {
      the element exists and Svelte will not run it again on its own. */
   eyes.lookAt("pointer");
 
-  const props = $state({
-    name: "alain@example.com",
-    animate: "always",
-    size: 200,
-    [createAttachmentKey()]: eyes,
-  });
-  const app = mountComponent(Blobatar, { target: container, props });
+  const props = $state({ name: "alain@example.com", eyes });
+  const app = mountComponent(Host, { target: container, props });
   await settle(2);
 
   const still = document.createElement("div");
   container.after(still);
-  const stillEyes = gaze({ travel: 3, target: "pointer" });
-  mountComponent(Blobatar, {
+  mountComponent(Still, {
     target: still,
-    props: {
-      name: "alain@example.com",
-      size: 200,
-      [createAttachmentKey()]: stillEyes,
-    },
+    props: { name: "alain@example.com", eyes: gaze({ travel: 3, target: "pointer" }) },
   });
   await settle(2);
 
