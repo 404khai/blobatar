@@ -16,6 +16,7 @@ import * as preact from "./preact.js";
 import * as vue from "./vue.js";
 import * as solid from "./solid.js";
 import * as svelte from "./svelte.svelte.js";
+import * as hydrated from "./solid-hydrate.js";
 
 const results = [];
 const check = (name, ok, detail) => results.push({ name, ok, detail: String(detail) });
@@ -38,5 +39,9 @@ for (const [label, adapter] of ADAPTERS) {
   document.body.append(container);
   await verify(check, label, await adapter.mount(container));
 }
+
+/* Last, and in its own container: it takes over markup the server sent rather
+   than mounting into an empty div, so it cannot share the loop above. */
+await hydrated.run(check);
 
 await post(results);

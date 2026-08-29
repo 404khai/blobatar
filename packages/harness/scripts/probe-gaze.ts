@@ -104,10 +104,51 @@ const css = await Promise.all(
     Bun.file(`${import.meta.dir}/../../blobatar/dist/${f}`).text(),
   ),
 );
+/**
+ * The server's half of the hydration fixture, rendered here rather than there.
+ *
+ * Importing `@blobatar/solid` from this script resolves the `node` condition,
+ * which is the SSR build — a different compilation of the same source, and the
+ * one whose markup a consumer's server sends. The page then hydrates it with
+ * the DOM build, which is what a browser resolves. Both halves are the real
+ * artifacts, resolved the way a consumer resolves them, which is the only way
+ * this check means anything.
+ *
+ * `generateHydrationScript` is not optional and fails quietly without: it
+ * defines the global Solid's client build reads its hydration state out of, and
+ * a page missing it hydrates by rebuilding everything, which is precisely what
+ * check B is here to catch. That would be a false failure rather than a false
+ * pass, but it is worth stating which of the two this line is holding.
+ */
+const { Blobatar: Served } = await import("@blobatar/solid");
+const { renderToString, generateHydrationScript, createComponent } = await import("solid-js/web");
+/*
+ * `createComponent`, not a plain call, and the two are not interchangeable
+ * here. It is what `<Blobatar/>` compiles to, and it opens a component
+ * boundary that the hydration keys are numbered against — so calling the
+ * function directly on this side (which the equivalence suite does, and is
+ * right to: it only compares markup) numbers the server's nodes differently
+ * from the client's and hydration rebuilds everything. That was the first
+ * result this fixture produced, and it was the probe's mistake rather than the
+ * adapter's.
+ */
+const served = renderToString(() =>
+  /* `as never` twice, and for the reason the equivalence suite states about its
+     own cast: the component is typed against Solid's JSX, which this file
+     cannot spell without a JSX transform it does not run. */
+  createComponent(Served as never, {
+    name: "alain@example.com",
+    animate: "always",
+    size: 200,
+  } as never),
+);
+
 await Bun.write(
   `${DIR}/index.html`,
   `<style>${css.join("\n")}\nbody{margin:0}</style>` +
-    `<body><script type="module" src="fixture.js"></script>`,
+    `${generateHydrationScript()}` +
+    `<body><div id="hydrate">${served}</div>` +
+    `<script type="module" src="fixture.js"></script>`,
 );
 
 type Result = { name: string; ok: boolean; detail: string };

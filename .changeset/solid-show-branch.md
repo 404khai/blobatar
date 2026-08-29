@@ -11,4 +11,6 @@ It is a non-keyed `<Show>` now, which memoizes on the condition rather than on t
 
 `packages/harness/scripts/probe-gaze.ts` grew the check that would have caught it, asked of every adapter: the `<svg>` a binding was given is still the same element after a prop change. Checked by identity, which is the only way to see it, since the rebuilt element renders identically.
 
+The same defect showed on the hydrated path, where it is worse: a server-rendered blobatar was adopted correctly and then thrown away on the first prop change. `packages/harness/scripts/probe-gaze.ts` now hydrates the SSR build's markup with the DOM build and checks both halves — that the client adopts the server's element rather than silently rebuilding it, that the gaze `ref` fires on a hydrated tree, and that a later prop change redraws in place. Nothing tested hydration before, in either direction.
+
 `packages/blobatar/README.md` and the site's docs page still described the gaze as React's alone. Both now name all five bindings.
