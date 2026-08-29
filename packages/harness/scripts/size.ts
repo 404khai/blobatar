@@ -442,13 +442,22 @@ const ENTRIES: {
  * consumer's, so what it compiles *to* is not this package's to report.
  */
 const SHIPPED: { name: string; from: string; budget: number }[] = [
-  // 2613 B measured, and larger than any bundled row above for a reason worth
+  // 5281 B measured, and larger than any bundled row above for a reason worth
   // stating rather than optimizing away: this is source, so it ships its
   // comments. The consumer's compiler drops them before they reach a bundle, so
   // the number a *user* pays is smaller than this one and is not measurable
   // here — what this row gates is the wire, which is the only part this package
   // controls.
-  { name: "@blobatar/svelte", from: "../svelte/src", budget: 2650 },
+  //
+  // 2613 B of that until `./gaze` arrived, and the jump is the one place this
+  // row reads differently from the built adapters above. There, a second entry
+  // costs a consumer nothing until they import it, and `@blobatar/react alone`
+  // is the row that says so. A tarball has no entries: `src/gaze.js` crosses
+  // the wire whether or not anything imports it, and the subpath only keeps it
+  // out of the *bundle*. So this number covers both entries on purpose, and the
+  // promise the subpath makes is the one the packaging test states — `index.js`
+  // names nothing in `gaze.js`.
+  { name: "@blobatar/svelte", from: "../svelte/src", budget: 5350 },
 ];
 
 rmSync(DIR, { recursive: true, force: true });

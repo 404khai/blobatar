@@ -13,6 +13,10 @@
       "types": "./src/index.d.ts",
       "svelte": "./src/index.js"
     },
+    "./gaze": {
+      "types": "./src/gaze.d.ts",
+      "svelte": "./src/gaze.js"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {

@@ -111,7 +111,13 @@ const ADAPTERS: [string, string[]][] = [
   ["@blobatar/vue", ["blobatar", "blobatar/vue", "blobatar/internal", "blobatar/uri", "vue"]],
   ["@blobatar/solid", ["blobatar", "blobatar/internal", "blobatar/uri", "solid-js", "solid-js/web"]],
   ["@blobatar/preact", ["blobatar", "blobatar/internal", "blobatar/uri", "preact", "preact/hooks", "preact/jsx-runtime"]],
-  ["@blobatar/svelte", ["blobatar", "blobatar/internal", "blobatar/uri", "svelte", "svelte/elements"]],
+  // `blobatar/gaze` is reachable only from `./gaze`, the same promise the React
+  // adapter's entry of that name makes. This list cannot tell the two entries
+  // apart for a source-resolved package — it reads the whole published `src` and
+  // concatenates — so what holds that line here is the consumer's own bundler:
+  // `index.js` names nothing in `gaze.js`, and a Svelte toolchain that resolves
+  // this package resolves that entry only when something imports it.
+  ["@blobatar/svelte", ["blobatar", "blobatar/gaze", "blobatar/internal", "blobatar/uri", "svelte", "svelte/elements"]],
   // Two entries, and the second one's imports are the point: `blobatar/idle`
   // and `react-native-reanimated` are reachable only from `./animated`, which
   // is exactly the promise that subpath makes: a consumer drawing a still

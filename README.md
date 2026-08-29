@@ -257,7 +257,21 @@ const { ref } = useGaze({ travel: 3, lookAt: "pointer" });
 <Blobatar ref={ref} name={user.email} animate="always" size={200} />;
 ```
 
-Outside React, `gaze(svgEl)` is the same thing without the hook.
+Svelte has the same layer as an attachment, since an action cannot cross a
+component boundary and a ref is not something that adapter can hand back:
+
+```svelte
+<script>
+  import { gaze } from "@blobatar/svelte/gaze";
+  import "blobatar/gaze.css";
+
+  const eyes = gaze({ travel: 3, target: "pointer" });
+</script>
+
+<Blobatar {@attach eyes} name="alain@example.com" animate="always" size={200} />
+```
+
+Anywhere else, `gaze(svgEl)` is the same thing without the binding.
 
 `npx shadcn@latest add @blobatar/password-field` is a worked example of it.
 
