@@ -1,5 +1,5 @@
 /**
- * The seven things every gaze binding has to do, asked of each adapter in turn.
+ * The eight things every gaze binding has to do, asked of each adapter in turn.
  *
  * The bindings are four different shapes — a hook, a ref, a composable, an
  * attachment — because four frameworks disagree about how a caller reaches an
@@ -60,13 +60,16 @@ export async function verify(check, label, m) {
      first draft of this check passed while the Svelte binding was broken.
      What a consumer sees is whether the excursion reaches whatever `.mo-eyes`
      is *now*, so that is what this asks. */
+  /* Captured before the change, for F below. */
+  const drawn = m.svg.innerHTML;
+
   await m.rename("tove@example.com");
   await settle(5);
-  /* Queried from the container rather than from the `<svg>` this started with,
-     because two of the adapters replace that element too: Solid re-evaluates
-     the whole branch when its memo changes, and a detached node's computed
-     style is empty for every property, which reads as a failure that is really
-     the probe holding the wrong node. */
+  /* Queried from the container rather than from the `<svg>` this started with.
+     No adapter replaces that element any more — check E is what says so — but
+     reading through a node this check assumes is still attached would make E's
+     failure show up here as well, as an empty computed style, which is a
+     failure about the wrong thing. */
   const fresh = m.container.querySelector(".mo-eyes");
   const kept = fresh && getComputedStyle(fresh).getPropertyValue("--mo-track-travel").trim();
   check(
@@ -89,16 +92,36 @@ export async function verify(check, label, m) {
     fresh && m.svg.contains(fresh) ? "the same <svg>" : "the <svg> was replaced",
   );
 
-  /* E — teardown. */
+  /* F — the picture actually followed the name.
+     Every check above is about what *survives* a prop change, and every one of
+     them would pass just as well against a blobatar that had stopped
+     re-rendering: the element is still there, the excursion is still on it, the
+     driver is still running. This is the other half, and it is the half a
+     reactivity mistake breaks. `<Show>` in the Solid adapter is exactly the
+     kind of change that could trade one failure for this one — a branch that
+     keeps its element by never updating it.
+
+     Before the unmount, and that ordering is the check rather than an
+     afterthought: written after it, this compared against an element that had
+     been removed, found `undefined !== drawn`, and passed for every adapter
+     including one that had stopped drawing. */
+  const redrawn = m.container.querySelector("svg")?.innerHTML;
+  check(
+    at("F", "the picture follows the name"),
+    !!redrawn && redrawn !== drawn,
+    !redrawn ? "no <svg> to read" : redrawn === drawn ? "unchanged" : "redrawn",
+  );
+
+  /* G — teardown. */
   await m.unmount();
   await settle(2);
   check(
-    at("F", "teardown leaves nothing behind"),
+    at("G", "teardown leaves nothing behind"),
     !m.container.querySelector("svg"),
     m.container.querySelector("svg") ? "still mounted" : "unmounted",
   );
 
-  /* G — a static blobatar is an `<img>`, which has no eyes to move. The binding
+  /* H — a static blobatar is an `<img>`, which has no eyes to move. The binding
      must not start a driver on one.
      Asked about `--mo-track-x` rather than about the excursion, because the two
      say different things. The excursion is a declaration the caller asked for
@@ -107,7 +130,7 @@ export async function verify(check, label, m) {
      that cannot change. */
   const aimed = m.img && m.img.style.getPropertyValue("--mo-track-x");
   check(
-    at("G", "no driver on a static blobatar"),
+    at("H", "no driver on a static blobatar"),
     !!m.img && !aimed,
     m.img ? (aimed ? `a driver is writing ${aimed}` : "no driver") : "no <img> rendered",
   );
