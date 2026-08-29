@@ -1,6 +1,6 @@
 {
   "name": "@blobatar/react",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "React adapter for blobatar \u2014 deterministic geometric avatars.",
   "type": "module",
   "sideEffects": [

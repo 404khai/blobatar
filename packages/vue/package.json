@@ -1,6 +1,6 @@
 {
   "name": "@blobatar/vue",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "Vue 3 adapter for blobatar — deterministic geometric avatars.",
   "type": "module",
   "sideEffects": [
