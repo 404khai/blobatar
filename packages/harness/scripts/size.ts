@@ -159,12 +159,15 @@ const ENTRIES: {
     // re-exporting one, so this is core plus real adapter code — not core plus
     // an indirection. Expect it to sit above the React row by whatever the
     // component costs, and see the `alone` row below for that number on its own.
-    // 6432 B measured. ~1.2 kB over the React row, which is the component
+    // 6451 B measured. ~1.2 kB over the React row, which is the component
     // itself: Solid's compiled output carries its own `template`/`insert`
     // scaffolding per element, where React's row is a re-export standing in
     // front of core's already-minified `dist/react.js`.
+    // Raised from 6470 by `<Show>` replacing the branch's ternary — 19 B for an
+    // `<svg>` that survives a prop change instead of being rebuilt on every
+    // one. `@blobatar/solid alone` carries the same 17 B.
     name: "@blobatar/solid",
-    budget: 6470,
+    budget: 6500,
     external: ["solid-js", "solid-js/web"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/solid";

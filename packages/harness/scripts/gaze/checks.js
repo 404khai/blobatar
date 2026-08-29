@@ -1,5 +1,5 @@
 /**
- * The six things every gaze binding has to do, asked of each adapter in turn.
+ * The seven things every gaze binding has to do, asked of each adapter in turn.
  *
  * The bindings are four different shapes — a hook, a ref, a composable, an
  * attachment — because four frameworks disagree about how a caller reaches an
@@ -69,23 +69,36 @@ export async function verify(check, label, m) {
      the probe holding the wrong node. */
   const fresh = m.container.querySelector(".mo-eyes");
   const kept = fresh && getComputedStyle(fresh).getPropertyValue("--mo-track-travel").trim();
-  const swapped = fresh && !m.svg.contains(fresh) ? " (the <svg> was replaced)" : "";
   check(
     at("D", "the excursion survives a prop change"),
     kept === "3px",
-    fresh ? `computed ${kept || "(nothing)"}${swapped}` : "no .mo-eyes after the change",
+    fresh ? `computed ${kept || "(nothing)"}` : "no .mo-eyes after the change",
+  );
+
+  /* E — and the `<svg>` itself is still the one the binding was given.
+     Every binding holds the element it started on, so an adapter that rebuilds
+     it on a prop change leaves a driver measuring a detached node — and takes
+     every idle animation under it back to phase zero, which is the failure the
+     adapters' own comments are about one level down. The Solid adapter did
+     exactly this until `<Show>` replaced a ternary: a dynamic branch is one
+     computation, so it re-ran on any prop at all. Checked by identity, which is
+     the only way to see it: the rebuilt element renders identically. */
+  check(
+    at("E", "the element survives a prop change"),
+    fresh ? m.svg.contains(fresh) : false,
+    fresh && m.svg.contains(fresh) ? "the same <svg>" : "the <svg> was replaced",
   );
 
   /* E — teardown. */
   await m.unmount();
   await settle(2);
   check(
-    at("E", "teardown leaves nothing behind"),
+    at("F", "teardown leaves nothing behind"),
     !m.container.querySelector("svg"),
     m.container.querySelector("svg") ? "still mounted" : "unmounted",
   );
 
-  /* F — a static blobatar is an `<img>`, which has no eyes to move. The binding
+  /* G — a static blobatar is an `<img>`, which has no eyes to move. The binding
      must not start a driver on one.
      Asked about `--mo-track-x` rather than about the excursion, because the two
      say different things. The excursion is a declaration the caller asked for
@@ -94,7 +107,7 @@ export async function verify(check, label, m) {
      that cannot change. */
   const aimed = m.img && m.img.style.getPropertyValue("--mo-track-x");
   check(
-    at("F", "no driver on a static blobatar"),
+    at("G", "no driver on a static blobatar"),
     !!m.img && !aimed,
     m.img ? (aimed ? `a driver is writing ${aimed}` : "no driver") : "no <img> rendered",
   );

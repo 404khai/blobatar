@@ -256,17 +256,21 @@ lookAt(null);         // nothing — the idle glance comes back`}</Code>
         <P>
           A separate subpath, so it costs nothing unless you import it — the
           same bargain <Inline>@blobatar/react-native/animated</Inline> makes.
-          Outside React, <Inline>gaze(svgEl)</Inline> from{" "}
-          <Inline>blobatar/gaze</Inline> is the same driver without the hook.
+          Every adapter has one, under the shape its framework reaches an
+          element with: a hook in React and Preact, a composable that takes your
+          template ref in Vue, a ref that <em>is</em> the binding in Solid, an{" "}
+          <Inline>{"{@attach}"}</Inline> in Svelte. Anywhere else,{" "}
+          <Inline>gaze(svgEl)</Inline> from <Inline>blobatar/gaze</Inline> is the
+          same driver without the binding.
         </P>
         <P>
           <Inline>travel</Inline> is the excursion, and it is what opts a
           blobatar in. <Inline>--mo-track-travel</Inline> starts at{" "}
           <Inline>0px</Inline>, so with the stylesheet loaded and the excursion
           set nowhere every face on the page holds still. It is in viewBox units
-          — the blobatar is 100 across, so 3 is 3% of the face. Outside React,
-          or for a whole field of them at once, set the property instead: it
-          inherits, and it can be made responsive.
+          — the blobatar is 100 across, so 3 is 3% of the face. Without a
+          binding, or for a whole field of them at once, set the property
+          instead: it inherits, and it can be made responsive.
         </P>
         <Code>{`.hero .mo-eyes { --mo-track-travel: 3px; }`}</Code>
         <P>

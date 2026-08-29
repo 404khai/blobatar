@@ -11,12 +11,15 @@
  * at all, which is what the suite renders. So `bun test` would stay green
  * against a binding that never reached an element.
  *
- * Check D is the other reason this exists. The Svelte binding writes the
+ * Checks D and E are the other reason this exists. The Svelte binding writes the
  * excursion on `.mo-eyes` rather than on the `<svg>` because Svelte rewrites
  * that element's whole `style` attribute whenever a prop changes; the first
  * draft, which wrote it where the React hook does, passed every other check
  * here while losing the excursion the moment a `name` changed. Every adapter is
- * asked the same question rather than only the one that failed it.
+ * asked the same question rather than only the one that failed it — and asking
+ * it of all five is what turned up the Solid adapter rebuilding its whole
+ * `<svg>` on any prop change, which left the binding holding a detached node
+ * and every idle animation restarting from phase zero.
  *
  * Modelled on `packages/blobatar/scripts/probe-compose.ts`, including the
  * handoff: the page posts its verdicts rather than being read out of the
