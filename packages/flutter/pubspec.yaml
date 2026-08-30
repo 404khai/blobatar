@@ -2,9 +2,9 @@ name: blobatar
 description: >-
   Deterministic geometric blobatars from any string. A faithful Dart/Flutter
   port of the blobatar generation-2 engine: hash, traits, OKLCh palette,
-  layout geometry, a static Flutter painter and widget. The deterministic
-  core is Flutter-independent (lib/blobatar.dart); the widget layer (lib/flutter.dart)
-  is opt-in.
+  layout geometry, and static and animated Flutter painters and widgets. The
+  deterministic core is Flutter-independent (lib/blobatar.dart); the widget
+  layer (lib/flutter.dart) is opt-in.
 version: 0.1.0
 homepage: https://github.com/404khai/blobatar
 repository: https://github.com/404khai/blobatar

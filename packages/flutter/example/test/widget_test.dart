@@ -26,7 +26,7 @@ void main() {
     );
     await tester.pump();
 
-    Blobatar preview = tester.widget<Blobatar>(
+    AnimatedBlobatar preview = tester.widget<AnimatedBlobatar>(
       find.byKey(const ValueKey<String>('preview-blobatar')),
     );
     expect(preview.name, 'ada');
@@ -43,7 +43,8 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.byKey(const ValueKey<String>('appearance-picker')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.byKey(const ValueKey<String>('shape-triangle')));
     final Finder thinking = find.byKey(
       const ValueKey<String>('expression-thinking'),
@@ -51,9 +52,10 @@ void main() {
     await tester.ensureVisible(thinking);
     await tester.tap(thinking);
     await tester.tap(find.byKey(const ValueKey<String>('appearance-done')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
-    preview = tester.widget<Blobatar>(
+    preview = tester.widget<AnimatedBlobatar>(
       find.byKey(const ValueKey<String>('preview-blobatar')),
     );
     expect(preview.options.traits, <String, Object>{'shape': 0.99});
@@ -61,7 +63,49 @@ void main() {
     expect(preview.options.hue, 140);
     expect(preview.options.background, core.Backdrop.circle);
     expect(find.text('triangle · thinking'), findsNWidgets(2));
-    expect(find.byType(Blobatar), findsNWidgets(13));
+    expect(find.byType(AnimatedBlobatar), findsNWidgets(15));
+    for (int index = 0; index < 12; index++) {
+      expect(
+        find.byKey(ValueKey<String>('gallery-avatar-$index')),
+        findsOneWidget,
+      );
+    }
+    expect(
+      find.byKey(const ValueKey<String>('thinking-motion-demo')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('mad-motion-demo')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('motion controls update and pause the preview', (
+    WidgetTester tester,
+  ) async {
+    await _pumpStudio(tester);
+
+    AnimatedBlobatar preview = tester.widget<AnimatedBlobatar>(
+      find.byKey(const ValueKey<String>('preview-blobatar')),
+    );
+    expect(preview.animation, BlobatarAnimation.always);
+    expect(preview.active, isTrue);
+
+    await tester.tap(find.text('hover'));
+    await tester.pump();
+    preview = tester.widget<AnimatedBlobatar>(
+      find.byKey(const ValueKey<String>('preview-blobatar')),
+    );
+    expect(preview.animation, BlobatarAnimation.hover);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('motion-active-switch')),
+    );
+    await tester.pump();
+    preview = tester.widget<AnimatedBlobatar>(
+      find.byKey(const ValueKey<String>('preview-blobatar')),
+    );
+    expect(preview.active, isFalse);
   });
 
   testWidgets('Claude and Codex presets replace and lock the preview', (
@@ -93,6 +137,22 @@ void main() {
     );
     expect(
       tester
+          .widget<SegmentedButton<BlobatarAnimation>>(
+            find.byKey(const ValueKey<String>('motion-mode-picker')),
+          )
+          .onSelectionChanged,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<SwitchListTile>(
+            find.byKey(const ValueKey<String>('motion-active-switch')),
+          )
+          .onChanged,
+      isNull,
+    );
+    expect(
+      tester
           .widget<SegmentedButton<core.Backdrop>>(
             find.byKey(const ValueKey<String>('background-picker')),
           )
@@ -103,7 +163,8 @@ void main() {
     final Finder codexButton = find.byKey(const ValueKey<String>('use-codex'));
     await tester.ensureVisible(codexButton);
     await tester.tap(codexButton);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Codex web preset · locked'), findsOneWidget);
     expect(
@@ -122,5 +183,5 @@ Future<void> _pumpStudio(WidgetTester tester) async {
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(const BlobatarExampleApp());
-  await tester.pumpAndSettle();
+  await tester.pump();
 }

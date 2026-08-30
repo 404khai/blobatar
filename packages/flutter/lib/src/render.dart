@@ -1,7 +1,8 @@
 /// Option resolution and the renderer seam.
 ///
-/// Dart port of the static half of `packages/blobatar/src/render.ts` at
-/// blobatar 2.4.0 (the pose/motion halves arrive in later port phases).
+/// Dart port of the deterministic option-resolution half of
+/// `packages/blobatar/src/render.ts` at blobatar 2.4.0. Pose and elapsed-time
+/// motion stay in their own modules.
 library;
 
 import 'color.dart';
@@ -20,8 +21,7 @@ enum Backdrop { none, square, circle, squircle }
 
 /// The options the layout and palette resolution read.
 ///
-/// Animation belongs to a later port phase; static expressions are applied by
-/// both the pure renderer and the Flutter painter.
+/// Expressions are resolved by both static and animated renderers.
 class BlobatarOptions {
   /// Overrides specific palette entries. Overridden colors bypass the
   /// contrast guarantee.
