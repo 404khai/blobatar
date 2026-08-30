@@ -11,7 +11,7 @@
   },
   "//dependencies": "Both generations come from npm package majors: the current `blobatar` normally links to this workspace, while `blobatar-v1` aliases the frozen v1 release for `?gen=1`. A clone made by the Deploy to Cloudflare button installs this directory alone, so workspace protocols would be unresolvable.",
   "dependencies": {
-    "blobatar": "^2.6.0",
+    "blobatar": "^2.7.0",
     "blobatar-v1": "npm:blobatar@^1.0.0"
   },
   "devDependencies": {

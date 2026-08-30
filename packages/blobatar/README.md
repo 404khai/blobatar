@@ -274,8 +274,8 @@ The eyes can track the cursor. This is the one motion layer that needs
 JavaScript, so it ships as its own entry point and a second stylesheet, and a
 page that never imports them pays nothing for it.
 
-In React, `@blobatar/react/gaze` wraps it as a hook — a separate subpath, so it
-costs nothing unless you import it:
+Every adapter wraps it, each behind a `/gaze` subpath of its own so that
+importing `Blobatar` links none of it:
 
 ```tsx
 import { Blobatar } from "@blobatar/react";
@@ -287,7 +287,20 @@ const { ref } = useGaze({ travel: 3 });
 <Blobatar ref={ref} name={user.email} animate="always" size={200} />;
 ```
 
-Anywhere else, drive it yourself against the `<svg>`:
+The binding takes the shape its framework reaches an element with, and that is
+the only thing that differs between them — same options, same targets, same
+driver:
+
+| | |
+| --- | --- |
+| `@blobatar/react/gaze` | `useGaze()` hands back a `ref` |
+| `@blobatar/preact/gaze` | the same hook; the ref goes on `elementRef`, since Preact keeps `ref` from a function component's props |
+| `@blobatar/vue/gaze` | `useGaze(blobRef, …)` takes the template ref you already own |
+| `@blobatar/solid/gaze` | `createGaze()` *is* the ref |
+| `@blobatar/svelte/gaze` | `gaze()` is an attachment: `{@attach eyes}` |
+
+Each adapter's README has the two-line integration. Anywhere else, drive it
+yourself against the `<svg>`:
 
 ```ts
 import { gaze } from "blobatar/gaze";
@@ -297,9 +310,9 @@ const g = gaze(svgEl);
 
 The excursion is what opts a blobatar in. `--mo-track-travel` is registered with
 an initial value of `0px`, so with the stylesheet loaded and nothing else done
-every blobatar on the page holds still. The React hook takes it as `travel`
-above; anywhere else, set the property on the blobatar or on anything above it,
-and that subtree follows:
+every blobatar on the page holds still. Every binding takes it as `travel`;
+without one, set the property on the blobatar or on anything above it, and that
+subtree follows:
 
 ```css
 .hero .mo-eyes { --mo-track-travel: 3px; } /* viewBox units, ~1.5–4 reads well */

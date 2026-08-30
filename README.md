@@ -257,7 +257,19 @@ const { ref } = useGaze({ travel: 3, lookAt: "pointer" });
 <Blobatar ref={ref} name={user.email} animate="always" size={200} />;
 ```
 
-Outside React, `gaze(svgEl)` is the same thing without the hook.
+Every adapter has it, under the shape its framework reaches an element with —
+same options, same targets, same layer:
+
+```tsx
+useGaze({ travel: 3, lookAt: "pointer" })          // React    → ref
+useGaze({ travel: 3, lookAt: "pointer" })          // Preact   → elementRef
+useGaze(blobRef, { travel: 3, target: "pointer" }) // Vue      → takes your ref
+createGaze({ travel: 3, target: "pointer" })       // Solid    → is the ref
+gaze({ travel: 3, target: "pointer" })             // Svelte   → {@attach}
+```
+
+Each package's README has the two-line integration. Anywhere else, `gaze(svgEl)`
+is the same thing without the binding.
 
 `npx shadcn@latest add @blobatar/password-field` is a worked example of it.
 
