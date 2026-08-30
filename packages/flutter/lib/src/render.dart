@@ -62,6 +62,59 @@ class BlobatarOptions {
     this.contrast = true,
     this.background,
   });
+
+  /// Value equality: two option sets render the same avatar iff they are
+  /// equal. Maps compare by their entries (values may be a number or a list
+  /// of numbers), so a `RepaintBoundary`/`shouldRepaint` decision never
+  /// repaints for an unrelated property change.
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! BlobatarOptions) return false;
+    return normalize == other.normalize &&
+        contrast == other.contrast &&
+        hue == other.hue &&
+        tone == other.tone &&
+        background == other.background &&
+        _mapEquals(palette, other.palette, _scalarEquals) &&
+        _mapEquals(traits, other.traits, _scalarEquals);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        normalize,
+        contrast,
+        hue,
+        tone,
+        background,
+        Object.hashAllUnordered(palette?.entries ?? const []),
+        Object.hashAllUnordered(traits?.entries ?? const []),
+      );
+}
+
+bool _scalarEquals(Object? a, Object? b) {
+  if (a == b) return true;
+  if (a is List && b is List) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+/// Compares two maps by [valueEquals] on each key's values (order agnostic,
+/// like the pure-Dart core).
+bool _mapEquals(Map<Object?, Object?>? a, Map<Object?, Object?>? b,
+    bool Function(Object?, Object?) valueEquals) {
+  if (a == null || b == null) return a == b;
+  if (a.length != b.length) return false;
+  for (final MapEntry<Object?, Object?> entry in a.entries) {
+    final Object? other = b[entry.key];
+    if (!valueEquals(entry.value, other)) return false;
+  }
+  return true;
 }
 
 /// The resolved inputs: the trait reader and the final palette.
