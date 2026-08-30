@@ -34,6 +34,7 @@ class BlobatarLayout {
   final List<Eye> eyes;
   final List<Petal> petals;
   final List<BlobPath> extra;
+  final double bodyOffsetY;
 
   /// The shape's core-path hook, kept as a function like the TypeScript
   /// renderer so it is traced against the body's live values at draw time.
@@ -49,6 +50,7 @@ class BlobatarLayout {
     required this.petals,
     required this.extra,
     required this.draw,
+    this.bodyOffsetY = 0,
   });
 
   /// The core body's path — the shape's own hook when it names one,

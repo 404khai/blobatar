@@ -63,6 +63,30 @@ void main() {
     expect(layout.shape, 'triangle');
   });
 
+  testWidgets('renders every static expression value', (tester) async {
+    for (final core.Expression expression in core.expressions) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: Blobatar(
+              name: 'expression-${expression.name}',
+              size: 48,
+              options: core.BlobatarOptions(expression: expression),
+            ),
+          ),
+        ),
+      );
+      final CustomPaint paint = tester.widget<CustomPaint>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint && widget.painter is BlobatarPainter,
+        ),
+      );
+      final painter = paint.painter! as BlobatarPainter;
+      expect(painter.options.expression, expression, reason: expression.name);
+    }
+  });
+
   testWidgets('semantics: semanticLabel sets an image semantic',
       (tester) async {
     await tester.pumpWidget(

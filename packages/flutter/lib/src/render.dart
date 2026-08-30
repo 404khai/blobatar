@@ -5,6 +5,7 @@
 library;
 
 import 'color.dart';
+import 'expression.dart';
 import 'shape.dart';
 import 'traits.dart';
 import 'styles/blob.dart' show style;
@@ -19,8 +20,8 @@ enum Backdrop { none, square, circle, squircle }
 
 /// The options the layout and palette resolution read.
 ///
-/// Markup-only options (`size`, `title`) and pose options (`expression`,
-/// `animate`) belong to later port phases and are deliberately absent here.
+/// Animation belongs to a later port phase; static expressions are applied by
+/// both the pure renderer and the Flutter painter.
 class BlobatarOptions {
   /// Overrides specific palette entries. Overridden colors bypass the
   /// contrast guarantee.
@@ -53,6 +54,9 @@ class BlobatarOptions {
   /// own, which for gen-2 is none.
   final Backdrop? background;
 
+  /// The static pose to apply. Omitted and [idle] are equivalent.
+  final Expression? expression;
+
   const BlobatarOptions({
     this.palette,
     this.hue,
@@ -61,6 +65,7 @@ class BlobatarOptions {
     this.normalize = true,
     this.contrast = true,
     this.background,
+    this.expression,
   });
 
   /// Value equality: two option sets render the same avatar iff they are
@@ -76,6 +81,7 @@ class BlobatarOptions {
         hue == other.hue &&
         tone == other.tone &&
         background == other.background &&
+        expression == other.expression &&
         _mapEquals(palette, other.palette, _scalarEquals) &&
         _mapEquals(traits, other.traits, _scalarEquals);
   }
@@ -87,6 +93,7 @@ class BlobatarOptions {
         hue,
         tone,
         background,
+        expression,
         Object.hashAllUnordered(palette?.entries ?? const []),
         Object.hashAllUnordered(traits?.entries ?? const []),
       );
@@ -183,12 +190,21 @@ BackdropGeometry? backdropFor(Backdrop? background, Palette p,
 BlobatarLayout layoutFor(String name,
     [BlobatarOptions opts = const BlobatarOptions()]) {
   final Resolved r = resolve(name, opts);
-  return style.layout(r.t);
+  final BlobatarLayout layout = style.layout(r.t);
+  return opts.expression == null
+      ? layout
+      : bakePose(layout, opts.expression!.pose);
 }
 
 /// Layout and palette together, for renderers that own the drawing.
 (BlobatarLayout, Palette) partsFor(String name,
     [BlobatarOptions opts = const BlobatarOptions()]) {
   final Resolved r = resolve(name, opts);
-  return (style.layout(r.t), r.palette);
+  final Expression? expression = opts.expression;
+  final BlobatarLayout layout = style.layout(r.t);
+  if (expression == null) return (layout, r.palette);
+  return (
+    bakePose(layout, expression.pose),
+    expressionPalette(r.palette, expression),
+  );
 }
