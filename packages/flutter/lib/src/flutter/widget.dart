@@ -1,0 +1,58 @@
+/// The [Blobatar] widget.
+library;
+
+import 'package:flutter/widgets.dart';
+
+import 'package:blobatar/blobatar.dart' show BlobatarOptions;
+
+import 'painter.dart';
+
+/// Displays a deterministic blobatar for a name.
+///
+/// The same name always produces the same avatar within the frozen gen-2
+/// contract. The widget owns sizing, the repaint boundary, and semantics; the
+/// options are forwarded to the core unchanged (no adapter-invented
+/// defaults).
+///
+/// - [size], when given, pins the square edge; otherwise the widget expands
+///   to its constraints and the renderer centers the 100-by-100 viewBox on
+///   the largest square inside them.
+/// - [options] mirrors the JavaScript static options: `background`, `hue`,
+///   `tone`, `palette`, `traits`, `normalize`, and `contrast`.
+/// - [semanticLabel] backs `Semantics(image: true)`. When null the element
+///   is left unlabeled, matching the library's `title`-optional behavior.
+class Blobatar extends StatelessWidget {
+  final String name;
+  final double? size;
+  final BlobatarOptions options;
+  final String? semanticLabel;
+
+  const Blobatar({
+    super.key,
+    required this.name,
+    this.size,
+    this.options = const BlobatarOptions(),
+    this.semanticLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final BlobatarPainter painter =
+        BlobatarPainter(name: name, options: options);
+    final Widget figure;
+    final double? edge = size;
+    if (edge != null) {
+      figure = SizedBox.square(
+          dimension: edge, child: CustomPaint(painter: painter));
+    } else {
+      figure = SizedBox.expand(child: CustomPaint(painter: painter));
+    }
+    return RepaintBoundary(
+      child: Semantics(
+        image: true,
+        label: semanticLabel,
+        child: figure,
+      ),
+    );
+  }
+}

@@ -1,8 +1,10 @@
 name: blobatar
 description: >-
-  Deterministic geometric blobatars from any string. A faithful Dart port of
-  the blobatar generation-2 engine (hash, traits, OKLCh palette, layout
-  geometry), independent of Flutter so Dart-only consumers can use it.
+  Deterministic geometric blobatars from any string. A faithful Dart/Flutter
+  port of the blobatar generation-2 engine: hash, traits, OKLCh palette,
+  layout geometry, a static Flutter painter and widget. The deterministic
+  core is Flutter-independent (lib/blobatar.dart); the widget layer (lib/flutter.dart)
+  is opt-in.
 version: 0.1.0
 homepage: https://github.com/404khai/blobatar
 repository: https://github.com/404khai/blobatar
@@ -11,6 +13,7 @@ documentation: https://github.com/404khai/blobatar/tree/main/packages/flutter
 
 environment:
   sdk: ^3.6.0
+  flutter: ">=3.24.0"
 
 dependencies:
   # Dart has no built-in Unicode normalization; the JS core normalizes seeds
@@ -18,7 +21,11 @@ dependencies:
   # decomposed and precomposed input hashing equally. See
   # docs/flutter-port/phase-0-coordination.md (NFC parity question).
   unorm_dart: ^0.3.0
+  flutter:
+    sdk: flutter
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   lints: ^6.0.0
   test: ^1.25.0

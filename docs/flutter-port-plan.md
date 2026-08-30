@@ -1,6 +1,6 @@
 # Flutter/Dart port plan
 
-Status: implementing — Phase 1 (deterministic Dart core) landed  
+Status: implementing — Phases 0-2 landed (core, static Flutter renderer/widget)  
 Branch: `feat/flutter-dart-port`  
 Reference: Blobatar `2.4.0` / generation 2  
 Upstream request: [issue #29](https://github.com/Alain00/blobatar/issues/29)
