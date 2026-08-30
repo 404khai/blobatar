@@ -41,6 +41,24 @@ export type BlobatarProps = {
    * same blobatar. The only required prop.
    */
   name: string;
+  /**
+   * A ref to whichever element the mode renders — the `<svg>` when `animate`
+   * is on, the `<img>` when it is not. React's `ref`, under the only name
+   * Preact leaves available.
+   *
+   * `ref` itself cannot be it. Preact pulls `ref` out of a vnode's props
+   * before a function component ever sees them, and hands it the component's
+   * internal instance rather than any DOM node — so `<Blobatar ref={…}>`
+   * silently yields something with no `getBoundingClientRect` on it. The
+   * React-style behaviour lives in `preact/compat`'s `forwardRef`, and
+   * reaching for it would put compat in the import graph of every consumer,
+   * including the ones rendering a static list who need none of it.
+   *
+   * This exists so `@blobatar/preact/gaze` has an element to start a driver
+   * on, and it is the adapter re-expressing React's `ref` rather than an
+   * option of its own: it changes nothing about the picture.
+   */
+  elementRef?: (el: SVGSVGElement | HTMLImageElement | null) => void;
 } & BlobatarOptions &
   (StaticProps | AnimatedProps);
 
@@ -57,6 +75,7 @@ export function Blobatar({
   animate,
   expression,
   traits,
+  elementRef,
   ...rest
 }: BlobatarProps) {
   // Pulled out explicitly like every other option, because what is left in
@@ -112,6 +131,7 @@ export function Blobatar({
         // `role="img"` that is also `aria-hidden` just contradicts itself.
         role={title ? "img" : undefined}
         aria-hidden={title ? undefined : true}
+        ref={elementRef}
         style={{
           ...(parts.vars as JSX.CSSProperties),
           ...(style as JSX.CSSProperties),
@@ -143,6 +163,13 @@ export function Blobatar({
     alt?: string;
   };
   return (
-    <img src={src} width={size} height={size} alt={alt ?? title ?? ""} {...imgRest} />
+    <img
+      src={src}
+      width={size}
+      height={size}
+      alt={alt ?? title ?? ""}
+      ref={elementRef}
+      {...imgRest}
+    />
   );
 }

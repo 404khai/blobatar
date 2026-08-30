@@ -159,22 +159,29 @@ const ENTRIES: {
     // re-exporting one, so this is core plus real adapter code — not core plus
     // an indirection. Expect it to sit above the React row by whatever the
     // component costs, and see the `alone` row below for that number on its own.
-    // 6432 B measured. ~1.2 kB over the React row, which is the component
+    // 6451 B measured. ~1.2 kB over the React row, which is the component
     // itself: Solid's compiled output carries its own `template`/`insert`
     // scaffolding per element, where React's row is a re-export standing in
     // front of core's already-minified `dist/react.js`.
+    // Raised from 6470 by `<Show>` replacing the branch's ternary — 19 B for an
+    // `<svg>` that survives a prop change instead of being rebuilt on every
+    // one. `@blobatar/solid alone` carries the same 17 B.
     name: "@blobatar/solid",
-    budget: 6470,
+    budget: 6500,
     external: ["solid-js", "solid-js/web"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/solid";
              globalThis.x = Blobatar;`,
   },
   {
-    // 6011 B measured, ~780 B over React's row and ~420 B under Solid's — the
+    // 6057 B measured, ~780 B over React's row and ~420 B under Solid's — the
     // same component written against a runtime that needs less per element.
+    // Raised from 6050 by `elementRef`, which is 15 B of forwarding on the
+    // adapter's own row and the only way `@blobatar/preact/gaze` can be handed
+    // an element: Preact takes `ref` off a function component's props before
+    // the component sees them.
     name: "@blobatar/preact",
-    budget: 6050,
+    budget: 6100,
     external: ["preact", "preact/hooks", "preact/jsx-runtime"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/preact";
@@ -377,6 +384,47 @@ const ENTRIES: {
     source: `import { useGaze } from "@blobatar/react/gaze";
              globalThis.x = useGaze;`,
   },
+  /*
+   * One row per binding, and the point of having four is the comparison. Each
+   * is the adapter's own code with the driver external, so a number that grows
+   * out of line with the others is a binding doing something the layer does not
+   * need — and the row that matters beside every one of them is its adapter's
+   * `alone` row, which must not move at all: the gaze is a separate entry
+   * precisely so that importing `Blobatar` never reaches it.
+   */
+  {
+    // 381 B measured. A composable with a `watch` and a scope-dispose, which is
+    // what it costs to be handed a ref instead of handing one back.
+    name: "@blobatar/vue/gaze alone",
+    budget: 410,
+    external: ["vue", "blobatar", "blobatar/gaze"],
+    ext: "ts",
+    source: `import { useGaze } from "@blobatar/vue/gaze";
+             globalThis.x = useGaze;`,
+  },
+  {
+    // 318 B measured, and the smallest of the four because Solid does not
+    // re-render: there is no callback ref to keep, no dependency array and no
+    // declared target to re-apply, so the binding is the driver's two seams and
+    // an `onCleanup`.
+    name: "@blobatar/solid/gaze alone",
+    budget: 350,
+    external: ["solid-js", "blobatar", "blobatar/gaze"],
+    ext: "ts",
+    source: `import { createGaze } from "@blobatar/solid/gaze";
+             globalThis.x = createGaze;`,
+  },
+  {
+    // 450 B measured against React's 444 B, which is the number worth reading:
+    // the two files are the same hook, and a divergence here would mean one of
+    // them had grown a behaviour the other lacks.
+    name: "@blobatar/preact/gaze alone",
+    budget: 480,
+    external: ["preact", "preact/hooks", "blobatar", "blobatar/gaze"],
+    ext: "ts",
+    source: `import { useGaze } from "@blobatar/preact/gaze";
+             globalThis.x = useGaze;`,
+  },
   {
     name: "@blobatar/vue alone",
     budget: 110,
@@ -442,13 +490,22 @@ const ENTRIES: {
  * consumer's, so what it compiles *to* is not this package's to report.
  */
 const SHIPPED: { name: string; from: string; budget: number }[] = [
-  // 2613 B measured, and larger than any bundled row above for a reason worth
+  // 5400 B measured, and larger than any bundled row above for a reason worth
   // stating rather than optimizing away: this is source, so it ships its
   // comments. The consumer's compiler drops them before they reach a bundle, so
   // the number a *user* pays is smaller than this one and is not measurable
   // here — what this row gates is the wire, which is the only part this package
   // controls.
-  { name: "@blobatar/svelte", from: "../svelte/src", budget: 2650 },
+  //
+  // 2613 B of that until `./gaze` arrived, and the jump is the one place this
+  // row reads differently from the built adapters above. There, a second entry
+  // costs a consumer nothing until they import it, and `@blobatar/react alone`
+  // is the row that says so. A tarball has no entries: `src/gaze.js` crosses
+  // the wire whether or not anything imports it, and the subpath only keeps it
+  // out of the *bundle*. So this number covers both entries on purpose, and the
+  // promise the subpath makes is the one the packaging test states — `index.js`
+  // names nothing in `gaze.js`.
+  { name: "@blobatar/svelte", from: "../svelte/src", budget: 5450 },
 ];
 
 rmSync(DIR, { recursive: true, force: true });

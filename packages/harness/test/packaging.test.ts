@@ -90,12 +90,12 @@ const read = (pkg: string): string => {
 const sourceEntry = (pkg: string) => manifest(pkg).exports?.["."]?.svelte;
 
 const ADAPTERS: [string, string[]][] = [
-  // `blobatar/gaze` is reachable only from `./gaze`, the same promise `./animated`
-  // makes below: a consumer importing `Blobatar` links no pointer driver. This
-  // list cannot tell the two entries apart — it reads every export and
-  // concatenates — so the row that actually holds that line is
-  // `@blobatar/react alone` in `scripts/size.ts`, budgeted at 110 B against the
-  // driver's 1.2 kB.
+  // `blobatar/gaze` is reachable only from `./gaze` — in this package and in the
+  // three below it — the same promise `./animated` makes further down: a
+  // consumer importing `Blobatar` links no pointer driver. This list cannot tell
+  // the two entries apart, since it reads every export and concatenates, so the
+  // rows that actually hold that line are the `alone` ones in `scripts/size.ts`,
+  // budgeted in the low hundreds of bytes against the driver's 1.2 kB.
   [
     "@blobatar/react",
     [
@@ -108,10 +108,16 @@ const ADAPTERS: [string, string[]][] = [
       "react/jsx-runtime",
     ],
   ],
-  ["@blobatar/vue", ["blobatar", "blobatar/vue", "blobatar/internal", "blobatar/uri", "vue"]],
-  ["@blobatar/solid", ["blobatar", "blobatar/internal", "blobatar/uri", "solid-js", "solid-js/web"]],
-  ["@blobatar/preact", ["blobatar", "blobatar/internal", "blobatar/uri", "preact", "preact/hooks", "preact/jsx-runtime"]],
-  ["@blobatar/svelte", ["blobatar", "blobatar/internal", "blobatar/uri", "svelte", "svelte/elements"]],
+  ["@blobatar/vue", ["blobatar", "blobatar/vue", "blobatar/gaze", "blobatar/internal", "blobatar/uri", "vue"]],
+  ["@blobatar/solid", ["blobatar", "blobatar/gaze", "blobatar/internal", "blobatar/uri", "solid-js", "solid-js/web"]],
+  ["@blobatar/preact", ["blobatar", "blobatar/gaze", "blobatar/internal", "blobatar/uri", "preact", "preact/hooks", "preact/jsx-runtime"]],
+  // `blobatar/gaze` is reachable only from `./gaze`, the same promise the React
+  // adapter's entry of that name makes. This list cannot tell the two entries
+  // apart for a source-resolved package — it reads the whole published `src` and
+  // concatenates — so what holds that line here is the consumer's own bundler:
+  // `index.js` names nothing in `gaze.js`, and a Svelte toolchain that resolves
+  // this package resolves that entry only when something imports it.
+  ["@blobatar/svelte", ["blobatar", "blobatar/gaze", "blobatar/internal", "blobatar/uri", "svelte", "svelte/elements"]],
   // Two entries, and the second one's imports are the point: `blobatar/idle`
   // and `react-native-reanimated` are reachable only from `./animated`, which
   // is exactly the promise that subpath makes: a consumer drawing a still

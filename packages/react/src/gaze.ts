@@ -140,6 +140,11 @@ export interface UseGazeResult {
   /**
    * Attach to the `<Blobatar>`. A callback ref, not an object one.
    *
+   * It takes the `<img>` of a static blobatar as well as the `<svg>` of an
+   * animated one, because `animate` is the caller's to change and a ref that
+   * stopped type-checking when it went off would make toggling animation a
+   * compile error. The layer is simply inert there: an `<img>` has no eyes.
+   *
    * The driver's life then follows the element's exactly, which an object ref
    * cannot express: a blobatar that is conditionally rendered, or swapped for
    * something else, mounts and unmounts without anything in a dependency array
@@ -147,7 +152,7 @@ export interface UseGazeResult {
    * at a detached node. React calls this with the element and with `null`, so
    * there is nothing to key on and nothing to remember to key on.
    */
-  ref: (node: SVGSVGElement | null) => void;
+  ref: (node: SVGSVGElement | HTMLImageElement | null) => void;
   /**
    * Point the eyes at something: a point in client coordinates, an element,
    * `"pointer"`, `"rest"`, or `null` for nothing. See `GazeTarget`.
@@ -200,7 +205,7 @@ export function useGaze({
    * `node` that is either the mounted element or `null`. One extra render on
    * mount, which is the standard cost of measuring a node in React.
    */
-  const [node, setNode] = useState<SVGSVGElement | null>(null);
+  const [node, setNode] = useState<SVGSVGElement | HTMLImageElement | null>(null);
   const driver = useRef<Gaze | null>(null);
 
   /**
@@ -235,7 +240,16 @@ export function useGaze({
    * carrying the old one's state into it would be neither.
    */
   useEffect(() => {
-    if (!node) return;
+    /*
+     * The `instanceof` is not defensive typing. `animate` is the caller's to
+     * change, and with it off `<Blobatar>` renders an `<img>` — which has no
+     * `.mo-eyes`, no stylesheet reaching inside it and no eyes. A driver built
+     * on one measures a box, attaches its listeners and runs a frame loop
+     * forever for a picture that cannot move, which is invisible in every way
+     * except the battery. Caught by `no driver on a static blobatar` in
+     * `packages/harness/scripts/probe-gaze.ts`.
+     */
+    if (!node || !(node instanceof SVGSVGElement)) return;
     const g = gaze(node, { settle, snap, target: target.current });
     driver.current = g;
     return () => {

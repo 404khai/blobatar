@@ -11,7 +11,8 @@
     "paths": {
       "blobatar": ["../blobatar/src/index.ts"],
       "blobatar/internal": ["../blobatar/src/internal.ts"],
-      "blobatar/uri": ["../blobatar/src/uri.ts"]
+      "blobatar/uri": ["../blobatar/src/uri.ts"],
+      "blobatar/gaze": ["../blobatar/src/gaze.ts"]
     }
   },
   "include": ["src"]

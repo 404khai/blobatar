@@ -14,7 +14,7 @@
  * row that would have caught the empty string.
  */
 
-import { createMemo, splitProps, type JSX } from "solid-js";
+import { Show, createMemo, splitProps, type JSX } from "solid-js";
 import { _parts, type Animate, type BlobatarOptions } from "blobatar/internal";
 import { blobatarUri } from "blobatar/uri";
 
@@ -92,63 +92,83 @@ export function Blobatar(props: BlobatarProps) {
 
   const src = createMemo(() => (own.animate ? "" : blobatarUri(own.name, opts())));
 
+  /*
+   * `<Show>` rather than the ternary this used to be, and the difference is not
+   * style — it is whether the `<svg>` survives a prop change.
+   *
+   * Solid wraps a dynamic child expression in one computation, so a branch
+   * written as `parts() ? <svg…> : <img…>` re-runs whenever *anything* it reads
+   * changes: a new `name`, a new `hue`, a new size. Re-running it builds a new
+   * element and swaps it in, which is the failure the comment inside is about,
+   * one level up — a fresh `<svg>` has no previous computed value either, so
+   * every idle animation under it restarts from phase zero and any driver
+   * holding the old element is left pointing at a detached node. It is the
+   * only adapter that did this; React, Preact, Vue and Svelte all keep the
+   * element and update its attributes.
+   *
+   * A non-keyed `<Show>` memoizes on the *condition* rather than on the value,
+   * so the branch is built once and stays while `parts()` keeps returning
+   * something. Everything inside it is an ordinary reactive attribute, updated
+   * in place, which is what the other four have always done.
+   *
+   * Caught by `the excursion survives a prop change` in
+   * `packages/harness/scripts/probe-gaze.ts`, which reports the swap in so many
+   * words.
+   */
+  const [carriedStyle, svgRest] = splitProps(rest, ["style"]);
+  const [carriedAlt, imgRest] = splitProps(rest, ["alt"]);
+
   return (
-    <>
-      {(() => {
-        const p = parts();
-        if (p) {
-          const [carried, svgRest] = splitProps(rest, ["style"]);
-          return (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 100 100"
-              width={own.size}
-              height={own.size}
-              // With a `title` the markup carries a `<title>`, so this is a
-              // labelled image; without one it is decoration and should be
-              // skipped entirely — the same call `alt=""` makes on the `<img>`
-              // path. Never both.
-              role={own.title ? "img" : undefined}
-              aria-hidden={own.title ? undefined : true}
-              style={{
-                ...(p.vars as JSX.CSSProperties),
-                ...(carried.style as JSX.CSSProperties),
-              }}
-              {...(svgRest as JSX.SvgSVGAttributes<SVGSVGElement>)}
-            >
-              {/*
-                Three real children rather than one `innerHTML` blob, and the
-                reason is the morph. Only the third varies at runtime — its
-                class does, when the expression changes — and setting
-                `innerHTML` is all-or-nothing: had the root `<g>` stayed inside
-                that string, every expression change would replace the whole
-                subtree, and a fresh element has no previous computed value, so
-                no transition runs on it and every idle animation under it
-                restarts from phase zero.
+    <Show
+      when={parts()}
+      fallback={
+        <img
+          src={src()}
+          width={own.size}
+          height={own.size}
+          alt={(carriedAlt.alt as string | undefined) ?? own.title ?? ""}
+          {...(imgRest as JSX.ImgHTMLAttributes<HTMLImageElement>)}
+        />
+      }
+    >
+      {(p) => (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 100 100"
+          width={own.size}
+          height={own.size}
+          // With a `title` the markup carries a `<title>`, so this is a
+          // labelled image; without one it is decoration and should be
+          // skipped entirely — the same call `alt=""` makes on the `<img>`
+          // path. Never both.
+          role={own.title ? "img" : undefined}
+          aria-hidden={own.title ? undefined : true}
+          style={{
+            ...(p().vars as JSX.CSSProperties),
+            ...(carriedStyle.style as JSX.CSSProperties),
+          }}
+          {...(svgRest as JSX.SvgSVGAttributes<SVGSVGElement>)}
+        >
+          {/*
+            Three real children rather than one `innerHTML` blob, and the
+            reason is the morph. Only the third varies at runtime — its
+            class does, when the expression changes — and setting
+            `innerHTML` is all-or-nothing: had the root `<g>` stayed inside
+            that string, every expression change would replace the whole
+            subtree, and a fresh element has no previous computed value, so
+            no transition runs on it and every idle animation under it
+            restarts from phase zero.
 
-                The first two are siblings of the root rather than inside it:
-                `<title>` names the element it is the first child of, and the
-                backdrop must sit outside the hover-lift or the plate scales
-                with the creature.
-              */}
-              {own.title ? <title>{own.title}</title> : null}
-              {p.bg ? <path d={p.bg.d} fill={p.bg.fill} /> : null}
-              <g class={p.cls} innerHTML={p.inner} />
-            </svg>
-          );
-        }
-
-        const [carried, imgRest] = splitProps(rest, ["alt"]);
-        return (
-          <img
-            src={src()}
-            width={own.size}
-            height={own.size}
-            alt={(carried.alt as string | undefined) ?? own.title ?? ""}
-            {...(imgRest as JSX.ImgHTMLAttributes<HTMLImageElement>)}
-          />
-        );
-      })()}
-    </>
+            The first two are siblings of the root rather than inside it:
+            `<title>` names the element it is the first child of, and the
+            backdrop must sit outside the hover-lift or the plate scales
+            with the creature.
+          */}
+          <Show when={own.title}>{(t) => <title>{t()}</title>}</Show>
+          <Show when={p().bg}>{(bg) => <path d={bg().d} fill={bg().fill} />}</Show>
+          <g class={p().cls} innerHTML={p().inner} />
+        </svg>
+      )}
+    </Show>
   );
 }
