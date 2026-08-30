@@ -24,6 +24,7 @@ const { traits } = await import(`${SRC}/traits.ts`);
 const { ramp, toHex } = await import(`${SRC}/color.ts`);
 const { _layout } = await import(`${SRC}/blobatar.ts`);
 const { superellipse } = await import(`${SRC}/shape.ts`);
+const expressionModule = await import(`${SRC}/expression.ts`);
 
 const OUT =
   process.env.BLOBATAR_VECTORS_OUT ??
@@ -73,6 +74,17 @@ const OVERRIDE_CASES: [string, Record<string, number | number[]>][] = [
   ["user-7", { "body.r": 1, "eye.rx": 0.999999 }],
 ];
 
+const EXPRESSION_NAMES = [
+  "idle", "happy", "sad", "mad", "surprised", "wink", "sleepy",
+  "smug", "unsure", "scared", "love", "shy", "sick", "thinking",
+] as const;
+
+const EXPRESSION_CASES = [
+  { seed: "expression-round", options: { traits: { shape: 0.1 } } },
+  { seed: "expression-organic", options: { traits: { shape: 0.35 } } },
+  { seed: "expression-triangle", options: { traits: { shape: 0.99 } } },
+];
+
 const cases: unknown[] = [];
 
 const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
@@ -103,6 +115,15 @@ function caseOut(name: string, opts?: Record<string, unknown>) {
     eyePaths: l.eyes.map((e: Record<string, number>) => superellipse(e)),
     palette: { bg: l.palette.bg, head: l.palette.head, eye: l.palette.eye },
   };
+}
+
+function expressionCaseOut(
+  seed: string,
+  opts: Record<string, unknown>,
+  expression: unknown,
+) {
+  const output = caseOut(seed, { ...opts, expression });
+  return { ...output, options: opts };
 }
 
 function main() {
@@ -141,13 +162,14 @@ function main() {
 
   const vectors = {
     meta: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       upstream: "https://github.com/Alain00/blobatar",
       version: "2.4.0",
       generation: "gen2",
       exportedWith,
-      sourceDir: SRC,
+      sourceDir: "v2.4.0:packages/blobatar/src",
       caseCount: cases.length,
+      expressionCaseCount: EXPRESSION_NAMES.length * EXPRESSION_CASES.length,
       shapeCounts: Object.fromEntries(
         [...seen.entries()].sort(([a], [b]) => a.localeCompare(b)),
       ),
@@ -198,6 +220,20 @@ function main() {
         };
       }),
     ),
+    expressions: Object.fromEntries(
+      EXPRESSION_NAMES.map((name) => {
+        const expression = expressionModule[name];
+        return [
+          name,
+          {
+            pose: expression.p,
+            cases: EXPRESSION_CASES.map(({ seed, options }) =>
+              expressionCaseOut(seed, options, expression),
+            ),
+          },
+        ];
+      }),
+    ),
     cases,
   };
 
@@ -205,10 +241,10 @@ function main() {
   writeFileSync(OUT, JSON.stringify(vectors, null, 1) + "\n");
   console.log(
     `wrote ${OUT}: ${vectors.cases.length} layout cases, ` +
-      `${vectors.hash.length} hash vectors, ${vectors.palette.length} palette vectors`,
+      `${vectors.hash.length} hash vectors, ${vectors.palette.length} palette vectors, ` +
+      `${vectors.meta.expressionCaseCount} expression cases`,
   );
   console.log(`shape counts: ${JSON.stringify(vectors.meta.shapeCounts)}`);
 }
 
 main();
-

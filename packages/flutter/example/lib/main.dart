@@ -25,6 +25,8 @@ const List<String> _names = [
   '00000000-0000-4000-8000-000000000000',
   'blobatar',
   'manga reader',
+  'claude',
+  'codex',
 ];
 
 class BlobatarExampleApp extends StatelessWidget {
@@ -82,7 +84,7 @@ class _GridPageState extends State<GridPage> {
                   runSpacing: 16,
                   alignment: WrapAlignment.center,
                   children: [
-                    for (final String name in _names)
+                    for (final (int index, String name) in _names.indexed)
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -95,8 +97,9 @@ class _GridPageState extends State<GridPage> {
                             child: Blobatar(
                               name: name,
                               size: 72,
-                              options: const core.BlobatarOptions(
+                              options: core.BlobatarOptions(
                                 background: core.Backdrop.squircle,
+                                expression: core.expressions[index],
                               ),
                             ),
                           ),
@@ -104,7 +107,7 @@ class _GridPageState extends State<GridPage> {
                           SizedBox(
                             width: 132,
                             child: Text(
-                              name,
+                              '${core.expressions[index].name}: $name',
                               textAlign: TextAlign.center,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(

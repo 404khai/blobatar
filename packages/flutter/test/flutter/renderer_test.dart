@@ -99,6 +99,39 @@ void main() {
       }
     });
 
+    test('every static expression stays inside the frame', () {
+      void check(ui.Path path, double dy, String reason) {
+        _assertInFrame(path.shift(ui.Offset(0, dy)).getBounds(), reason);
+      }
+
+      for (final core.Expression expression in core.expressions) {
+        for (var i = 0; i < 200; i++) {
+          final String seed = 'expression-frame-$i';
+          final core.BlobatarLayout layout = core.layoutFor(
+            seed,
+            core.BlobatarOptions(expression: expression),
+          );
+          final double dy = layout.bodyOffsetY;
+          check(toUiPath(layout.bodyPath()), dy, '${expression.name} $seed');
+          for (final path in layout.eyePaths()) {
+            check(toUiPath(path), dy, '${expression.name} $seed eye');
+          }
+          for (final path in layout.extra) {
+            check(toUiPath(path), dy, '${expression.name} $seed extra');
+          }
+          for (final petal in layout.petals) {
+            check(
+              ui.Path()
+                ..addOval(ui.Rect.fromCircle(
+                    center: ui.Offset(petal.cx, petal.cy), radius: petal.r)),
+              dy,
+              '${expression.name} $seed petal',
+            );
+          }
+        }
+      }
+    });
+
     test('backdrop: none keeps the corners transparent', () async {
       final ByteData bytes = await _raster(
         BlobatarRenderer(

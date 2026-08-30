@@ -43,6 +43,28 @@ export 'src/color.dart'
         ramp,
         palette;
 export 'src/hash.dart' show normalizeSeed, seedState, stream, imul, toInt32;
+export 'src/expression.dart'
+    show
+        Pose,
+        Expression,
+        identityPose,
+        idle,
+        happy,
+        sad,
+        mad,
+        surprised,
+        wink,
+        sleepy,
+        smug,
+        unsure,
+        scared,
+        love,
+        shy,
+        sick,
+        thinking,
+        expressions,
+        bakePose,
+        expressionPalette;
 export 'src/render.dart'
     show
         Backdrop,

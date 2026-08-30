@@ -18,7 +18,7 @@ import 'painter.dart';
 ///   to its constraints and the renderer centers the 100-by-100 viewBox on
 ///   the largest square inside them.
 /// - [options] mirrors the JavaScript static options: `background`, `hue`,
-///   `tone`, `palette`, `traits`, `normalize`, and `contrast`.
+///   `tone`, `palette`, `traits`, `normalize`, `contrast`, and `expression`.
 /// - [semanticLabel] backs `Semantics(image: true)`. When null the element
 ///   is left unlabeled, matching the library's `title`-optional behavior.
 class Blobatar extends StatelessWidget {

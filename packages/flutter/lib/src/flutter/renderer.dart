@@ -43,17 +43,17 @@ class BlobatarRenderer {
   }
 
   void _resolve() {
-    final core.Resolved r = core.resolve(name, options);
-    final core.BlobatarLayout l = core.style.layout(r.t);
+    final (core.BlobatarLayout l, core.Palette palette) =
+        core.partsFor(name, options);
     _layout = l;
     _petals = l.petals;
     _extra = l.extra;
     _eyes = [for (final BlobPath p in l.eyePaths()) toUiPath(p)];
-    _head = colorFromHex(r.palette[core.colorHead]!);
-    _eye = colorFromHex(r.palette[core.colorEye]!);
+    _head = colorFromHex(palette[core.colorHead]!);
+    _eye = colorFromHex(palette[core.colorEye]!);
     final core.BackdropGeometry? bg = core.backdropFor(
       options.background,
-      r.palette,
+      palette,
       styleDefault: core.Backdrop.none,
     );
     _backdrop = bg == null ? null : toUiPath(bg.path);
@@ -81,6 +81,8 @@ class BlobatarRenderer {
     if (backdrop != null) {
       canvas.drawPath(backdrop, _fillPaint(_backdropColor!));
     }
+    canvas.save();
+    canvas.translate(0, _layout.bodyOffsetY);
     final ui.Paint headPaint = _fillPaint(_head);
     final ui.Paint eyePaint = _fillPaint(_eye);
     for (final core.Petal p in _petals) {
@@ -98,6 +100,7 @@ class BlobatarRenderer {
     for (final ui.Path eyePath in _eyes) {
       canvas.drawPath(eyePath, eyePaint);
     }
+    canvas.restore();
   }
 
   ui.Paint _fillPaint(ui.Color color) => ui.Paint()

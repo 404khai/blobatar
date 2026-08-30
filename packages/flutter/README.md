@@ -36,6 +36,7 @@ Blobatar(
     background: Backdrop.squircle,
     hue: 210,                 // lock the hue; the name drives shape only
     traits: {'shape': 0.99},  // pin traits in hash units, clamped
+    expression: happy,
   ),
 )
 ```
@@ -43,6 +44,17 @@ Blobatar(
 The options are forwarded to the core unchanged (no adapter-invented
 defaults). The widget owns sizing, a `RepaintBoundary`, and `Semantics`; the
 painter repaints only when the name or the options change by value.
+
+### Expressions
+
+All fourteen generation-2 expression values are available from either package
+library: `idle`, `happy`, `sad`, `mad`, `surprised`, `wink`, `sleepy`, `smug`,
+`unsure`, `scared`, `love`, `shy`, `sick`, and `thinking`.
+
+Expressions are static in this phase. Their full pose geometry and palette
+tints are preserved, including when reduced motion is requested by the host;
+elapsed-time morphs, tremor, and thinking's seesaw arrive with the animation
+phase.
 
 ### The core (no Flutter)
 

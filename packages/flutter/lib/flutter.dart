@@ -13,7 +13,28 @@
 library;
 
 export 'package:blobatar/blobatar.dart'
-    show Backdrop, BackdropGeometry, BlobatarOptions, Palette;
+    show
+        Backdrop,
+        BackdropGeometry,
+        BlobatarOptions,
+        Palette,
+        Pose,
+        Expression,
+        idle,
+        happy,
+        sad,
+        mad,
+        surprised,
+        wink,
+        sleepy,
+        smug,
+        unsure,
+        scared,
+        love,
+        shy,
+        sick,
+        thinking,
+        expressions;
 
 export 'src/flutter/painter.dart' show BlobatarPainter;
 export 'src/flutter/renderer.dart' show BlobatarRenderer;
