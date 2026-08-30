@@ -21,6 +21,23 @@ const List<_ShapeOption> _shapes = [
   _ShapeOption('triangle', 0.99),
 ];
 
+const List<double> _hues = [12, 40, 78, 140, 190, 225, 275, 320];
+
+const List<String> _galleryNames = [
+  'Ada',
+  'Grace Hopper',
+  'Linus',
+  'Margaret Hamilton',
+  'Alan Turing',
+  'Katherine Johnson',
+  'Guido',
+  'Matz',
+  'Tim Berners-Lee',
+  'Brendan Eich',
+  'Hedy Lamarr',
+  'James Gosling',
+];
+
 class _ShapeOption {
   final String name;
   final double? at;
@@ -63,6 +80,8 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
   String _name = 'alain00';
   _ShapeOption _shape = _shapes.first;
   core.Expression _expression = core.idle;
+  double? _hue;
+  core.Backdrop _background = core.Backdrop.none;
 
   @override
   void dispose() {
@@ -76,13 +95,35 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
     setState(() => _name = name);
   }
 
+  Future<void> _pickAppearance() async {
+    final _AppearanceSelection? selection =
+        await showModalBottomSheet<_AppearanceSelection>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          useSafeArea: true,
+          constraints: const BoxConstraints(maxWidth: 680),
+          builder: (BuildContext context) => _AppearanceSheet(
+            name: _name,
+            initialShape: _shape,
+            initialExpression: _expression,
+            hue: _hue,
+          ),
+        );
+    if (selection == null || !mounted) return;
+    setState(() {
+      _shape = selection.shape;
+      _expression = selection.expression;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final WebSeedMark? mark = webSeedMarkFor(_name);
     final bool locked = mark != null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Blobatar studio')),
+      appBar: AppBar(title: const Text('Blobatar Studio')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
         child: Center(
@@ -110,19 +151,24 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                       name: _name,
                       shape: _shape,
                       expression: _expression,
+                      hue: _hue,
+                      background: _background,
                       mark: mark,
                     );
                     final Widget controls = _Controls(
                       controller: _nameController,
                       shape: _shape,
                       expression: _expression,
+                      hue: _hue,
+                      background: _background,
                       locked: locked,
                       onNameChanged: (String value) =>
                           setState(() => _name = value),
-                      onShapeChanged: (_ShapeOption value) =>
-                          setState(() => _shape = value),
-                      onExpressionChanged: (core.Expression value) =>
-                          setState(() => _expression = value),
+                      onHueChanged: (double? value) =>
+                          setState(() => _hue = value),
+                      onBackgroundChanged: (core.Backdrop value) =>
+                          setState(() => _background = value),
+                      onAppearancePressed: _pickAppearance,
                     );
 
                     if (constraints.maxWidth >= 720) {
@@ -142,7 +188,21 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                 ),
                 const SizedBox(height: 28),
                 Text(
-                  'Web seed easter eggs',
+                  'Seeded gallery',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Twelve fixed names, always rendered as the same blobatars.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Center(child: _SeededGallery()),
+                const SizedBox(height: 28),
+                Text(
+                  'Blobatar easter eggs',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 6),
@@ -185,12 +245,16 @@ class _Preview extends StatelessWidget {
   final String name;
   final _ShapeOption shape;
   final core.Expression expression;
+  final double? hue;
+  final core.Backdrop background;
   final WebSeedMark? mark;
 
   const _Preview({
     required this.name,
     required this.shape,
     required this.expression,
+    required this.hue,
+    required this.background,
     required this.mark,
   });
 
@@ -204,7 +268,8 @@ class _Preview extends StatelessWidget {
             size: 250,
             semanticLabel: '$name blobatar',
             options: core.BlobatarOptions(
-              background: core.Backdrop.squircle,
+              background: background,
+              hue: hue,
               expression: expression,
               traits: shape.at == null
                   ? null
@@ -218,32 +283,29 @@ class _Preview extends StatelessWidget {
             semanticLabel: '${currentMark.label} mark',
           );
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            avatar,
-            const SizedBox(height: 16),
-            Text(
-              name.trim().isEmpty ? 'empty seed' : name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium,
+    return Padding(
+      key: const ValueKey<String>('preview-surface'),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        children: [
+          avatar,
+          const SizedBox(height: 16),
+          Text(
+            name.trim().isEmpty ? 'empty seed' : name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            currentMark == null
+                ? '${shape.name} · ${expression.name}'
+                : '${currentMark.label} web preset · locked',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 4),
-            Text(
-              currentMark == null
-                  ? '${shape.name} · ${expression.name}'
-                  : '${currentMark.label} web preset · locked',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -253,19 +315,25 @@ class _Controls extends StatelessWidget {
   final TextEditingController controller;
   final _ShapeOption shape;
   final core.Expression expression;
+  final double? hue;
+  final core.Backdrop background;
   final bool locked;
   final ValueChanged<String> onNameChanged;
-  final ValueChanged<_ShapeOption> onShapeChanged;
-  final ValueChanged<core.Expression> onExpressionChanged;
+  final ValueChanged<double?> onHueChanged;
+  final ValueChanged<core.Backdrop> onBackgroundChanged;
+  final VoidCallback onAppearancePressed;
 
   const _Controls({
     required this.controller,
     required this.shape,
     required this.expression,
+    required this.hue,
+    required this.background,
     required this.locked,
     required this.onNameChanged,
-    required this.onShapeChanged,
-    required this.onExpressionChanged,
+    required this.onHueChanged,
+    required this.onBackgroundChanged,
+    required this.onAppearancePressed,
   });
 
   @override
@@ -289,47 +357,52 @@ class _Controls extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            DropdownButtonFormField<_ShapeOption>(
-              key: const ValueKey<String>('shape-picker'),
-              initialValue: shape,
-              decoration: const InputDecoration(
-                labelText: 'Shape',
-                border: OutlineInputBorder(),
+            OutlinedButton(
+              key: const ValueKey<String>('appearance-picker'),
+              onPressed: locked ? null : onAppearancePressed,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                alignment: Alignment.centerLeft,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              items: [
-                for (final _ShapeOption option in _shapes)
-                  DropdownMenuItem<_ShapeOption>(
-                    value: option,
-                    child: Text(option.name),
+              child: Row(
+                children: [
+                  const Icon(Icons.tune),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Shape & expression'),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${shape.name} · ${expression.name}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
-              ],
-              onChanged: locked
-                  ? null
-                  : (_ShapeOption? value) {
-                      if (value != null) onShapeChanged(value);
-                    },
-            ),
-            const SizedBox(height: 18),
-            DropdownButtonFormField<core.Expression>(
-              key: const ValueKey<String>('expression-picker'),
-              initialValue: expression,
-              decoration: const InputDecoration(
-                labelText: 'Expression',
-                border: OutlineInputBorder(),
+                  const Icon(Icons.keyboard_arrow_up),
+                ],
               ),
-              items: [
-                for (final core.Expression option in core.expressions)
-                  DropdownMenuItem<core.Expression>(
-                    value: option,
-                    child: Text(option.name),
-                  ),
-              ],
-              onChanged: locked
-                  ? null
-                  : (core.Expression? value) {
-                      if (value != null) onExpressionChanged(value);
-                    },
             ),
+            const SizedBox(height: 22),
+            const _ControlLabel('Background'),
+            const SizedBox(height: 8),
+            _BackgroundPicker(
+              value: background,
+              enabled: !locked,
+              onChanged: onBackgroundChanged,
+            ),
+            const SizedBox(height: 22),
+            const _ControlLabel('Hue'),
+            const SizedBox(height: 8),
+            _HuePicker(value: hue, enabled: !locked, onChanged: onHueChanged),
             if (locked) ...[
               const SizedBox(height: 12),
               Row(
@@ -342,7 +415,7 @@ class _Controls extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Web presets do not expose shape or expression controls.',
+                      'Web presets do not expose appearance controls.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -353,6 +426,358 @@ class _Controls extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ControlLabel extends StatelessWidget {
+  final String text;
+
+  const _ControlLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text.toLowerCase(),
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        letterSpacing: 0.4,
+      ),
+    );
+  }
+}
+
+class _BackgroundPicker extends StatelessWidget {
+  final core.Backdrop value;
+  final bool enabled;
+  final ValueChanged<core.Backdrop> onChanged;
+
+  const _BackgroundPicker({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<core.Backdrop>(
+      key: const ValueKey<String>('background-picker'),
+      segments: const [
+        ButtonSegment(value: core.Backdrop.none, label: Text('none')),
+        ButtonSegment(value: core.Backdrop.squircle, label: Text('squircle')),
+        ButtonSegment(value: core.Backdrop.circle, label: Text('circle')),
+        ButtonSegment(value: core.Backdrop.square, label: Text('square')),
+      ],
+      selected: <core.Backdrop>{value},
+      showSelectedIcon: false,
+      expandedInsets: EdgeInsets.zero,
+      onSelectionChanged: enabled
+          ? (Set<core.Backdrop> selected) => onChanged(selected.single)
+          : null,
+    );
+  }
+}
+
+class _HuePicker extends StatelessWidget {
+  final double? value;
+  final bool enabled;
+  final ValueChanged<double?> onChanged;
+
+  const _HuePicker({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ChoiceChip(
+            key: const ValueKey<String>('hue-auto'),
+            label: const Text('auto'),
+            selected: value == null,
+            onSelected: enabled ? (_) => onChanged(null) : null,
+          ),
+          for (final double hue in _hues)
+            Semantics(
+              button: true,
+              selected: value == hue,
+              label: 'Hue ${hue.round()} degrees',
+              child: InkWell(
+                key: ValueKey<String>('hue-${hue.round()}'),
+                customBorder: const CircleBorder(),
+                onTap: enabled ? () => onChanged(hue) : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 34,
+                  height: 34,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: value == hue
+                        ? Border.all(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            width: 2,
+                          )
+                        : null,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _hueColor(hue),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _hueColor(double hue) {
+  final String hex = core.toHex(core.Oklch(0.72, 0.15, hue));
+  return Color(int.parse(hex.substring(1), radix: 16) | 0xff000000);
+}
+
+class _AppearanceSelection {
+  final _ShapeOption shape;
+  final core.Expression expression;
+
+  const _AppearanceSelection(this.shape, this.expression);
+}
+
+class _AppearanceSheet extends StatefulWidget {
+  final String name;
+  final _ShapeOption initialShape;
+  final core.Expression initialExpression;
+  final double? hue;
+
+  const _AppearanceSheet({
+    required this.name,
+    required this.initialShape,
+    required this.initialExpression,
+    required this.hue,
+  });
+
+  @override
+  State<_AppearanceSheet> createState() => _AppearanceSheetState();
+}
+
+class _AppearanceSheetState extends State<_AppearanceSheet> {
+  late _ShapeOption _shape = widget.initialShape;
+  late core.Expression _expression = widget.initialExpression;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      heightFactor: 0.9,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Shape & expression',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                FilledButton(
+                  key: const ValueKey<String>('appearance-done'),
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pop(_AppearanceSelection(_shape, _expression)),
+                  child: const Text('Done'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _ControlLabel('Shape'),
+                  const SizedBox(height: 8),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _shapes.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          mainAxisSpacing: 6,
+                          crossAxisSpacing: 6,
+                          childAspectRatio: 0.82,
+                        ),
+                    itemBuilder: (BuildContext context, int index) {
+                      final _ShapeOption option = _shapes[index];
+                      return _AvatarOptionTile(
+                        key: ValueKey<String>('shape-${option.name}'),
+                        name: widget.name,
+                        label: option.name,
+                        selected: option == _shape,
+                        options: core.BlobatarOptions(
+                          background: core.Backdrop.circle,
+                          hue: widget.hue,
+                          expression: _expression,
+                          traits: option.at == null
+                              ? null
+                              : <String, Object>{'shape': option.at!},
+                        ),
+                        onTap: () => setState(() => _shape = option),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  const _ControlLabel('Expression'),
+                  const SizedBox(height: 8),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: core.expressions.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          mainAxisSpacing: 6,
+                          crossAxisSpacing: 6,
+                          childAspectRatio: 0.82,
+                        ),
+                    itemBuilder: (BuildContext context, int index) {
+                      final core.Expression option = core.expressions[index];
+                      return _AvatarOptionTile(
+                        key: ValueKey<String>('expression-${option.name}'),
+                        name: widget.name,
+                        label: option.name,
+                        selected: option == _expression,
+                        options: core.BlobatarOptions(
+                          background: core.Backdrop.circle,
+                          hue: widget.hue,
+                          expression: option,
+                          traits: _shape.at == null
+                              ? null
+                              : <String, Object>{'shape': _shape.at!},
+                        ),
+                        onTap: () => setState(() => _expression = option),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarOptionTile extends StatelessWidget {
+  final String name;
+  final String label;
+  final bool selected;
+  final core.BlobatarOptions options;
+  final VoidCallback onTap;
+
+  const _AvatarOptionTile({
+    super.key,
+    required this.name,
+    required this.label,
+    required this.selected,
+    required this.options,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? Theme.of(context).colorScheme.surfaceContainerHighest
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 3),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Blobatar(
+                name: name.isEmpty ? ' ' : name,
+                size: 54,
+                options: options,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SeededGallery extends StatelessWidget {
+  const _SeededGallery();
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 620),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _galleryNames.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 18,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.15,
+        ),
+        itemBuilder: (BuildContext context, int index) {
+          final String name = _galleryNames[index];
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Blobatar(
+                key: ValueKey<String>('gallery-avatar-$index'),
+                name: name,
+                size: 74,
+                semanticLabel: '$name blobatar',
+                options: const core.BlobatarOptions(
+                  background: core.Backdrop.circle,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

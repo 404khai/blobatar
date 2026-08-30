@@ -30,15 +30,27 @@ void main() {
       find.byKey(const ValueKey<String>('preview-blobatar')),
     );
     expect(preview.name, 'ada');
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey<String>('preview-surface')),
+        matching: find.byType(Card),
+      ),
+      findsNothing,
+    );
 
-    await tester.tap(find.byKey(const ValueKey<String>('shape-picker')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('triangle').last);
-    await tester.pumpAndSettle();
+    await tester.tap(find.text('circle'));
+    await tester.tap(find.byKey(const ValueKey<String>('hue-140')));
+    await tester.pump();
 
-    await tester.tap(find.byKey(const ValueKey<String>('expression-picker')));
+    await tester.tap(find.byKey(const ValueKey<String>('appearance-picker')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('thinking').last);
+    await tester.tap(find.byKey(const ValueKey<String>('shape-triangle')));
+    final Finder thinking = find.byKey(
+      const ValueKey<String>('expression-thinking'),
+    );
+    await tester.ensureVisible(thinking);
+    await tester.tap(thinking);
+    await tester.tap(find.byKey(const ValueKey<String>('appearance-done')));
     await tester.pumpAndSettle();
 
     preview = tester.widget<Blobatar>(
@@ -46,7 +58,10 @@ void main() {
     );
     expect(preview.options.traits, <String, Object>{'shape': 0.99});
     expect(preview.options.expression, core.thinking);
-    expect(find.text('triangle · thinking'), findsOneWidget);
+    expect(preview.options.hue, 140);
+    expect(preview.options.background, core.Backdrop.circle);
+    expect(find.text('triangle · thinking'), findsNWidgets(2));
+    expect(find.byType(Blobatar), findsNWidgets(13));
   });
 
   testWidgets('Claude and Codex presets replace and lock the preview', (
@@ -70,18 +85,18 @@ void main() {
     );
     expect(
       tester
-          .widget<DropdownButtonFormField<dynamic>>(
-            find.byKey(const ValueKey<String>('shape-picker')),
+          .widget<OutlinedButton>(
+            find.byKey(const ValueKey<String>('appearance-picker')),
           )
-          .onChanged,
+          .onPressed,
       isNull,
     );
     expect(
       tester
-          .widget<DropdownButtonFormField<dynamic>>(
-            find.byKey(const ValueKey<String>('expression-picker')),
+          .widget<SegmentedButton<core.Backdrop>>(
+            find.byKey(const ValueKey<String>('background-picker')),
           )
-          .onChanged,
+          .onSelectionChanged,
       isNull,
     );
 
