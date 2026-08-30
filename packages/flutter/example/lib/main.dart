@@ -82,6 +82,8 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
   core.Expression _expression = core.idle;
   double? _hue;
   core.Backdrop _background = core.Backdrop.none;
+  BlobatarAnimation _animation = BlobatarAnimation.always;
+  bool _motionActive = true;
 
   @override
   void dispose() {
@@ -153,6 +155,8 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                       expression: _expression,
                       hue: _hue,
                       background: _background,
+                      animation: _animation,
+                      motionActive: _motionActive,
                       mark: mark,
                     );
                     final Widget controls = _Controls(
@@ -161,6 +165,8 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                       expression: _expression,
                       hue: _hue,
                       background: _background,
+                      animation: _animation,
+                      motionActive: _motionActive,
                       locked: locked,
                       onNameChanged: (String value) =>
                           setState(() => _name = value),
@@ -168,6 +174,10 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                           setState(() => _hue = value),
                       onBackgroundChanged: (core.Backdrop value) =>
                           setState(() => _background = value),
+                      onAnimationChanged: (BlobatarAnimation value) =>
+                          setState(() => _animation = value),
+                      onMotionActiveChanged: (bool value) =>
+                          setState(() => _motionActive = value),
                       onAppearancePressed: _pickAppearance,
                     );
 
@@ -186,6 +196,20 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                     );
                   },
                 ),
+                const SizedBox(height: 28),
+                Text(
+                  'Held expression loops',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Thinking seesaws while mad adds a short seeded tremor.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const _ExpressionMotionDemo(),
                 const SizedBox(height: 28),
                 Text(
                   'Seeded gallery',
@@ -247,6 +271,8 @@ class _Preview extends StatelessWidget {
   final core.Expression expression;
   final double? hue;
   final core.Backdrop background;
+  final BlobatarAnimation animation;
+  final bool motionActive;
   final WebSeedMark? mark;
 
   const _Preview({
@@ -255,6 +281,8 @@ class _Preview extends StatelessWidget {
     required this.expression,
     required this.hue,
     required this.background,
+    required this.animation,
+    required this.motionActive,
     required this.mark,
   });
 
@@ -262,11 +290,13 @@ class _Preview extends StatelessWidget {
   Widget build(BuildContext context) {
     final WebSeedMark? currentMark = mark;
     final Widget avatar = currentMark == null
-        ? Blobatar(
+        ? AnimatedBlobatar(
             key: const ValueKey<String>('preview-blobatar'),
             name: name,
             size: 250,
             semanticLabel: '$name blobatar',
+            animation: animation,
+            active: motionActive,
             options: core.BlobatarOptions(
               background: background,
               hue: hue,
@@ -317,10 +347,14 @@ class _Controls extends StatelessWidget {
   final core.Expression expression;
   final double? hue;
   final core.Backdrop background;
+  final BlobatarAnimation animation;
+  final bool motionActive;
   final bool locked;
   final ValueChanged<String> onNameChanged;
   final ValueChanged<double?> onHueChanged;
   final ValueChanged<core.Backdrop> onBackgroundChanged;
+  final ValueChanged<BlobatarAnimation> onAnimationChanged;
+  final ValueChanged<bool> onMotionActiveChanged;
   final VoidCallback onAppearancePressed;
 
   const _Controls({
@@ -329,10 +363,14 @@ class _Controls extends StatelessWidget {
     required this.expression,
     required this.hue,
     required this.background,
+    required this.animation,
+    required this.motionActive,
     required this.locked,
     required this.onNameChanged,
     required this.onHueChanged,
     required this.onBackgroundChanged,
+    required this.onAnimationChanged,
+    required this.onMotionActiveChanged,
     required this.onAppearancePressed,
   });
 
@@ -403,6 +441,38 @@ class _Controls extends StatelessWidget {
             const _ControlLabel('Hue'),
             const SizedBox(height: 8),
             _HuePicker(value: hue, enabled: !locked, onChanged: onHueChanged),
+            const SizedBox(height: 22),
+            const _ControlLabel('Motion'),
+            const SizedBox(height: 8),
+            SegmentedButton<BlobatarAnimation>(
+              key: const ValueKey<String>('motion-mode-picker'),
+              segments: const <ButtonSegment<BlobatarAnimation>>[
+                ButtonSegment<BlobatarAnimation>(
+                  value: BlobatarAnimation.hover,
+                  label: Text('hover'),
+                  icon: Icon(Icons.touch_app_outlined),
+                ),
+                ButtonSegment<BlobatarAnimation>(
+                  value: BlobatarAnimation.always,
+                  label: Text('always'),
+                  icon: Icon(Icons.motion_photos_on_outlined),
+                ),
+              ],
+              selected: <BlobatarAnimation>{animation},
+              onSelectionChanged: locked
+                  ? null
+                  : (Set<BlobatarAnimation> selection) =>
+                        onAnimationChanged(selection.single),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile.adaptive(
+              key: const ValueKey<String>('motion-active-switch'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Animate preview'),
+              subtitle: const Text('Pause without changing the avatar.'),
+              value: motionActive,
+              onChanged: locked ? null : onMotionActiveChanged,
+            ),
             if (locked) ...[
               const SizedBox(height: 12),
               Row(
@@ -736,6 +806,69 @@ class _AvatarOptionTile extends StatelessWidget {
   }
 }
 
+class _ExpressionMotionDemo extends StatelessWidget {
+  const _ExpressionMotionDemo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 36,
+      runSpacing: 20,
+      children: const <Widget>[
+        _MotionDemoAvatar(
+          key: ValueKey<String>('thinking-motion-demo'),
+          name: 'deep thought',
+          expression: core.thinking,
+          label: 'thinking · seesaw',
+        ),
+        _MotionDemoAvatar(
+          key: ValueKey<String>('mad-motion-demo'),
+          name: 'tiny tremor',
+          expression: core.mad,
+          label: 'mad · tremor',
+        ),
+      ],
+    );
+  }
+}
+
+class _MotionDemoAvatar extends StatelessWidget {
+  final String name;
+  final core.Expression expression;
+  final String label;
+
+  const _MotionDemoAvatar({
+    super.key,
+    required this.name,
+    required this.expression,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 150,
+      child: Column(
+        children: <Widget>[
+          AnimatedBlobatar(
+            name: name,
+            size: 130,
+            animation: BlobatarAnimation.always,
+            semanticLabel: '$label blobatar',
+            options: core.BlobatarOptions(
+              background: core.Backdrop.squircle,
+              expression: expression,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
 class _SeededGallery extends StatelessWidget {
   const _SeededGallery();
 
@@ -758,11 +891,12 @@ class _SeededGallery extends StatelessWidget {
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Blobatar(
+              AnimatedBlobatar(
                 key: ValueKey<String>('gallery-avatar-$index'),
                 name: name,
                 size: 74,
                 semanticLabel: '$name blobatar',
+                animation: BlobatarAnimation.hover,
                 options: const core.BlobatarOptions(
                   background: core.Backdrop.circle,
                 ),

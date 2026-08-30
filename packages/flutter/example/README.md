@@ -1,10 +1,11 @@
 # Blobatar Flutter example
 
 This app provides a live editor for the local `blobatar` package. Enter any
-seed, choose a generation-2 silhouette and static expression from the visual
-bottom sheet, then tune the hue and backdrop. A fixed 3-by-4 gallery demonstrates
-seeded output. The Claude and Codex cards mirror blobatar.dev's example-only
-seed easter eggs, so their appearance controls stay locked.
+seed, choose a generation-2 silhouette and expression from the visual bottom
+sheet, then tune the hue, backdrop, and hover/always motion mode. Held
+expression demos and a hover-animated 3-by-4 gallery show elapsed-time motion.
+The Claude and Codex cards mirror blobatar.dev's example-only seed easter eggs,
+so their appearance and motion controls stay locked.
 
 From the repository root:
 

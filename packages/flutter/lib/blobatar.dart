@@ -7,8 +7,8 @@
 ///
 /// This package is independent of Flutter: the deterministic core (hash,
 /// traits, OKLCh palette, layout geometry) is usable from any Dart program.
-/// The Flutter widget and painter arrive in a later port phase and will not be
-/// a dependency of this library's core.
+/// Flutter painters and widgets live in `package:blobatar/flutter.dart` and
+/// remain outside this library's dependency boundary.
 ///
 /// Parity: the fixture in `test/fixtures/reference-vectors.json` was exported
 /// once from the TypeScript implementation at blobatar `2.4.0` and is the
@@ -43,6 +43,30 @@ export 'src/color.dart'
         ramp,
         palette;
 export 'src/hash.dart' show normalizeSeed, seedState, stream, imul, toInt32;
+export 'src/motion.dart'
+    show
+        MotionSeeds,
+        MotionWrap,
+        MotionFrame,
+        motionSeeds,
+        motionSeedsFor,
+        motionAt,
+        cubicBezier,
+        easeInOut,
+        easeIn,
+        easeOut,
+        expressionEnterEase,
+        hoverEase,
+        lerpPose,
+        breatheMilliseconds,
+        bobMilliseconds,
+        thinkingMilliseconds,
+        shakeMilliseconds,
+        expressionEnterMilliseconds,
+        expressionExitMilliseconds,
+        ambientRampMilliseconds,
+        hoverEnterMilliseconds,
+        hoverExitMilliseconds;
 export 'src/expression.dart'
     show
         Pose,

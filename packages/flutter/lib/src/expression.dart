@@ -1,4 +1,4 @@
-/// Static expression poses for the generation-2 blobatar engine.
+/// Expression poses for the generation-2 blobatar engine.
 library;
 
 import 'color.dart';

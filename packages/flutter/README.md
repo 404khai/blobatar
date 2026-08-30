@@ -15,9 +15,9 @@ The package has two libraries:
   (gamut handling, contrast enforcement, tinting), and the full generation-2
   layout geometry — all ten silhouettes, face fitting, and frame containment.
   No Flutter import anywhere in it, so pure-Dart consumers stay Flutter-free.
-- **`package:blobatar/flutter.dart`** — the static Flutter layer: a
-  `CustomPainter` and a small `Blobatar` widget that paint the core layout
-  through `dart:ui` `Path`/`Canvas` primitives (never by rasterizing or
+- **`package:blobatar/flutter.dart`** — the Flutter layer: static and animated
+  painters plus `Blobatar` and `AnimatedBlobatar` widgets that paint the core
+  layout through `dart:ui` `Path`/`Canvas` primitives (never by rasterizing or
   wrapping SVG markup).
 
 ## Usage
@@ -45,16 +45,38 @@ The options are forwarded to the core unchanged (no adapter-invented
 defaults). The widget owns sizing, a `RepaintBoundary`, and `Semantics`; the
 painter repaints only when the name or the options change by value.
 
+### Animation
+
+```dart
+AnimatedBlobatar(
+  name: user.email,
+  size: 120,
+  animation: BlobatarAnimation.always,
+  options: const BlobatarOptions(expression: thinking),
+)
+
+AnimatedBlobatar(
+  name: user.email,
+  animation: BlobatarAnimation.hover,
+)
+```
+
+`always` runs the seeded idle motion continuously. `hover` ramps that motion
+in while a pointer is over the widget and adds the matching lift reaction.
+Set `active: false` to pause on a deterministic static frame. The widget also
+stops its tickers under `TickerMode` and renders the static `Blobatar` path
+when `MediaQuery.disableAnimations` requests reduced motion.
+
 ### Expressions
 
 All fourteen generation-2 expression values are available from either package
 library: `idle`, `happy`, `sad`, `mad`, `surprised`, `wink`, `sleepy`, `smug`,
 `unsure`, `scared`, `love`, `shy`, `sick`, and `thinking`.
 
-Expressions are static in this phase. Their full pose geometry and palette
-tints are preserved, including when reduced motion is requested by the host;
-elapsed-time morphs, tremor, and thinking's seesaw arrive with the animation
-phase.
+`AnimatedBlobatar` morphs expression pose and palette changes using the web
+timings. Held `mad` expressions tremor and held `thinking` expressions seesaw;
+interrupted changes continue from the currently visible pose. Use `Blobatar`
+when a permanently static avatar is preferred.
 
 ### The core (no Flutter)
 
@@ -100,10 +122,9 @@ sweep, mirroring `packages/blobatar/test/geometry.test.ts`.
 
 ## Example
 
-`example/` is a small Flutter app showing a deterministic grid of avatars
-(normalization cases, non-ASCII names, trait pins) with a restart button that
-remounts every widget — the same names render the same avatars, which is the
-whole point.
+`example/` is an interactive studio for changing a seed, shape, expression,
+hue, backdrop, and motion mode. It also shows held expression loops, a
+hover-animated seeded gallery, and the fixed Claude/Codex web presets.
 
 ```sh
 cd packages/flutter/example
