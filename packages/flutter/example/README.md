@@ -1,7 +1,10 @@
 # Blobatar Flutter example
 
-This app displays a deterministic grid from the local `blobatar` package,
-including all fourteen static expressions.
+This app provides a live editor for the local `blobatar` package. Enter any
+seed, choose one of the generation-2 silhouettes, and preview all fourteen
+static expressions. The Claude and Codex cards mirror blobatar.dev's
+example-only seed easter eggs, so their shape and expression controls stay
+locked.
 
 From the repository root:
 
