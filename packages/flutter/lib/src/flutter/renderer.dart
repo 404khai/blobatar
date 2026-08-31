@@ -23,7 +23,10 @@ import 'path.dart';
 /// identical (modulo antialiasing, which is engine-level and reproduces
 /// deterministically on the same device).
 class BlobatarRenderer {
+  /// The name resolved into this renderer's cached geometry.
   final String name;
+
+  /// The immutable core options resolved with [name].
   final core.BlobatarOptions options;
 
   late final core.BlobatarLayout _layout;

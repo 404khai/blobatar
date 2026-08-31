@@ -132,6 +132,34 @@ accessibility label rather than a `<title>` element, because `react-native-svg`
 has none. Without one the tree is hidden from screen readers, which is the
 same call `aria-hidden` makes on the web.
 
+### Flutter and Dart
+
+```sh
+flutter pub add blobatar
+```
+
+```dart
+import 'package:blobatar/flutter.dart';
+
+AnimatedBlobatar(
+  name: user.email,
+  size: 64,
+  animation: BlobatarAnimation.always,
+  options: const BlobatarOptions(
+    background: Backdrop.squircle,
+    expression: happy,
+  ),
+)
+```
+
+The official Dart/Flutter SDK lives in
+[`packages/flutter`](./packages/flutter). It ports the generation-2 core
+rather than calling into JavaScript, renders native Canvas paths, and includes
+static and animated widgets. Its checked-in reference vectors pin blobatar
+`2.4.0`; the seed-to-look mapping is unchanged. See the package README for
+parity evidence, supported platforms, reduced-motion behavior, and the pure
+Dart calculation API.
+
 ### shadcn/ui
 
 The registry serves shadcn's `Avatar` with a blobatar as the fallback for a

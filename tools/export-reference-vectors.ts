@@ -4,8 +4,8 @@
  * Runs the generation-2 TypeScript implementation at a pinned release and
  * writes the cross-language fixture the Dart package checks itself against.
  * The source of truth is the tree at `BLOBATAR_TS_SRC` (default: a v2.4.0
- * checkout), never the Dart port's own output — see
- * `docs/flutter-port/reference-vectors.md`.
+ * checkout), never the Dart port's own output. The fixture's `meta` object and
+ * `packages/flutter/README.md` document the schema and comparison rules.
  *
  *   BLOBATAR_TS_SRC=/tmp/blobatar-v240/packages/blobatar/src \
  *     bun tools/export-reference-vectors.ts

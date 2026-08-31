@@ -16,13 +16,17 @@ import 'renderer.dart';
 /// constraints. Sizing changes alone never repaint, since the renderer maps
 /// the viewBox onto whatever canvas it is given.
 class BlobatarPainter extends CustomPainter {
+  /// The name resolved by this painter.
   final String name;
+
+  /// The immutable core options resolved by this painter.
   final BlobatarOptions options;
 
   /// The wrapped renderer, kept so tests and the widget can share one
   /// resolution instead of resolving twice.
   final BlobatarRenderer renderer;
 
+  /// Creates a static painter and resolves its renderer immediately.
   BlobatarPainter({required this.name, this.options = const BlobatarOptions()})
       : renderer = BlobatarRenderer(name: name, options: options);
 

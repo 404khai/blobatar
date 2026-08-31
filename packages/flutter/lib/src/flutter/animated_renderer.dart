@@ -11,13 +11,25 @@ import 'path.dart';
 
 /// Everything the animated renderer needs for one paint.
 class AnimatedBlobatarFrame {
+  /// Seeded idle and expression-loop values at the current elapsed time.
   final core.MotionFrame motion;
+
+  /// The interpolated expression pose applied to this frame.
   final core.Pose pose;
+
+  /// The interpolated body color.
   final ui.Color headColor;
+
+  /// The interpolated eye color.
   final ui.Color eyeColor;
+
+  /// The 0–1 hover lift and scale reaction.
   final double hover;
+
+  /// The 0–1 ambient idle-motion amplitude.
   final double amplitude;
 
+  /// Creates a complete renderer frame.
   const AnimatedBlobatarFrame({
     required this.motion,
     required this.pose,
@@ -30,7 +42,10 @@ class AnimatedBlobatarFrame {
 
 /// A resolved generation-2 figure whose paths stay fixed while transforms move.
 class AnimatedBlobatarRenderer {
+  /// The name resolved into this renderer's cached geometry and motion seeds.
   final String name;
+
+  /// The immutable non-expression options resolved with [name].
   final core.BlobatarOptions options;
 
   late final core.BlobatarLayout _layout;
@@ -41,8 +56,11 @@ class AnimatedBlobatarRenderer {
   late final ui.Path? _backdrop;
   late final ui.Color? _backdropColor;
   late final core.Palette _basePalette;
+
+  /// The deterministic phases, periods, and directions for [name].
   late final core.MotionSeeds motionSeeds;
 
+  /// Resolves geometry, paths, colors, and motion seeds once.
   AnimatedBlobatarRenderer({
     required this.name,
     this.options = const core.BlobatarOptions(),
@@ -64,6 +82,7 @@ class AnimatedBlobatarRenderer {
     _backdropColor = background == null ? null : colorFromHex(background.fill);
   }
 
+  /// Resolves the expression tint against this renderer's base palette.
   core.Palette paletteFor(core.Expression? expression) =>
       core.expressionPalette(_basePalette, expression ?? core.idle);
 

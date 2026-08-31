@@ -12,8 +12,7 @@
 ///
 /// Parity: the fixture in `test/fixtures/reference-vectors.json` was exported
 /// once from the TypeScript implementation at blobatar `2.4.0` and is the
-/// definition of correct this port is checked against. See
-/// `docs/flutter-port/reference-vectors.md` in the repository.
+/// definition of correct this port is checked against.
 library;
 
 export 'src/color.dart'

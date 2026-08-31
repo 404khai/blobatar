@@ -40,14 +40,28 @@ const _CoreCurve _hoverCurve = _CoreCurve(core.hoverEase);
 /// [active] to false when an app's visibility model knows a list item is off
 /// screen. Reduced motion is honored through `MediaQuery.disableAnimations`.
 class AnimatedBlobatar extends StatefulWidget {
+  /// The public identity used to derive deterministic traits and motion.
   final String name;
+
+  /// The square edge in logical pixels, or null to fill the parent constraints.
   final double? size;
+
+  /// Generation, palette, backdrop, trait, and expression options.
   final core.BlobatarOptions options;
+
+  /// The optional assistive-technology label for this image.
   final String? semanticLabel;
+
+  /// Whether ambient motion reacts to hover or remains continuously active.
   final BlobatarAnimation animation;
+
+  /// Whether controllers may tick and animated frames may be painted.
   final bool active;
+
+  /// Whether `MediaQuery.disableAnimations` selects the static rendering path.
   final bool respectReducedMotion;
 
+  /// Creates a deterministic animated blobatar.
   const AnimatedBlobatar({
     super.key,
     required this.name,

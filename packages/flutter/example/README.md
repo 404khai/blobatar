@@ -1,5 +1,13 @@
 # Blobatar Flutter example
 
+<p align="center">
+  <img
+    src="../flutter_blobatar_studio.png"
+    width="360"
+    alt="Blobatar Studio showing the animated preview, appearance controls, held expression loops, seeded gallery, and Claude/Codex easter eggs"
+  >
+</p>
+
 This app provides a live editor for the local `blobatar` package. Enter any
 seed, choose a generation-2 silhouette and expression from the visual bottom
 sheet, then tune the hue, backdrop, and hover/always motion mode. Held
