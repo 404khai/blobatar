@@ -38,9 +38,12 @@ separately from that mapping; pointer gaze is the known example and is deferred
 from the initial Swift release.
 
 The TypeScript implementation at the pinned release remains the source of
-truth. Swift and Dart consume the same generated reference artifact read-only.
-Neither implementation may write it, loosen its comparison rules, or edit an
-existing TypeScript golden to make a port pass.
+truth. Swift and Dart consume byte-identical generated reference data
+read-only. The Swift branch does not relocate or edit the Flutter fixture;
+while both workstreams exist in one checkout, the Swift harness proves the two
+copies agree. Neither implementation may write expected output from itself,
+loosen its comparison rules, or edit an existing TypeScript golden to make a
+port pass.
 
 Exact parity is required for normalized strings, hash states, trait streams,
 silhouette names, palette hex values, expression channels, and rounded path
@@ -70,8 +73,8 @@ The deliberate repository-root integration points are:
 - `.github/workflows/ci.yml`, because CI is repository-owned.
 - `README.md` and `CONTRIBUTING.md`, when the finished SDK becomes a documented
   repository surface.
-- A language-neutral fixture location, once Phase 1 promotes the existing Dart
-  reference file for both ports to consume.
+- A language-neutral fixture location, which Phase 1 populates from the pinned
+  reference bytes without changing the separate Flutter workstream.
 
 A manifest only inside `packages/swift` is rejected for the public package. It
 would be pleasant for local browsing but would not present the repository root

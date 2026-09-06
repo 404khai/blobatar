@@ -11,6 +11,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  swift:
+    name: swift ${{ matrix.name }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: minimum
+            xcode-version: "16.0"
+          - name: current
+            xcode-version: latest-stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode-version }}
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Validate package manifest
+        run: swift package dump-package
+
+      - name: Format
+        run: >-
+          swift format lint --strict --recursive
+          Package.swift
+          packages/swift/Sources
+          packages/swift/Tests
+          packages/swift/Tests/Consumer/Package.swift
+
+      - name: Build package and tests
+        run: swift build --build-tests -Xswiftc -warnings-as-errors
+
+      - name: Test package
+        run: swift test -Xswiftc -warnings-as-errors
+
+      - name: Smoke public products
+        run: >-
+          swift run
+          --package-path packages/swift/Tests/Consumer
+          BlobatarConsumerSmoke
+
+      - name: Build SwiftUI product for iOS
+        run: >-
+          xcodebuild
+          -scheme BlobatarSwiftUI
+          -destination 'generic/platform=iOS'
+          CODE_SIGNING_ALLOWED=NO
+          build
+
   library:
     name: library
     runs-on: ubuntu-latest
