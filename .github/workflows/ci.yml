@@ -20,8 +20,10 @@ jobs:
         include:
           - name: minimum
             xcode-version: "16.0"
+            build-ios: false
           - name: current
             xcode-version: latest-stable
+            build-ios: true
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +59,12 @@ jobs:
           --package-path packages/swift/Tests/Consumer
           BlobatarConsumerSmoke
 
+      # Older Xcodes remain useful language/package floors after GitHub removes
+      # their matching iOS platform files from hosted images. The current SDK
+      # owns the deployment-target build; both matrix legs still compile and
+      # test both package products above.
       - name: Build SwiftUI product for iOS
+        if: matrix.build-ios
         run: >-
           xcodebuild
           -scheme BlobatarSwiftUI
