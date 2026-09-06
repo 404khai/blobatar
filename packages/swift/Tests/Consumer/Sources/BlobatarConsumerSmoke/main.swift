@@ -4,4 +4,17 @@ import BlobatarSwiftUI
 precondition(BlobatarContract.referenceVersion == "2.4.0")
 precondition(BlobatarContract.generation == "gen2")
 
-print("Blobatar Swift package consumer linked generation 2")
+let drawing = resolveBlobatar(
+  "alain",
+  options: BlobatarOptions(
+    palette: BlobatarPaletteOverride(head: "#112233"),
+    traits: ["shape": .pinned(0.99)],
+    background: .square
+  )
+)
+precondition(drawing.silhouette == .triangle)
+precondition(drawing.palette.head == "#112233")
+precondition(drawing.eyes.count == 2)
+precondition(drawing.backdrop != nil)
+
+print("Blobatar Swift consumer resolved a generation-2 \(drawing.silhouette.rawValue)")

@@ -1,8 +1,9 @@
 # Blobatar for Swift and SwiftUI
 
-This directory contains the native Swift port of Blobatar. The package is in
-Phase 1: its Swift Package Manager products, shared parity harness, and module
-seams exist; deterministic rendering is implemented in the phases that follow.
+This directory contains the native Swift port of Blobatar. Phase 2 completes
+the deterministic generation-2 core: names and typed options now resolve into
+an immutable, renderer-neutral drawing model. SwiftUI rendering and expression
+composition arrive in the phases that follow.
 
 ## Products
 
@@ -11,6 +12,28 @@ seams exist; deterministic rendering is implemented in the phases that follow.
 
 The public package manifest lives at the repository root because consumers add
 this repository by Git URL. All Swift-specific source and tests remain here.
+
+## Core usage
+
+```swift
+import BlobatarCore
+
+let drawing = resolveBlobatar(
+  "alain",
+  options: BlobatarOptions(
+    traits: ["shape": .narrowed([0.11, 0.965])],
+    background: .squircle
+  )
+)
+
+print(drawing.silhouette)
+print(drawing.palette.head)
+```
+
+`resolveBlobatar` is the core module's external seam. Hashing, keyed trait
+selection, palette correction, silhouette composition, and containment stay
+inside the module. A native renderer reads the returned structured paths and
+colors without recalculating visual decisions.
 
 ## Contract
 
