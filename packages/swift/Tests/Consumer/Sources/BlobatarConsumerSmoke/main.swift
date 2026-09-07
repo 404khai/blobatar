@@ -17,4 +17,14 @@ precondition(drawing.palette.head == "#112233")
 precondition(drawing.eyes.count == 2)
 precondition(drawing.backdrop != nil)
 
-print("Blobatar Swift consumer resolved a generation-2 \(drawing.silhouette.rawValue)")
+let view = Blobatar(
+  name: "alain",
+  size: 64,
+  options: BlobatarOptions(background: .square),
+  accessibilityLabel: "Avatar of Alain"
+)
+precondition(view.name == "alain")
+precondition(view.size == 64)
+
+print(
+  "Blobatar Swift consumer resolved and presented a generation-2 \(drawing.silhouette.rawValue)")

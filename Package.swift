@@ -29,7 +29,7 @@ let package = Package(
     ),
     .testTarget(
       name: "BlobatarSwiftUITests",
-      dependencies: ["BlobatarSwiftUI"],
+      dependencies: ["BlobatarCore", "BlobatarSwiftUI"],
       path: "packages/swift/Tests/BlobatarSwiftUITests"
     ),
   ]

@@ -1,14 +1,14 @@
 # Blobatar for Swift and SwiftUI
 
-This directory contains the native Swift port of Blobatar. Phase 2 completes
-the deterministic generation-2 core: names and typed options now resolve into
-an immutable, renderer-neutral drawing model. SwiftUI rendering and expression
-composition arrive in the phases that follow.
+This directory contains the native Swift port of Blobatar. The deterministic
+generation-2 core resolves names and typed options into an immutable drawing,
+and the SwiftUI module paints that drawing with native vector paths.
 
 ## Products
 
 - `BlobatarCore` owns the UI-independent generation-2 calculation.
-- `BlobatarSwiftUI` will provide the static and animated SwiftUI views.
+- `BlobatarSwiftUI` provides the static SwiftUI view and will add animation in
+  a later phase.
 
 The public package manifest lives at the repository root because consumers add
 this repository by Git URL. All Swift-specific source and tests remain here.
@@ -34,6 +34,25 @@ print(drawing.palette.head)
 selection, palette correction, silhouette composition, and containment stay
 inside the module. A native renderer reads the returned structured paths and
 colors without recalculating visual decisions.
+
+## SwiftUI usage
+
+```swift
+import BlobatarCore
+import BlobatarSwiftUI
+
+Blobatar(
+  name: "alain",
+  size: 72,
+  options: BlobatarOptions(background: .squircle),
+  accessibilityLabel: "Avatar of Alain"
+)
+```
+
+Omit `size` to let the view expand to its parent. The 100-by-100 drawing is
+always fitted without distortion into the largest centered square. The view is
+one accessibility image; without `accessibilityLabel`, it intentionally has no
+derived spoken label.
 
 ## Contract
 
