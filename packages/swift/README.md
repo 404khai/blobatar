@@ -98,3 +98,15 @@ swift run --package-path packages/swift/Tests/Consumer BlobatarConsumerSmoke
 The consumer smoke package resolves this repository through its public SwiftPM
 products, catching a manifest that builds internally but cannot be imported by
 an application.
+
+## Blobatar Studio
+
+The integration example lives in
+[`Examples/BlobatarStudio`](Examples/BlobatarStudio). Open its
+`BlobatarStudio.xcodeproj` to run the native app on macOS or an iOS simulator.
+The sibling package compiles the same sources as an external consumer and owns
+the Studio tests:
+
+```sh
+swift test --package-path packages/swift/Examples/BlobatarStudio
+```
