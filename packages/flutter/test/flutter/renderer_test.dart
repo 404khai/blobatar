@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:blobatar/blobatar.dart' as core;
 import 'package:blobatar/flutter.dart';
-import 'package:blobatar/src/flutter/path.dart' show toUiPath;
+import 'package:blobatar/src/flutter/path.dart' show colorFromHex, toUiPath;
 import 'package:blobatar/src/shape.dart' show BlobPath;
 
 import '../dart/helpers.dart' show optionsFromJson, vectors;
@@ -192,8 +192,8 @@ void main() {
       final ui.Color px =
           _pixelAt(bytes, 100, probe!.dx.round(), probe.dy.round());
       expect(
-        px.toARGB32() & 0xFFFFFF,
-        int.parse(palette['head']!.substring(1), radix: 16),
+        px,
+        colorFromHex(palette['head']!),
         reason: 'body pixel ($probe) must equal the resolved head hex',
       );
     });

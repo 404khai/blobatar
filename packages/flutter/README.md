@@ -139,12 +139,13 @@ the frozen seed-to-look mapping, so adding this SDK does **not** move any
 existing name to a different avatar and does not modify the TypeScript golden
 fixture.
 
-`test/fixtures/reference-vectors.json` is a checked-in, self-describing
-artifact exported once from the TypeScript implementation by
+`test/fixtures/reference-vectors.json` is a checked-in, self-describing,
+repository-only artifact exported once from the TypeScript implementation by
 `../../tools/export-reference-vectors.ts`. It contains 1,570 layout cases,
 42 expression cases, every silhouette band, normalization and non-ASCII
 inputs, palette/tone edges, and trait overrides. The Dart tests only read it;
-they never update it from port output.
+they never update it from port output, and `test/` is excluded from the
+published package archive.
 
 | Area | Status | Evidence or boundary |
 | --- | --- | --- |
