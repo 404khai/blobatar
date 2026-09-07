@@ -1,0 +1,35 @@
+{
+    "name": "Blobatar Studio",
+    "short_name": "Blobatar",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#f7f7fb",
+    "theme_color": "#6c5ce7",
+    "description": "Explore deterministic blobatars, expressions, colors, and motion in Flutter.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

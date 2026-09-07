@@ -11,6 +11,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  flutter:
+    name: flutter ${{ matrix.flutter-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flutter-version: [3.27.4, 3.x]
+    defaults:
+      run:
+        working-directory: packages/flutter
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ matrix.flutter-version }}
+          cache: true
+
+      - name: Resolve Flutter package
+        run: flutter pub get
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze
+        run: dart analyze
+
+      - name: Pure Dart tests
+        run: dart test test/dart
+
+      - name: Flutter tests
+        run: flutter test test/flutter
+
+      - name: API documentation
+        run: dart doc --output /tmp/blobatar-docs
+
+      - name: Resolve example
+        working-directory: packages/flutter/example
+        run: flutter pub get
+
+      - name: Analyze example
+        working-directory: packages/flutter/example
+        run: flutter analyze
+
+      - name: Test example
+        working-directory: packages/flutter/example
+        run: flutter test
+
+      - name: Validate publish contents
+        if: matrix.flutter-version == '3.x'
+        run: dart pub publish --dry-run
+
   library:
     name: library
     runs-on: ubuntu-latest
