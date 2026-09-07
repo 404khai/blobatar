@@ -58,6 +58,13 @@ enum StudioMotionMode: String, CaseIterable, Identifiable {
 
   var id: Self { self }
 
+  var animation: BlobatarAnimation {
+    switch self {
+    case .staticPreview, .hover: .hover
+    case .always: .always
+    }
+  }
+
   func isActive(isHovered: Bool, reduceMotion: Bool) -> Bool {
     guard !reduceMotion else { return false }
     switch self {
@@ -76,8 +83,8 @@ struct StudioConfiguration {
     "Margaret Hamilton",
     "Alan Turing",
     "Katherine Johnson",
-    "Guido",
-    "Matz",
+    "Danielle",
+    "Matteo",
     "Tim Berners-Lee",
     "Brendan Eich",
     "Hedy Lamarr",

@@ -7,8 +7,7 @@ and the SwiftUI module paints that drawing with native vector paths.
 ## Products
 
 - `BlobatarCore` owns the UI-independent generation-2 calculation.
-- `BlobatarSwiftUI` provides the static SwiftUI view and will add animation in
-  a later phase.
+- `BlobatarSwiftUI` provides static and elapsed-time animated SwiftUI views.
 
 The public package manifest lives at the repository root because consumers add
 this repository by Git URL. All Swift-specific source and tests remain here.
@@ -66,12 +65,41 @@ derived spoken label.
 Pose composition and contrast-safe palette tinting live in `BlobatarCore`, so
 the static view and later animation endpoints share one calculation.
 
+## Animation
+
+Use `AnimatedBlobatar` when the figure should react to a pointer or remain in
+ambient motion:
+
+```swift
+AnimatedBlobatar(
+  name: "alain",
+  size: 120,
+  options: BlobatarOptions(expression: .thinking),
+  animation: .hover,
+  active: rowIsVisible,
+  accessibilityLabel: "Avatar of Alain"
+)
+```
+
+`.hover` ramps motion only while a pointer is over the view; `.always` is for a
+single hero avatar. `active: false` is the explicit off-screen list-row control.
+The view also stops its timeline when the scene is inactive and, by default,
+when Reduce Motion is enabled. Identity or geometry-option changes cut to the
+new figure, while expression-only changes morph from the currently visible
+frame, including when a previous morph is interrupted.
+
+`BlobatarAnimationModel`, `resolveBlobatarMotion`, and
+`blobatarMotionFrame` expose the same pure elapsed-time arithmetic to non-UI
+renderers. They consume one shared monotonic millisecond clock; no caller should
+accumulate frame deltas.
+
 ## Contract
 
 The port implements the frozen Blobatar `2.4.0` generation-2 seed-to-look
 contract. Its canonical reference artifact is
 [`../../fixtures/blobatar-v2.4.0.json`](../../fixtures/blobatar-v2.4.0.json),
-exported only from the pinned TypeScript implementation by
+exported only from the pinned TypeScript implementation and its arithmetic
+motion evaluator by
 [`../../tools/export-reference-vectors.ts`](../../tools/export-reference-vectors.ts).
 
 The Swift artifact is byte-identical to the Flutter workstream's copy. The

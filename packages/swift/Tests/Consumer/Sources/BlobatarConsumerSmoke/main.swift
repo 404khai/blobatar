@@ -26,5 +26,24 @@ let view = Blobatar(
 precondition(view.name == "alain")
 precondition(view.size == 64)
 
+let animated = AnimatedBlobatar(
+  name: "alain",
+  size: 64,
+  options: BlobatarOptions(expression: .thinking),
+  animation: .always,
+  active: true,
+  accessibilityLabel: "Animated avatar of Alain"
+)
+precondition(animated.animation == .always)
+precondition(animated.active)
+
+let motion = resolveBlobatarMotion("alain")
+let frame = blobatarMotionFrame(
+  seeds: motion,
+  elapsedMilliseconds: 1_234,
+  amplitude: 1
+)
+precondition(frame.blinkScaleY > 0)
+
 print(
   "Blobatar Swift consumer resolved and presented a generation-2 \(drawing.silhouette.rawValue)")

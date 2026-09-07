@@ -157,7 +157,7 @@ final class BlobatarRenderCache: @unchecked Sendable {
   }
 }
 
-private final class BlobatarRequestReference: NSObject {
+final class BlobatarRequestReference: NSObject {
   let value: BlobatarRequestKey
 
   init(_ value: BlobatarRequestKey) {
@@ -172,7 +172,7 @@ private final class BlobatarRequestReference: NSObject {
   }
 }
 
-private struct BlobatarRequestKey: Hashable {
+struct BlobatarRequestKey: Hashable {
   let name: String
   let palette: BlobatarPaletteOverride?
   let hue: UInt64?
@@ -183,7 +183,7 @@ private struct BlobatarRequestKey: Hashable {
   let background: BlobatarBackdrop?
   let expression: BlobatarExpression?
 
-  init(name: String, options: BlobatarOptions) {
+  init(name: String, options: BlobatarOptions, includeExpression: Bool = true) {
     self.name = name
     palette = options.palette
     hue = options.hue?.bitPattern
@@ -194,16 +194,16 @@ private struct BlobatarRequestKey: Hashable {
     normalize = options.normalize
     contrast = options.contrast
     background = options.background
-    expression = options.expression
+    expression = includeExpression ? options.expression : nil
   }
 }
 
-private struct TraitEntry: Hashable {
+struct TraitEntry: Hashable {
   let name: String
   let value: TraitValue
 }
 
-private enum TraitValue: Hashable {
+enum TraitValue: Hashable {
   case pinned(UInt64)
   case narrowed([UInt64])
 

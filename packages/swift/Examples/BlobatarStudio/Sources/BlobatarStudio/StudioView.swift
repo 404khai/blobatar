@@ -53,10 +53,12 @@ struct StudioView: View {
           )
           .frame(maxWidth: .infinity)
         } else {
-          Blobatar(
+          AnimatedBlobatar(
             name: configuration.name,
             size: 260,
             options: configuration.options,
+            animation: configuration.motion.animation,
+            active: configuration.motion != .staticPreview,
             accessibilityLabel: "\(displayName) Blobatar"
           )
           .frame(maxWidth: .infinity)
@@ -95,7 +97,10 @@ struct StudioView: View {
     } else if configuration.motion == .hover && !previewHovered {
       detail = "Move the pointer over the preview to activate"
     } else if active {
-      detail = "Activity policy is active; elapsed-time frames arrive in Phase 6"
+      detail =
+        configuration.motion == .always
+        ? "Seeded ambient motion is always active"
+        : "Hover reaction and seeded ambient motion are active"
     } else {
       detail = "Static endpoint"
     }
@@ -229,10 +234,12 @@ struct StudioView: View {
         LazyVGrid(columns: columns, spacing: 18) {
           ForEach(StudioConfiguration.crowdNames, id: \.self) { name in
             VStack(spacing: 7) {
-              Blobatar(
+              AnimatedBlobatar(
                 name: name,
                 size: 78,
                 options: configuration.options,
+                animation: configuration.motion.animation,
+                active: configuration.motion != .staticPreview,
                 accessibilityLabel: "\(name) Blobatar"
               )
               Text(name)
