@@ -76,6 +76,32 @@
         assertPixel(bitmap, x: Int(point.x), y: Int(point.y), equals: expected)
       }
     }
+
+    @MainActor
+    func testExpressionEndpointReachesTheCanvas() throws {
+      let idle = try raster(
+        Blobatar(name: "expression-raster", options: BlobatarOptions(expression: .idle)),
+        size: CGSize(width: 100, height: 100)
+      )
+      let happy = try raster(
+        Blobatar(name: "expression-raster", options: BlobatarOptions(expression: .happy)),
+        size: CGSize(width: 100, height: 100)
+      )
+      XCTAssertNotEqual(idle.bitmapBytes, happy.bitmapBytes)
+
+      let mad = Blobatar(
+        name: "expression-raster",
+        options: BlobatarOptions(background: .square, expression: .mad)
+      )
+      let bitmap = try raster(mad, size: CGSize(width: 100, height: 100))
+      let point = try XCTUnwrap(interiorPoint(for: .body, in: mad.rendering.plan))
+      assertPixel(
+        bitmap,
+        x: Int(point.x),
+        y: Int(point.y),
+        equals: BlobatarRGB(hex: mad.rendering.drawing.palette.head)
+      )
+    }
   }
 
   @MainActor

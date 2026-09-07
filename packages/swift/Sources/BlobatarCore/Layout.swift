@@ -284,7 +284,6 @@ struct ResolvedLayout {
   let petals: [BlobatarPetal]
   let extraPaths: [BlobatarPath]
   let bodyPath: BlobatarPath
-  let eyePaths: [BlobatarPath]
 }
 
 func resolveLayout(traits: TraitReader) -> ResolvedLayout {
@@ -311,18 +310,6 @@ func resolveLayout(traits: TraitReader) -> ResolvedLayout {
   let face = shape.face(for: body)
   let decoration = shape.decorate(body, traits: traits)
   let eyes = fitEyes(traits: traits, body: body, face: face)
-  let eyePaths = eyes.map {
-    superellipse(
-      Superellipse(
-        centerX: $0.centerX,
-        centerY: $0.centerY,
-        radiusX: $0.radiusX,
-        radiusY: $0.radiusY,
-        exponent: $0.exponent,
-        rotationDegrees: $0.rotationDegrees
-      )
-    )
-  }
   return ResolvedLayout(
     silhouette: shape.silhouette,
     body: body.value,
@@ -330,7 +317,19 @@ func resolveLayout(traits: TraitReader) -> ResolvedLayout {
     eyes: eyes,
     petals: decoration.petals,
     extraPaths: decoration.extraPaths,
-    bodyPath: shape.path(for: body),
-    eyePaths: eyePaths
+    bodyPath: shape.path(for: body)
+  )
+}
+
+func eyePath(_ eye: BlobatarEye) -> BlobatarPath {
+  superellipse(
+    Superellipse(
+      centerX: eye.centerX,
+      centerY: eye.centerY,
+      radiusX: eye.radiusX,
+      radiusY: eye.radiusY,
+      exponent: eye.exponent,
+      rotationDegrees: eye.rotationDegrees
+    )
   )
 }

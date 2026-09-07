@@ -26,17 +26,23 @@ public func resolveBlobatar(
   }
 
   let layout = resolveLayout(traits: traits)
+  let pose = options.expression?.pose ?? BlobatarPose()
+  let eyes = applyPose(pose, to: layout.eyes)
+  if let expression = options.expression {
+    palette = applyExpressionPalette(expression, to: palette)
+  }
   return BlobatarDrawing(
     silhouette: layout.silhouette,
     body: layout.body,
     face: layout.face,
-    eyes: layout.eyes,
+    eyes: eyes,
     petals: layout.petals,
     extraPaths: layout.extraPaths,
     bodyPath: layout.bodyPath,
-    eyePaths: layout.eyePaths,
+    eyePaths: eyes.map(eyePath),
     palette: palette,
-    backdrop: resolveBackdrop(options.background, palette: palette)
+    backdrop: resolveBackdrop(options.background, palette: palette),
+    bodyOffsetY: pose.bodyOffsetY
   )
 }
 

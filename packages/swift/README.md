@@ -44,7 +44,10 @@ import BlobatarSwiftUI
 Blobatar(
   name: "alain",
   size: 72,
-  options: BlobatarOptions(background: .squircle),
+  options: BlobatarOptions(
+    background: .squircle,
+    expression: .happy
+  ),
   accessibilityLabel: "Avatar of Alain"
 )
 ```
@@ -53,6 +56,15 @@ Omit `size` to let the view expand to its parent. The 100-by-100 drawing is
 always fitted without distortion into the largest centered square. The view is
 one accessibility image; without `accessibilityLabel`, it intentionally has no
 derived spoken label.
+
+## Expressions
+
+`BlobatarExpression` provides the frozen generation-2 roster: `idle`, `happy`,
+`sad`, `mad`, `surprised`, `wink`, `sleepy`, `smug`, `unsure`, `scared`,
+`love`, `shy`, `sick`, and `thinking`. Pass one through
+`BlobatarOptions(expression:)`; omitting it is exactly equivalent to `.idle`.
+Pose composition and contrast-safe palette tinting live in `BlobatarCore`, so
+the static view and later animation endpoints share one calculation.
 
 ## Contract
 

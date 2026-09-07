@@ -115,6 +115,104 @@ func toHex(_ color: Oklch) -> String {
   return "#\(hexByte(channels[0]))\(hexByte(channels[1]))\(hexByte(channels[2]))"
 }
 
+/// Decodes the serialized color a figure is actually wearing so expression
+/// tinting also honors palette overrides.
+func fromHex(_ hex: String) -> Oklch {
+  guard hex.count == 7, hex.first == "#", let value = UInt32(hex.dropFirst(), radix: 16) else {
+    preconditionFailure("Blobatar palette colors must use #rrggbb notation")
+  }
+
+  func decode(_ byte: UInt32) -> Double {
+    let encoded = Double(byte) / 255
+    return encoded <= 0.04045
+      ? encoded / 12.92
+      : pow((encoded + 0.055) / 1.055, 2.4)
+  }
+
+  let red = decode((value >> 16) & 0xff)
+  let green = decode((value >> 8) & 0xff)
+  let blue = decode(value & 0xff)
+  let l = cbrt(0.412_221_470_8 * red + 0.536_332_536_3 * green + 0.051_445_992_9 * blue)
+  let m = cbrt(0.211_903_498_2 * red + 0.680_699_545_1 * green + 0.107_396_956_6 * blue)
+  let s = cbrt(0.088_302_461_9 * red + 0.281_718_837_6 * green + 0.629_978_700_5 * blue)
+  let a = 1.977_998_495_1 * l - 2.428_592_205 * m + 0.450_593_709_9 * s
+  let b = 0.025_904_037_1 * l + 0.782_771_766_2 * m - 0.808_675_766 * s
+  return Oklch(
+    lightness: 0.210_454_255_3 * l + 0.793_617_785 * m - 0.004_072_046_8 * s,
+    chroma: hypot(a, b),
+    hue: atan2(b, a) * 180 / .pi
+  )
+}
+
+/// Blends serialized colors in OKLab, matching the expression endpoint used
+/// by the generation-2 reference.
+func mixHex(_ first: String, _ second: String, amount: Double) -> String {
+  let a = fromHex(first)
+  let b = fromHex(second)
+  let aRadians = a.hue * .pi / 180
+  let bRadians = b.hue * .pi / 180
+  let ax = a.chroma * cos(aRadians)
+  let ay = a.chroma * sin(aRadians)
+  let bx = b.chroma * cos(bRadians)
+  let by = b.chroma * sin(bRadians)
+  let x = ax + (bx - ax) * amount
+  let y = ay + (by - ay) * amount
+  return toHex(
+    Oklch(
+      lightness: a.lightness + (b.lightness - a.lightness) * amount,
+      chroma: hypot(x, y),
+      hue: atan2(y, x) * 180 / .pi
+    )
+  )
+}
+
+private let tintContrastFloor = 4.55
+
+/// Derives a contrast-safe expression endpoint from the resolved palette,
+/// then verifies the complete serialized-color walk rather than only its ends.
+func tinted(
+  head: String,
+  eye: String,
+  toward target: TintTarget
+) -> (head: String, eye: String) {
+  let baseHead = fromHex(head)
+  let baseEye = fromHex(eye)
+  var targetHead = Oklch(
+    lightness: baseHead.lightness + (target.lightness - baseHead.lightness) * target.pull,
+    chroma: max(baseHead.chroma, target.chroma),
+    hue: target.hue
+  )
+  targetHead = ensureContrast(
+    targetHead,
+    against: darkSurface,
+    minimum: surfaceContrastFloor
+  )
+  var targetEye = ensureContrast(baseEye, against: targetHead, minimum: tintContrastFloor)
+  let direction = targetEye.lightness >= targetHead.lightness ? 1.0 : -1.0
+  let headHex = toHex(targetHead)
+
+  for _ in 0..<40 {
+    let eyeHex = toHex(targetEye)
+    var worst = Double.infinity
+    for index in 0...10 {
+      let amount = Double(index) / 10
+      worst = min(
+        worst,
+        contrast(
+          fromHex(mixHex(eye, eyeHex, amount: amount)),
+          fromHex(mixHex(head, headHex, amount: amount))
+        )
+      )
+    }
+    if worst >= tintContrastFloor { return (headHex, eyeHex) }
+    let lightness = min(1, max(0, targetEye.lightness + direction * 0.02))
+    if lightness == targetEye.lightness { return (headHex, eyeHex) }
+    targetEye = targetEye.withLightness(lightness)
+  }
+
+  return (headHex, toHex(targetEye))
+}
+
 private struct Tone {
   let edge: Double
   let lightness: Double
