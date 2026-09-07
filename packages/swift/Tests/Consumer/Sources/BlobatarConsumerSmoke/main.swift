@@ -20,7 +20,7 @@ precondition(drawing.backdrop != nil)
 let view = Blobatar(
   name: "alain",
   size: 64,
-  options: BlobatarOptions(background: .square),
+  options: BlobatarOptions(background: .square, expression: .happy),
   accessibilityLabel: "Avatar of Alain"
 )
 precondition(view.name == "alain")

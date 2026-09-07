@@ -22,6 +22,11 @@ struct BlobatarRenderPlan {
   init(drawing: BlobatarDrawing) {
     let head = BlobatarRGB(hex: drawing.palette.head)
     let eye = BlobatarRGB(hex: drawing.palette.eye)
+    let bodyOffsetY = drawing.bodyOffsetY
+    let bodyTransform = CGAffineTransform(translationX: 0, y: bodyOffsetY)
+    func bodyPath(_ path: BlobatarPath) -> Path {
+      swiftUIPath(from: path).applying(bodyTransform)
+    }
     var commands: [BlobatarRenderCommand] = []
 
     if let backdrop = drawing.backdrop {
@@ -40,7 +45,7 @@ struct BlobatarRenderPlan {
           path: Path(
             ellipseIn: CGRect(
               x: petal.centerX - petal.radius,
-              y: petal.centerY - petal.radius,
+              y: petal.centerY - petal.radius + bodyOffsetY,
               width: petal.radius * 2,
               height: petal.radius * 2
             )
@@ -51,15 +56,15 @@ struct BlobatarRenderPlan {
     )
     commands.append(
       contentsOf: drawing.extraPaths.map {
-        BlobatarRenderCommand(layer: .extraMark, path: swiftUIPath(from: $0), fill: head)
+        BlobatarRenderCommand(layer: .extraMark, path: bodyPath($0), fill: head)
       }
     )
     commands.append(
-      BlobatarRenderCommand(layer: .body, path: swiftUIPath(from: drawing.bodyPath), fill: head)
+      BlobatarRenderCommand(layer: .body, path: bodyPath(drawing.bodyPath), fill: head)
     )
     commands.append(
       contentsOf: drawing.eyePaths.map {
-        BlobatarRenderCommand(layer: .eye, path: swiftUIPath(from: $0), fill: eye)
+        BlobatarRenderCommand(layer: .eye, path: bodyPath($0), fill: eye)
       }
     )
 
@@ -176,6 +181,7 @@ private struct BlobatarRequestKey: Hashable {
   let normalize: Bool
   let contrast: Bool
   let background: BlobatarBackdrop?
+  let expression: BlobatarExpression?
 
   init(name: String, options: BlobatarOptions) {
     self.name = name
@@ -188,6 +194,7 @@ private struct BlobatarRequestKey: Hashable {
     normalize = options.normalize
     contrast = options.contrast
     background = options.background
+    expression = options.expression
   }
 }
 

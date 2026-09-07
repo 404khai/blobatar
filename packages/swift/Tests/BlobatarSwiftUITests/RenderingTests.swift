@@ -119,9 +119,40 @@ final class RenderingTests: XCTestCase {
     let first = Blobatar(name: "same", options: BlobatarOptions(background: .circle))
     let second = Blobatar(name: "same", options: BlobatarOptions(background: .circle))
     let updated = Blobatar(name: "same", options: BlobatarOptions(background: .square))
+    let expressed = Blobatar(
+      name: "same",
+      options: BlobatarOptions(background: .circle, expression: .happy)
+    )
 
     XCTAssertTrue(first.rendering === second.rendering)
     XCTAssertFalse(first.rendering === updated.rendering)
+    XCTAssertFalse(first.rendering === expressed.rendering)
+  }
+
+  func testStaticRenderPlanAppliesBodyOffsetOutsideTheBackdrop() throws {
+    let plain = BlobatarRenderPlan(
+      drawing: resolveBlobatar(
+        "offset",
+        options: BlobatarOptions(background: .square)
+      )
+    )
+    let happyDrawing = resolveBlobatar(
+      "offset",
+      options: BlobatarOptions(background: .square, expression: .happy)
+    )
+    let happy = BlobatarRenderPlan(drawing: happyDrawing)
+    let plainBackdrop = try XCTUnwrap(plain.commands.first { $0.layer == .backdrop })
+    let happyBackdrop = try XCTUnwrap(happy.commands.first { $0.layer == .backdrop })
+    let plainBody = try XCTUnwrap(plain.commands.first { $0.layer == .body })
+    let happyBody = try XCTUnwrap(happy.commands.first { $0.layer == .body })
+
+    XCTAssertEqual(happyBackdrop.path.boundingRect, plainBackdrop.path.boundingRect)
+    XCTAssertEqual(happyBody.path.boundingRect.minX, plainBody.path.boundingRect.minX)
+    XCTAssertEqual(
+      happyBody.path.boundingRect.minY,
+      plainBody.path.boundingRect.minY + happyDrawing.bodyOffsetY,
+      accuracy: 1e-5
+    )
   }
 
   private func assertViewport(

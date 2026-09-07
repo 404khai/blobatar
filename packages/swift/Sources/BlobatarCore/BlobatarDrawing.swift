@@ -84,4 +84,6 @@ public struct BlobatarDrawing: Sendable, Equatable, Hashable {
   public let eyePaths: [BlobatarPath]
   public let palette: BlobatarPalette
   public let backdrop: BlobatarBackdropDrawing?
+  /// A rigid vertical translation applied to the figure but not its backdrop.
+  public let bodyOffsetY: Double
 }

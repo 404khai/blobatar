@@ -40,7 +40,8 @@ public enum BlobatarBackdrop: String, CaseIterable, Sendable, Equatable, Hashabl
 /// Inputs to generation-2 resolution.
 ///
 /// A name still controls every option omitted here. Hue and tone take
-/// precedence over trait overrides for the corresponding keyed values.
+/// precedence over trait overrides for the corresponding keyed values. An
+/// expression changes only the resolved pose and palette, never seed choices.
 public struct BlobatarOptions: Sendable {
   public let palette: BlobatarPaletteOverride?
   public let hue: Double?
@@ -49,6 +50,7 @@ public struct BlobatarOptions: Sendable {
   public let normalize: Bool
   public let contrast: Bool
   public let background: BlobatarBackdrop?
+  public let expression: BlobatarExpression?
 
   public init(
     palette: BlobatarPaletteOverride? = nil,
@@ -57,7 +59,8 @@ public struct BlobatarOptions: Sendable {
     traits: [String: BlobatarTraitOverride] = [:],
     normalize: Bool = true,
     contrast: Bool = true,
-    background: BlobatarBackdrop? = nil
+    background: BlobatarBackdrop? = nil,
+    expression: BlobatarExpression? = nil
   ) {
     self.palette = palette
     self.hue = hue
@@ -66,5 +69,6 @@ public struct BlobatarOptions: Sendable {
     self.normalize = normalize
     self.contrast = contrast
     self.background = background
+    self.expression = expression
   }
 }
