@@ -46,6 +46,9 @@ jobs:
           packages/swift/Sources
           packages/swift/Tests
           packages/swift/Tests/Consumer/Package.swift
+          packages/swift/Examples/BlobatarStudio/Package.swift
+          packages/swift/Examples/BlobatarStudio/Sources
+          packages/swift/Examples/BlobatarStudio/Tests
 
       - name: Build package and tests
         run: swift build --build-tests -Xswiftc -warnings-as-errors
@@ -59,6 +62,21 @@ jobs:
           --package-path packages/swift/Tests/Consumer
           BlobatarConsumerSmoke
 
+      - name: Build and test Blobatar Studio
+        run: >-
+          swift test
+          --package-path packages/swift/Examples/BlobatarStudio
+          -Xswiftc -warnings-as-errors
+
+      - name: Build Blobatar Studio for macOS
+        run: >-
+          xcodebuild
+          -project packages/swift/Examples/BlobatarStudio/BlobatarStudio.xcodeproj
+          -scheme BlobatarStudio
+          -destination 'platform=macOS'
+          CODE_SIGNING_ALLOWED=NO
+          build
+
       # Older Xcodes remain useful language/package floors after GitHub removes
       # their matching iOS platform files from hosted images. The current SDK
       # owns the deployment-target build; both matrix legs still compile and
@@ -68,6 +86,16 @@ jobs:
         run: >-
           xcodebuild
           -scheme BlobatarSwiftUI
+          -destination 'generic/platform=iOS'
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Build Blobatar Studio for iOS
+        if: matrix.build-ios
+        run: >-
+          xcodebuild
+          -project packages/swift/Examples/BlobatarStudio/BlobatarStudio.xcodeproj
+          -scheme BlobatarStudio
           -destination 'generic/platform=iOS'
           CODE_SIGNING_ALLOWED=NO
           build
