@@ -18,7 +18,7 @@ struct StudioView: View {
           introduction
           preview
           controls
-          fixedNames
+          easterEggs
           crowd
         }
         .frame(maxWidth: 920)
@@ -45,26 +45,38 @@ struct StudioView: View {
   private var preview: some View {
     GroupBox("Preview") {
       VStack(spacing: 16) {
-        Blobatar(
-          name: configuration.name,
-          size: 260,
-          options: configuration.options,
-          accessibilityLabel: "\(displayName) Blobatar"
-        )
-        .frame(maxWidth: .infinity)
+        if let mark = currentEasterEgg {
+          WebSeedMarkView(
+            mark: mark,
+            size: 260,
+            accessibilityLabel: "\(mark.rawValue) mark"
+          )
+          .frame(maxWidth: .infinity)
+        } else {
+          Blobatar(
+            name: configuration.name,
+            size: 260,
+            options: configuration.options,
+            accessibilityLabel: "\(displayName) Blobatar"
+          )
+          .frame(maxWidth: .infinity)
+        }
 
         VStack(spacing: 4) {
           Text(displayName)
             .font(.headline)
             .lineLimit(1)
           Text(
-            "\(configuration.shape.rawValue) · \(configuration.expression.rawValue)"
+            currentEasterEgg.map { "\($0.rawValue) web Easter egg · locked" }
+              ?? "\(configuration.shape.rawValue) · \(configuration.expression.rawValue)"
           )
           .font(.caption)
           .foregroundStyle(.secondary)
         }
 
-        motionStatus
+        if currentEasterEgg == nil {
+          motionStatus
+        }
       }
       .padding(.vertical, 8)
       .contentShape(Rectangle())
@@ -105,90 +117,102 @@ struct StudioView: View {
         TextField("Seed name", text: $configuration.name)
           .textFieldStyle(.roundedBorder)
 
-        pickerRow("Shape", selection: $configuration.shape) {
-          ForEach(StudioShape.allCases) { shape in
-            Text(shape.rawValue).tag(shape)
+        VStack(alignment: .leading, spacing: 18) {
+          pickerRow("Shape", selection: $configuration.shape) {
+            ForEach(StudioShape.allCases) { shape in
+              Text(shape.rawValue).tag(shape)
+            }
           }
-        }
 
-        pickerRow("Expression", selection: $configuration.expression) {
-          ForEach(BlobatarExpression.allCases, id: \.rawValue) { expression in
-            Text(expression.rawValue.capitalized).tag(expression)
+          pickerRow("Expression", selection: $configuration.expression) {
+            ForEach(BlobatarExpression.allCases, id: \.rawValue) { expression in
+              Text(expression.rawValue.capitalized).tag(expression)
+            }
           }
-        }
 
-        pickerRow("Backdrop", selection: $configuration.backdrop) {
-          ForEach(BlobatarBackdrop.allCases, id: \.rawValue) { backdrop in
-            Text(backdrop.rawValue.capitalized).tag(backdrop)
+          pickerRow("Backdrop", selection: $configuration.backdrop) {
+            ForEach(BlobatarBackdrop.allCases, id: \.rawValue) { backdrop in
+              Text(backdrop.rawValue.capitalized).tag(backdrop)
+            }
           }
-        }
 
-        pickerRow("Narrow eye gap", selection: $configuration.eyeGap) {
-          ForEach(StudioEyeGap.allCases) { gap in
-            Text(gap.rawValue).tag(gap)
+          pickerRow("Narrow eye gap", selection: $configuration.eyeGap) {
+            ForEach(StudioEyeGap.allCases) { gap in
+              Text(gap.rawValue).tag(gap)
+            }
           }
-        }
 
-        pickerRow("Motion", selection: $configuration.motion) {
-          ForEach(StudioMotionMode.allCases) { mode in
-            Text(mode.rawValue).tag(mode)
+          pickerRow("Motion", selection: $configuration.motion) {
+            ForEach(StudioMotionMode.allCases) { mode in
+              Text(mode.rawValue).tag(mode)
+            }
           }
+
+          Divider()
+
+          Toggle("Override hue", isOn: $configuration.overridesHue)
+          if configuration.overridesHue {
+            valueSlider(
+              "Hue",
+              value: $configuration.hue,
+              range: 0...360,
+              formattedValue: "\(Int(configuration.hue.rounded()))°"
+            )
+          }
+
+          Toggle("Override tone", isOn: $configuration.overridesTone)
+          if configuration.overridesTone {
+            valueSlider(
+              "Tone",
+              value: $configuration.tone,
+              range: 0...1,
+              formattedValue: configuration.tone.formatted(
+                .number.precision(.fractionLength(2)))
+            )
+          }
+
+          Toggle("Use example palette override", isOn: $configuration.usesPaletteOverride)
+          Toggle("Normalize seed", isOn: $configuration.normalize)
+          Toggle("Correct generated contrast", isOn: $configuration.contrast)
         }
+        .disabled(currentEasterEgg != nil)
 
-        Divider()
-
-        Toggle("Override hue", isOn: $configuration.overridesHue)
-        if configuration.overridesHue {
-          valueSlider(
-            "Hue",
-            value: $configuration.hue,
-            range: 0...360,
-            formattedValue: "\(Int(configuration.hue.rounded()))°"
-          )
+        if currentEasterEgg != nil {
+          Text("Easter egg appearance controls are intentionally locked.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
-
-        Toggle("Override tone", isOn: $configuration.overridesTone)
-        if configuration.overridesTone {
-          valueSlider(
-            "Tone",
-            value: $configuration.tone,
-            range: 0...1,
-            formattedValue: configuration.tone.formatted(.number.precision(.fractionLength(2)))
-          )
-        }
-
-        Toggle("Use example palette override", isOn: $configuration.usesPaletteOverride)
-        Toggle("Normalize seed", isOn: $configuration.normalize)
-        Toggle("Correct generated contrast", isOn: $configuration.contrast)
       }
       .padding(.vertical, 8)
     }
   }
 
-  private var fixedNames: some View {
-    GroupBox("Fixed names") {
+  private var easterEggs: some View {
+    GroupBox("Blobatar Easter eggs") {
       VStack(alignment: .leading, spacing: 12) {
-        Text("The Claude and Codex names are shared with the Flutter Studio.")
+        Text("These example-only seeded marks mirror blobatar.dev and the Flutter Studio.")
           .font(.caption)
           .foregroundStyle(.secondary)
-        HStack(spacing: 16) {
-          ForEach(StudioConfiguration.fixedNames, id: \.self) { name in
+        LazyVGrid(columns: columns, spacing: 16) {
+          ForEach(StudioEasterEgg.all) { easterEgg in
             Button {
-              configuration.name = name
+              configuration.name = easterEgg.seed
             } label: {
               VStack(spacing: 8) {
-                Blobatar(
-                  name: name,
+                WebSeedMarkView(
+                  mark: easterEgg.mark,
                   size: 82,
-                  options: BlobatarOptions(background: .circle),
-                  accessibilityLabel: "\(name) Blobatar"
+                  accessibilityLabel: "\(easterEgg.mark.rawValue) mark"
                 )
-                Text(name)
+                Text(easterEgg.mark.rawValue)
+                Text("shape + expression locked")
+                  .font(.caption2)
+                  .foregroundStyle(.secondary)
               }
               .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Use \(name) as the preview seed")
+            .accessibilityHint("Use \(easterEgg.seed) as the preview seed")
           }
         }
       }
@@ -199,7 +223,7 @@ struct StudioView: View {
   private var crowd: some View {
     GroupBox("Crowd check") {
       VStack(alignment: .leading, spacing: 14) {
-        Text("Twelve fixed names rendered with the current public options.")
+        Text("Twelve stable seeds rendered with the current public options.")
           .font(.caption)
           .foregroundStyle(.secondary)
         LazyVGrid(columns: columns, spacing: 18) {
@@ -226,6 +250,10 @@ struct StudioView: View {
     configuration.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       ? "Empty seed"
       : configuration.name
+  }
+
+  private var currentEasterEgg: WebSeedMark? {
+    webSeedMarkFor(configuration.name)
   }
 
   private func pickerRow<Selection: Hashable, Content: View>(

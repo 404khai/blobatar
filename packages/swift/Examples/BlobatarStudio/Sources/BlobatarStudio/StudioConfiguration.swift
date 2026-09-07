@@ -69,7 +69,6 @@ enum StudioMotionMode: String, CaseIterable, Identifiable {
 }
 
 struct StudioConfiguration {
-  static let fixedNames = ["Claude", "Codex"]
   static let crowdNames = [
     "Ada",
     "Grace Hopper",

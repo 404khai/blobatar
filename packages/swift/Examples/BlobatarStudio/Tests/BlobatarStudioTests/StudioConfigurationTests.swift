@@ -106,8 +106,20 @@ final class StudioConfigurationTests: XCTestCase {
     }
   }
 
-  func testCatalogKeepsSharedFixedNamesAndPopulationCoverage() {
-    XCTAssertEqual(StudioConfiguration.fixedNames, ["Claude", "Codex"])
+  func testEasterEggSeedsAndAliasesMatchTheFlutterStudio() {
+    XCTAssertEqual(StudioEasterEgg.all.map(\.seed), ["claude", "codex"])
+    XCTAssertEqual(webSeedMarkFor(" Claude "), .claude)
+    XCTAssertEqual(webSeedMarkFor("anthropic"), .claude)
+    XCTAssertEqual(webSeedMarkFor("CODEX"), .codex)
+    XCTAssertEqual(webSeedMarkFor("openai"), .codex)
+    XCTAssertNil(webSeedMarkFor("Ada"))
+    XCTAssertEqual(webSeedKey("claude"), "e1fc8517")
+    XCTAssertEqual(webSeedKey("anthropic"), "b0d11833")
+    XCTAssertEqual(webSeedKey("codex"), "d4cde064")
+    XCTAssertEqual(webSeedKey("openai"), "ede616c3")
+  }
+
+  func testCatalogKeepsPopulationCoverage() {
     XCTAssertEqual(StudioConfiguration.crowdNames.count, 12)
     XCTAssertEqual(Set(StudioConfiguration.crowdNames).count, 12)
   }

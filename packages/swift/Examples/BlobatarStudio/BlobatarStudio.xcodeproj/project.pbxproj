@@ -12,6 +12,7 @@
 		A10000000000000000000003 /* StudioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* StudioView.swift */; };
 		A10000000000000000000004 /* BlobatarCore in Frameworks */ = {isa = PBXBuildFile; productRef = K10000000000000000000001 /* BlobatarCore */; };
 		A10000000000000000000005 /* BlobatarSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = K10000000000000000000002 /* BlobatarSwiftUI */; };
+		A10000000000000000000006 /* WebSeedMarks.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* WebSeedMarks.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +20,7 @@
 		B10000000000000000000002 /* StudioConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioConfiguration.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* StudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioView.swift; sourceTree = "<group>"; };
 		B10000000000000000000004 /* BlobatarStudio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BlobatarStudio.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000005 /* WebSeedMarks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSeedMarks.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -49,6 +51,7 @@
 				B10000000000000000000001 /* BlobatarStudioApp.swift */,
 				B10000000000000000000002 /* StudioConfiguration.swift */,
 				B10000000000000000000003 /* StudioView.swift */,
+				B10000000000000000000005 /* WebSeedMarks.swift */,
 			);
 			path = Sources/BlobatarStudio;
 			sourceTree = "<group>";
@@ -146,6 +149,7 @@
 				A10000000000000000000001 /* BlobatarStudioApp.swift in Sources */,
 				A10000000000000000000002 /* StudioConfiguration.swift in Sources */,
 				A10000000000000000000003 /* StudioView.swift in Sources */,
+				A10000000000000000000006 /* WebSeedMarks.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

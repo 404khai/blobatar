@@ -21,10 +21,11 @@ Shape selection demonstrates a pinned public trait. Eye-gap selection
 demonstrates deterministic narrowed candidate sets.
 
 A twelve-name adaptive grid reapplies the current options to a population for
-visual checks. Selecting the fixed Claude or Codex cards moves that exact name
-into the main preview. Those names remain aligned with the Flutter Studio,
-while Swift deliberately renders the public Blobatar figure instead of
-duplicating Flutter's example-only custom mark painters.
+visual checks. The Easter eggs port the Flutter Studio's hashed Claude,
+Anthropic, Codex, and OpenAI aliases exactly. Matching seeds replace the normal
+preview with the same example-only Claude pixel mark or Codex gradient-cloud
+prompt mark and lock appearance controls. The marks remain local to the
+example rather than expanding either package interface.
 
 ## Motion staging
 
@@ -44,9 +45,9 @@ that could drift from the core.
 
 Studio tests resolve only through public core values. They prove full option
 forwarding, all ten pinned shapes, narrowed-trait selection, name re-entry
-determinism, Reduced Motion policy, and the fixed-name and crowd catalogs. The
-nested package builds independently on macOS and its app scheme builds for a
-generic iOS destination with signing disabled.
+determinism, Reduced Motion policy, the exact Easter-egg hashes and aliases,
+and crowd catalog coverage. The nested package builds independently on macOS
+and its app scheme builds for a generic iOS destination with signing disabled.
 
 This phase changes no generation logic, TypeScript or Flutter source, or
 reference fixture. It does not change the generation-2 seed-to-look mapping.
