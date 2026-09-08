@@ -1,11 +1,11 @@
 {
-    "name": "blobatar_example",
-    "short_name": "blobatar_example",
+    "name": "Blobatar Studio",
+    "short_name": "Blobatar",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#f7f7fb",
+    "theme_color": "#6c5ce7",
+    "description": "Explore deterministic blobatars, expressions, colors, and motion in Flutter.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

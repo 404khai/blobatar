@@ -11,17 +11,37 @@ import 'traits.dart';
 
 /// Seeded periods, phases, and look direction for one blobatar.
 class MotionSeeds {
+  /// Breathing phase offset in milliseconds.
   final int phase;
+
+  /// Bob phase offset in milliseconds.
   final int bob;
+
+  /// Seeded blink period in milliseconds.
   final int blink;
+
+  /// Blink phase offset in milliseconds.
   final int blinkPhase;
+
+  /// Seeded saccade period in milliseconds.
   final int saccade;
+
+  /// Saccade phase offset in milliseconds.
   final int saccadePhase;
+
+  /// Signed horizontal look distance.
   final double lookX;
+
+  /// Signed vertical look distance.
   final double lookY;
+
+  /// Unsigned horizontal look distance used by eye wrapping.
   final double lookMagnitudeX;
+
+  /// Unsigned vertical look distance used by eye wrapping.
   final double lookMagnitudeY;
 
+  /// Creates a complete set of deterministic motion seeds.
   const MotionSeeds({
     required this.phase,
     required this.bob,
@@ -79,11 +99,19 @@ class MotionSeeds {
 
 /// Saccade foreshortening coefficients for one frame.
 class MotionWrap {
+  /// Horizontal foreshortening shared by both eyes.
   final double magnitudeX;
+
+  /// Side-dependent horizontal foreshortening.
   final double side;
+
+  /// Vertical foreshortening.
   final double scaleY;
+
+  /// Side-dependent rotation in degrees.
   final double rotation;
 
+  /// Creates secondary-eye saccade wrap coefficients.
   const MotionWrap({
     required this.magnitudeX,
     required this.side,
@@ -101,14 +129,28 @@ class MotionWrap {
 
 /// One deterministic frame of every idle-motion channel.
 class MotionFrame {
+  /// Mad-expression tremor translation in view-box units.
   final (double, double) shake;
+
+  /// Horizontal and vertical breathing scales.
   final (double, double) breathe;
+
+  /// Vertical body translation in view-box units.
   final double bob;
+
+  /// Shared eye translation in view-box units.
   final (double, double) saccade;
+
+  /// Held-thinking seesaw phase from -1 to 1.
   final double thinkingPhase;
+
+  /// Vertical eye scale, where 1 is open.
   final double blink;
+
+  /// Secondary-eye foreshortening for the current saccade.
   final MotionWrap wrap;
 
+  /// Creates one evaluated motion frame.
   const MotionFrame({
     required this.shake,
     required this.breathe,
@@ -232,14 +274,31 @@ const List<List<double>> _shakeStops = [
   [1, 0.62, -0.34],
 ];
 
+/// Duration of one breathe iteration before alternating direction.
 const double breatheMilliseconds = 2800;
+
+/// Duration of one bob iteration before alternating direction.
 const double bobMilliseconds = 3400;
+
+/// Duration of one held-thinking seesaw loop.
 const double thinkingMilliseconds = 900;
+
+/// Duration of one held-mad tremor loop.
 const double shakeMilliseconds = 112;
+
+/// Duration of a transition into a non-idle expression.
 const int expressionEnterMilliseconds = 300;
+
+/// Duration of a transition back to idle.
 const int expressionExitMilliseconds = 400;
+
+/// Duration of an ambient-motion amplitude change.
 const int ambientRampMilliseconds = 400;
+
+/// Duration of the hover lift entering.
 const int hoverEnterMilliseconds = 220;
+
+/// Duration of the hover lift leaving.
 const int hoverExitMilliseconds = 160;
 
 /// Solves a CSS cubic Bézier timing function at elapsed fraction [x].
@@ -268,11 +327,20 @@ double cubicBezier(
   return ((ay * parameter + by) * parameter + cy) * parameter;
 }
 
+/// Evaluates the CSS `ease-in-out` curve.
 double easeInOut(double value) => cubicBezier(value, 0.42, 0, 0.58, 1);
+
+/// Evaluates the CSS `ease-in` curve.
 double easeIn(double value) => cubicBezier(value, 0.42, 0, 1, 1);
+
+/// Evaluates the CSS `ease-out` curve.
 double easeOut(double value) => cubicBezier(value, 0, 0, 0.58, 1);
+
+/// Evaluates the authored expression-entry curve.
 double expressionEnterEase(double value) =>
     cubicBezier(value, 0.45, 0.05, 0.5, 1);
+
+/// Evaluates the authored hover reaction curve.
 double hoverEase(double value) => cubicBezier(value, 0.23, 1, 0.32, 1);
 
 /// Evaluates every deterministic motion channel at [elapsedMilliseconds].

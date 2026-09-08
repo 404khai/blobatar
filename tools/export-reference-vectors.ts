@@ -5,9 +5,9 @@
  * writes the cross-language fixture the Dart and Swift packages check against.
  * The source of truth is the tree at `BLOBATAR_TS_SRC` (default: a v2.4.0
  * checkout). Motion uses `BLOBATAR_MOTION_SRC` because the pure TypeScript
- * evaluator was extracted from that release's stylesheet by the stacked
- * Flutter workstream. Neither source is a port's generated output — see
- * `docs/flutter-port/reference-vectors.md`.
+ * evaluator was extracted from that release's stylesheet. Neither source is a
+ * port's generated output. The fixture's `meta` object and package READMEs
+ * document the schema and comparison rules.
  *
  *   BLOBATAR_TS_SRC=/tmp/blobatar-v240/packages/blobatar/src \
  *     BLOBATAR_MOTION_SRC=packages/blobatar/src \
