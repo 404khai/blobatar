@@ -17,6 +17,8 @@ swift test --package-path packages/swift/Examples/BlobatarStudio
 ```
 
 The motion selector demonstrates static, pointer-hover, always-on, and system
-Reduced Motion activity policy. The avatar remains on the exact static
-expression endpoint until Phase 6 adds deterministic elapsed-time frames to
-the public SwiftUI module.
+Reduced Motion activity policy using the public `AnimatedBlobatar` view. The
+crowd is a separate static catalog: its twelve entries span every silhouette,
+all backdrop modes, and twelve expressions without inheriting preview controls
+or animation. Keeping that subtree independent also leaves control updates to
+resolve only the large preview.

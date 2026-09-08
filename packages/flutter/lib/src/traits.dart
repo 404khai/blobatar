@@ -15,7 +15,7 @@ import 'hash.dart';
 
 /// Overrides are clamped rather than trusted.
 ///
-/// `pick` and [Traits.int] index and floor, so a value of exactly 1 selects
+/// `pick` and [Traits.intIn] index and floor, so a value of exactly 1 selects
 /// one past the end of a `pick` array and one past `max` — out-of-range
 /// options and counts, from an input that looks entirely reasonable to whoever
 /// typed it. NaN falls to 0 through the same comparison, so a bad parse
@@ -74,7 +74,7 @@ class Traits {
   double numIn(String key, double min, double max) =>
       min + call(key) * (max - min);
 
-  /// Uniform integer in [min, max].
+  /// Uniform integer from `min` through `max`, inclusive.
   int intIn(String key, int min, int max) =>
       min + (call(key) * (max - min + 1)).floor();
 

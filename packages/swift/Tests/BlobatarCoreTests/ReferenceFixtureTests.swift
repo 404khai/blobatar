@@ -8,11 +8,13 @@ final class ReferenceFixtureTests: XCTestCase {
     let fixture = try loadFixture()
     let metadata = try XCTUnwrap(fixture["meta"] as? [String: Any])
 
-    XCTAssertEqual(metadata["schemaVersion"] as? Int, 2)
+    XCTAssertEqual(metadata["schemaVersion"] as? Int, 3)
     XCTAssertEqual(metadata["version"] as? String, BlobatarContract.referenceVersion)
     XCTAssertEqual(metadata["generation"] as? String, BlobatarContract.generation)
     XCTAssertEqual(metadata["caseCount"] as? Int, 1_570)
     XCTAssertEqual(metadata["expressionCaseCount"] as? Int, 42)
+    XCTAssertEqual(metadata["motionCaseCount"] as? Int, 4)
+    XCTAssertEqual(metadata["motionFrameCount"] as? Int, 24)
 
     XCTAssertEqual((fixture["cases"] as? [Any])?.count, 1_570)
     XCTAssertEqual((fixture["hash"] as? [Any])?.count, 31)
@@ -30,9 +32,13 @@ final class ReferenceFixtureTests: XCTestCase {
 
     XCTAssertEqual(
       Set(exact),
-      Set(["hash-state", "stream-floats", "palette-hex", "path-strings", "shape-names"])
+      Set([
+        "hash-state", "stream-floats", "palette-hex", "path-strings", "shape-names",
+        "motion-seeds", "motion-colors",
+      ])
     )
     XCTAssertEqual(relative["layout"] as? Double, 1e-9)
+    XCTAssertEqual(relative["motion"] as? Double, 1e-9)
   }
 
   func testFixtureCoversEveryGenerationTwoSilhouette() throws {

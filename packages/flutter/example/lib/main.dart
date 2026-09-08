@@ -100,18 +100,18 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
   Future<void> _pickAppearance() async {
     final _AppearanceSelection? selection =
         await showModalBottomSheet<_AppearanceSelection>(
-          context: context,
-          isScrollControlled: true,
-          showDragHandle: true,
-          useSafeArea: true,
-          constraints: const BoxConstraints(maxWidth: 680),
-          builder: (BuildContext context) => _AppearanceSheet(
-            name: _name,
-            initialShape: _shape,
-            initialExpression: _expression,
-            hue: _hue,
-          ),
-        );
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 680),
+      builder: (BuildContext context) => _AppearanceSheet(
+        name: _name,
+        initialShape: _shape,
+        initialExpression: _expression,
+        hue: _hue,
+      ),
+    );
     if (selection == null || !mounted) return;
     setState(() {
       _shape = selection.shape;
@@ -143,8 +143,8 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                   'Change the seed, silhouette, and expression to preview the '
                   'same output your Flutter app will render.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
                 const SizedBox(height: 24),
                 LayoutBuilder(
@@ -205,8 +205,8 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                 Text(
                   'Thinking seesaws while mad adds a short seeded tremor.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
                 const SizedBox(height: 14),
                 const _ExpressionMotionDemo(),
@@ -219,8 +219,8 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                 Text(
                   'Twelve fixed names, always rendered as the same blobatars.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
                 const SizedBox(height: 14),
                 const Center(child: _SeededGallery()),
@@ -234,8 +234,8 @@ class _BlobatarStudioPageState extends State<BlobatarStudioPage> {
                   'These example-only marks mirror blobatar.dev. Their shape '
                   'and expression are intentionally locked.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                 ),
                 const SizedBox(height: 14),
                 Wrap(
@@ -332,8 +332,8 @@ class _Preview extends StatelessWidget {
                 ? '${shape.name} · ${expression.name}'
                 : '${currentMark.label} web preset · locked',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
           ),
         ],
       ),
@@ -462,7 +462,7 @@ class _Controls extends StatelessWidget {
               onSelectionChanged: locked
                   ? null
                   : (Set<BlobatarAnimation> selection) =>
-                        onAnimationChanged(selection.single),
+                      onAnimationChanged(selection.single),
             ),
             const SizedBox(height: 8),
             SwitchListTile.adaptive(
@@ -487,8 +487,9 @@ class _Controls extends StatelessWidget {
                     child: Text(
                       'Web presets do not expose appearance controls.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
                   ),
                 ],
@@ -511,9 +512,9 @@ class _ControlLabel extends StatelessWidget {
     return Text(
       text.toLowerCase(),
       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        letterSpacing: 0.4,
-      ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            letterSpacing: 0.4,
+          ),
     );
   }
 }
@@ -688,11 +689,11 @@ class _AppearanceSheetState extends State<_AppearanceSheet> {
                     itemCount: _shapes.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          mainAxisSpacing: 6,
-                          crossAxisSpacing: 6,
-                          childAspectRatio: 0.82,
-                        ),
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 6,
+                      crossAxisSpacing: 6,
+                      childAspectRatio: 0.82,
+                    ),
                     itemBuilder: (BuildContext context, int index) {
                       final _ShapeOption option = _shapes[index];
                       return _AvatarOptionTile(
@@ -721,11 +722,11 @@ class _AppearanceSheetState extends State<_AppearanceSheet> {
                     itemCount: core.expressions.length,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          mainAxisSpacing: 6,
-                          crossAxisSpacing: 6,
-                          childAspectRatio: 0.82,
-                        ),
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 6,
+                      crossAxisSpacing: 6,
+                      childAspectRatio: 0.82,
+                    ),
                     itemBuilder: (BuildContext context, int index) {
                       final core.Expression option = core.expressions[index];
                       return _AvatarOptionTile(

@@ -1,25 +1,26 @@
 name: blobatar
-description: >-
-  Deterministic geometric blobatars from any string. A faithful Dart/Flutter
-  port of the blobatar generation-2 engine: hash, traits, OKLCh palette,
-  layout geometry, and static and animated Flutter painters and widgets. The
-  deterministic core is Flutter-independent (lib/blobatar.dart); the widget
-  layer (lib/flutter.dart) is opt-in.
+description: Deterministic geometric blobatars from any string, with a pure Dart core and static or animated Flutter widgets.
 version: 0.1.0
-homepage: https://github.com/404khai/blobatar
-repository: https://github.com/404khai/blobatar
-issue_tracker: https://github.com/404khai/blobatar/issues
-documentation: https://github.com/404khai/blobatar/tree/main/packages/flutter
+homepage: https://blobatar.dev
+repository: https://github.com/Alain00/blobatar
+issue_tracker: https://github.com/Alain00/blobatar/issues
+topics:
+  - avatar
+  - flutter
+  - deterministic
+  - generative-art
+screenshots:
+  - description: The Blobatar Studio example with appearance and motion controls.
+    path: flutter_blobatar_studio.png
 
 environment:
   sdk: ^3.6.0
-  flutter: ">=3.24.0"
+  flutter: ">=3.27.0"
 
 dependencies:
   # Dart has no built-in Unicode normalization; the JS core normalizes seeds
   # with String.prototype.normalize("NFC") and the paste-a-name case depends on
   # decomposed and precomposed input hashing equally. See
-  # docs/flutter-port/phase-0-coordination.md (NFC parity question).
   unorm_dart: ^0.3.0
   flutter:
     sdk: flutter
@@ -27,5 +28,5 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  lints: ^6.0.0
+  lints: ^5.1.1
   test: ^1.25.0

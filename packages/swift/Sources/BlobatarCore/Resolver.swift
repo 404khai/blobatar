@@ -12,6 +12,14 @@ public func resolveBlobatar(
     normalize: options.normalize,
     overrides: options.traits
   )
+  return resolveBlobatar(traits: traits, options: options, expression: options.expression)
+}
+
+func resolveBlobatar(
+  traits: TraitReader,
+  options: BlobatarOptions,
+  expression: BlobatarExpression?
+) -> BlobatarDrawing {
   var palette = makePalette(
     hue: options.hue ?? traits.number("hue", min: 0, max: 360),
     tone: options.tone ?? traits.value("tone"),
@@ -26,9 +34,9 @@ public func resolveBlobatar(
   }
 
   let layout = resolveLayout(traits: traits)
-  let pose = options.expression?.pose ?? BlobatarPose()
+  let pose = expression?.pose ?? BlobatarPose()
   let eyes = applyPose(pose, to: layout.eyes)
-  if let expression = options.expression {
+  if let expression {
     palette = applyExpressionPalette(expression, to: palette)
   }
   return BlobatarDrawing(

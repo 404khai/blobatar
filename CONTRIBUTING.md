@@ -29,6 +29,9 @@ browser — see below.
 
 - `packages/blobatar` — the library.
 - `packages/cli` — the terminal surface, published as `@blobatar/cli`.
+- `packages/flutter` — the Dart/Flutter SDK, published separately to pub.dev;
+  its deterministic core is checked against a pinned generation-2 reference
+  artifact and its widgets render with native Canvas paths.
 - `apps/site` — the landing page, and the deployable that puts the endpoint on
   blobatar.dev.
 - `apps/api` — the endpoint, `GET /avatar/<name>`, also deployable on its own.
@@ -62,6 +65,14 @@ entry point. The core budget is the one that matters: it is what stops a
 convenience import from quietly pulling in an adapter. If your change needs a
 budget raised, raise it in the same commit and say in the comment what those
 bytes bought — every existing bump does.
+
+The Flutter SDK is deliberately outside the Bun task graph because it
+reimplements the generation-2 contract and publishes through pub.dev rather
+than npm. Its independent CI job runs formatting, analysis, pure Dart parity
+tests, Flutter widget tests, example checks, API documentation, and a publish
+dry run on the minimum supported Flutter line and current stable Flutter 3.x.
+Run the same local checks from `packages/flutter` as documented in that
+package's README.
 
 ## The things that are not yours to change casually
 

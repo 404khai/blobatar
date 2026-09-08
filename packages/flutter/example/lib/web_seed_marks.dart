@@ -21,10 +21,8 @@ const Map<String, WebSeedMark> _keys = {
 WebSeedMark? webSeedMarkFor(String name) => _keys[_key(name)];
 
 String _key(String name) {
-  final String normal = core
-      .normalizeSeed(name)
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .toLowerCase();
+  final String normal =
+      core.normalizeSeed(name).replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
   int hash = 0x811c9dc5;
   for (final int codeUnit in normal.codeUnits) {
     hash = core.imul(hash ^ codeUnit, 0x01000193);

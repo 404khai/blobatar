@@ -22,11 +22,19 @@ import 'painter.dart';
 /// - [semanticLabel] backs `Semantics(image: true)`. When null the element
 ///   is left unlabeled, matching the library's `title`-optional behavior.
 class Blobatar extends StatelessWidget {
+  /// The public identity used to derive deterministic traits.
   final String name;
+
+  /// The square edge in logical pixels, or null to fill the parent constraints.
   final double? size;
+
+  /// Generation, palette, backdrop, trait, and expression options.
   final BlobatarOptions options;
+
+  /// The optional assistive-technology label for this image.
   final String? semanticLabel;
 
+  /// Creates a static deterministic blobatar.
   const Blobatar({
     super.key,
     required this.name,
