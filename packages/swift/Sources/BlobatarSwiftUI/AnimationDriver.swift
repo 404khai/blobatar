@@ -36,6 +36,7 @@ final class BlobatarAnimationDriver: ObservableObject {
   ) {
     let nextExpression = nextExpression ?? .idle
     if rendering !== next {
+      objectWillChange.send()
       rendering = next
       targetExpression = nextExpression
       expression = ExpressionTransition(
@@ -45,6 +46,7 @@ final class BlobatarAnimationDriver: ObservableObject {
       return
     }
     guard targetExpression != nextExpression else { return }
+    objectWillChange.send()
     let current = expression.value(model: rendering.model, at: now)
     let target = rendering.model.expressionState(for: nextExpression)
     targetExpression = nextExpression
@@ -70,6 +72,8 @@ final class BlobatarAnimationDriver: ObservableObject {
     hovered nextHovered: Bool,
     now: Double
   ) {
+    guard active != nextActive || mode != nextMode || hovered != nextHovered else { return }
+    objectWillChange.send()
     let wasActive = active
     active = nextActive
     mode = nextMode

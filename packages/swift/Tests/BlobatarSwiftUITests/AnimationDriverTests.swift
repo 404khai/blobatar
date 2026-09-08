@@ -1,4 +1,5 @@
 import BlobatarCore
+import Combine
 import SwiftUI
 import XCTest
 
@@ -6,6 +7,23 @@ import XCTest
 
 @MainActor
 final class AnimationDriverTests: XCTestCase {
+  func testActivityChangeInvalidatesAPausedTimeline() {
+    let rendering = BlobatarAnimatedRendering(model: BlobatarAnimationModel(name: "activation"))
+    let driver = BlobatarAnimationDriver(
+      rendering: rendering,
+      expression: .idle,
+      mode: .always,
+      now: 0
+    )
+    var invalidations = 0
+    let observation = driver.objectWillChange.sink { invalidations += 1 }
+
+    driver.updateActivity(active: true, mode: .always, hovered: false, now: 10)
+
+    XCTAssertGreaterThan(invalidations, 0)
+    withExtendedLifetime(observation) {}
+  }
+
   func testHoverAndAmbientRampsUseTheirDirectionalDurations() {
     let rendering = BlobatarAnimatedRendering(model: BlobatarAnimationModel(name: "hover"))
     let driver = BlobatarAnimationDriver(
