@@ -7,7 +7,7 @@ import XCTest
 
 @MainActor
 final class AnimationDriverTests: XCTestCase {
-  func testActivityChangeInvalidatesAPausedTimeline() {
+  func testActivityChangeInvalidatesAPausedTimelineAndStartsMotion() {
     let rendering = BlobatarAnimatedRendering(model: BlobatarAnimationModel(name: "activation"))
     let driver = BlobatarAnimationDriver(
       rendering: rendering,
@@ -17,10 +17,13 @@ final class AnimationDriverTests: XCTestCase {
     )
     var invalidations = 0
     let observation = driver.objectWillChange.sink { invalidations += 1 }
+    let staticFrame = driver.frame(at: 10)
 
     driver.updateActivity(active: true, mode: .always, hovered: false, now: 10)
 
     XCTAssertGreaterThan(invalidations, 0)
+    XCTAssertTrue(driver.needsContinuousFrames(at: 10))
+    XCTAssertNotEqual(driver.frame(at: 210), staticFrame)
     withExtendedLifetime(observation) {}
   }
 

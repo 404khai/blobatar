@@ -139,21 +139,6 @@
     }
 
     @MainActor
-    func testActiveViewBeginsAlwaysOnMotionWithoutAnotherMutation() throws {
-      let model = ActiveAnimatedProbeModel(active: false, animation: .always)
-      let host = activeHost(model)
-      host.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
-      RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-      let staticFrame = try raster(host)
-
-      model.active = true
-      RunLoop.main.run(until: Date().addingTimeInterval(0.2))
-      let movingFrame = try raster(host)
-
-      XCTAssertNotEqual(movingFrame.bitmapBytes, staticFrame.bitmapBytes)
-    }
-
-    @MainActor
     private func activeHost(_ model: ActiveAnimatedProbeModel) -> NSHostingView<some View> {
       NSHostingView(
         rootView: ActiveAnimatedProbe(model: model)
