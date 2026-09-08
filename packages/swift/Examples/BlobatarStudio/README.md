@@ -9,10 +9,13 @@ scheme for My Mac or an iOS simulator. The project produces a real application
 bundle on both platforms and resolves the repository root as a local Swift
 package dependency.
 
+![Blobatar Studio running on iOS](../../blobatar_swift_studio.png)
+
 The sibling `Package.swift` compiles the same sources as an external-consumer
 harness and owns the integration tests. From the repository root, run:
 
 ```sh
+swift run --package-path packages/swift/Examples/BlobatarStudio BlobatarStudio
 swift test --package-path packages/swift/Examples/BlobatarStudio
 ```
 

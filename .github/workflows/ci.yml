@@ -56,11 +56,16 @@ jobs:
       - name: Test package
         run: swift test -Xswiftc -warnings-as-errors
 
-      - name: Smoke public products
-        run: >-
-          swift run
-          --package-path packages/swift/Tests/Consumer
-          BlobatarConsumerSmoke
+      - name: Build DocC documentation
+        if: matrix.name == 'current'
+        run: |
+          xcodebuild -scheme BlobatarCore -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/blobatar-core-docc" OTHER_DOCC_FLAGS='--warnings-as-errors' docbuild
+          xcodebuild -scheme BlobatarSwiftUI -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/blobatar-swiftui-docc" OTHER_DOCC_FLAGS='--warnings-as-errors' docbuild
+
+      - name: Resolve clean consumer through root manifest
+        run: |
+          swift package --package-path packages/swift/Tests/Consumer resolve
+          swift run --package-path packages/swift/Tests/Consumer BlobatarConsumerSmoke
 
       - name: Build and test Blobatar Studio
         run: >-
