@@ -52,8 +52,9 @@ public struct AnimatedBlobatar: View {
   }
 
   public var body: some View {
+    let request = synchronizationRequest
     Group {
-      if isEffectivelyActive {
+      if request.active {
         TimelineView(
           .animation(
             minimumInterval: 1.0 / 60.0,
@@ -81,14 +82,10 @@ public struct AnimatedBlobatar: View {
     .contentShape(Rectangle())
     .onHover { next in
       hovered = next
-      synchronize()
+      synchronize(request, hovered: next)
     }
-    .onAppear(perform: synchronize)
-    .onChange(of: requestKey) { _ in synchronize() }
-    .onChange(of: animation) { _ in synchronize() }
-    .onChange(of: active) { _ in synchronize() }
-    .onChange(of: reduceMotion) { _ in synchronize() }
-    .onChange(of: scenePhase) { _ in synchronize() }
+    .onAppear { synchronize(request, hovered: hovered) }
+    .onChange(of: request) { next in synchronize(next, hovered: hovered) }
     .accessibilityElement(children: .ignore)
     .accessibilityAddTraits(.isImage)
     .modifier(
@@ -107,18 +104,31 @@ public struct AnimatedBlobatar: View {
     )
   }
 
-  @MainActor
-  private func synchronize() {
-    let now = monotonicMilliseconds()
-    driver.updateRequest(
+  private var synchronizationRequest: BlobatarSynchronizationRequest {
+    BlobatarSynchronizationRequest(
+      key: requestKey,
       rendering: rendering,
       expression: options.expression,
-      animate: isEffectivelyActive,
+      mode: animation,
+      active: isEffectivelyActive
+    )
+  }
+
+  @MainActor
+  private func synchronize(
+    _ request: BlobatarSynchronizationRequest,
+    hovered: Bool
+  ) {
+    let now = monotonicMilliseconds()
+    driver.updateRequest(
+      rendering: request.rendering,
+      expression: request.expression,
+      animate: request.active,
       now: now
     )
     driver.updateActivity(
-      active: isEffectivelyActive,
-      mode: animation,
+      active: request.active,
+      mode: request.mode,
       hovered: hovered,
       now: now
     )
@@ -134,6 +144,20 @@ public struct AnimatedBlobatar: View {
       guard refreshToken == token else { return }
       refreshToken = UUID()
     }
+  }
+}
+
+private struct BlobatarSynchronizationRequest: Equatable {
+  let key: BlobatarRequestKey
+  let rendering: BlobatarAnimatedRendering
+  let expression: BlobatarExpression?
+  let mode: BlobatarAnimation
+  let active: Bool
+
+  static func == (_ lhs: Self, _ rhs: Self) -> Bool {
+    lhs.key == rhs.key
+      && lhs.mode == rhs.mode
+      && lhs.active == rhs.active
   }
 }
 

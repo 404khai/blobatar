@@ -102,12 +102,124 @@
         equals: BlobatarRGB(hex: mad.rendering.drawing.palette.head)
       )
     }
+
+    @MainActor
+    func testActiveViewAppliesShapeChangeWithoutAnotherMutation() throws {
+      let model = ActiveAnimatedProbeModel(shape: 0.11, active: true)
+      let host = activeHost(model)
+      host.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
+      RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+      let round = try raster(host)
+
+      model.shape = 0.99
+      RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+      let changed = try raster(host)
+      let expected = try raster(
+        Blobatar(name: "update-probe", options: ActiveAnimatedProbe.options(shape: 0.99)),
+        size: CGSize(width: 100, height: 100)
+      )
+
+      XCTAssertNotEqual(changed.bitmapBytes, round.bitmapBytes)
+      XCTAssertEqual(changed.bitmapBytes, expected.bitmapBytes)
+    }
+
+    @MainActor
+    func testActiveViewBeginsExpressionChangeWithoutAnotherMutation() throws {
+      let model = ActiveAnimatedProbeModel(expression: .idle, active: true)
+      let host = activeHost(model)
+      host.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
+      RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+      let idle = try raster(host)
+
+      model.expression = .mad
+      RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+      let changed = try raster(host)
+
+      XCTAssertNotEqual(changed.bitmapBytes, idle.bitmapBytes)
+    }
+
+    @MainActor
+    func testActiveViewBeginsAlwaysOnMotionWithoutAnotherMutation() throws {
+      let model = ActiveAnimatedProbeModel(active: false, animation: .always)
+      let host = activeHost(model)
+      host.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
+      RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+      let staticFrame = try raster(host)
+
+      model.active = true
+      RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+      let movingFrame = try raster(host)
+
+      XCTAssertNotEqual(movingFrame.bitmapBytes, staticFrame.bitmapBytes)
+    }
+
+    @MainActor
+    private func activeHost(_ model: ActiveAnimatedProbeModel) -> NSHostingView<some View> {
+      NSHostingView(
+        rootView: ActiveAnimatedProbe(model: model)
+          .environment(\.scenePhase, .active)
+      )
+    }
+  }
+
+  @MainActor
+  private final class ActiveAnimatedProbeModel: ObservableObject {
+    @Published var shape: Double
+    @Published var expression: BlobatarExpression
+    @Published var active: Bool
+    @Published var animation: BlobatarAnimation
+
+    init(
+      shape: Double = 0.11,
+      expression: BlobatarExpression = .idle,
+      active: Bool,
+      animation: BlobatarAnimation = .hover
+    ) {
+      self.shape = shape
+      self.expression = expression
+      self.active = active
+      self.animation = animation
+    }
+  }
+
+  private struct ActiveAnimatedProbe: View {
+    @ObservedObject var model: ActiveAnimatedProbeModel
+
+    var body: some View {
+      AnimatedBlobatar(
+        name: "update-probe",
+        options: Self.options(shape: model.shape, expression: model.expression),
+        animation: model.animation,
+        active: model.active
+      )
+    }
+
+    static func options(
+      shape: Double,
+      expression: BlobatarExpression = .idle
+    ) -> BlobatarOptions {
+      BlobatarOptions(
+        palette: BlobatarPaletteOverride(
+          background: "#ffffff",
+          head: "#101010",
+          eye: "#ffffff"
+        ),
+        traits: ["shape": .pinned(shape)],
+        background: .square,
+        expression: expression
+      )
+    }
   }
 
   @MainActor
   private func raster<V: View>(_ view: V, size: CGSize) throws -> NSBitmapImageRep {
     let host = NSHostingView(rootView: view)
     host.frame = CGRect(origin: .zero, size: size)
+    return try raster(host)
+  }
+
+  @MainActor
+  private func raster<V: View>(_ host: NSHostingView<V>) throws -> NSBitmapImageRep {
     host.layoutSubtreeIfNeeded()
     guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
       throw SnapshotError.cannotAllocateBitmap
