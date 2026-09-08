@@ -119,8 +119,46 @@ final class StudioConfigurationTests: XCTestCase {
     XCTAssertEqual(webSeedKey("openai"), "ede616c3")
   }
 
-  func testCatalogKeepsPopulationCoverage() {
-    XCTAssertEqual(StudioConfiguration.crowdNames.count, 12)
-    XCTAssertEqual(Set(StudioConfiguration.crowdNames).count, 12)
+  func testCrowdCatalogIsIndependentOfPreviewControls() {
+    var configuration = StudioConfiguration()
+    let baseline = configuration.crowdEntries
+
+    configuration.name = "a different preview"
+    configuration.shape = .triangle
+    configuration.expression = .thinking
+    configuration.backdrop = .squircle
+    configuration.eyeGap = .wide
+    configuration.motion = .always
+    configuration.overridesHue = true
+    configuration.hue = 22
+    configuration.overridesTone = true
+    configuration.tone = 0.82
+    configuration.usesPaletteOverride = true
+    configuration.normalize = false
+    configuration.contrast = false
+
+    let changed = configuration.crowdEntries
+    XCTAssertEqual(
+      changed.map { resolveBlobatar($0.name, options: $0.options) },
+      baseline.map { resolveBlobatar($0.name, options: $0.options) }
+    )
+  }
+
+  func testCrowdCatalogCoversEveryShapeAndShowsVisualDiversity() {
+    let entries = StudioConfiguration().crowdEntries
+    XCTAssertEqual(entries.count, 12)
+    XCTAssertEqual(Set(entries.map(\.name)).count, entries.count)
+    XCTAssertEqual(
+      Set(entries.map { resolveBlobatar($0.name, options: $0.options).silhouette }),
+      Set(BlobatarSilhouette.allCases)
+    )
+    XCTAssertEqual(
+      Set(entries.compactMap { $0.options.background }),
+      Set(BlobatarBackdrop.allCases)
+    )
+    XCTAssertEqual(
+      Set(entries.compactMap { $0.options.expression }).count,
+      entries.count
+    )
   }
 }

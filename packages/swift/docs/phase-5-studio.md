@@ -20,12 +20,14 @@ palette override, normalization, and generated-palette contrast correction.
 Shape selection demonstrates a pinned public trait. Eye-gap selection
 demonstrates deterministic narrowed candidate sets.
 
-A twelve-name adaptive grid reapplies the current options to a population for
-visual checks. The Easter eggs port the Flutter Studio's hashed Claude,
-Anthropic, Codex, and OpenAI aliases exactly. Matching seeds replace the normal
-preview with the same example-only Claude pixel mark or Codex gradient-cloud
-prompt mark and lock appearance controls. The marks remain local to the
-example rather than expanding either package interface.
+A twelve-name adaptive grid was initially added to reapply the current options
+to a population for visual checks. It now acts as an independent static catalog
+that spans every silhouette, all backdrop modes, and twelve expressions, so
+preview controls do not rebuild or restyle it. The Easter eggs port the Flutter
+Studio's hashed Claude, Anthropic, Codex, and OpenAI aliases exactly. Matching
+seeds replace the normal preview with the same example-only Claude pixel mark
+or Codex gradient-cloud prompt mark and lock appearance controls. The marks
+remain local to the example rather than expanding either package interface.
 
 ## Motion staging
 

@@ -75,20 +75,58 @@ enum StudioMotionMode: String, CaseIterable, Identifiable {
   }
 }
 
+struct StudioCrowdEntry: Identifiable, Sendable {
+  let name: String
+  let options: BlobatarOptions
+
+  var id: String { name }
+
+  init(
+    name: String,
+    shape: StudioShape,
+    backdrop: BlobatarBackdrop,
+    expression: BlobatarExpression
+  ) {
+    guard let pinnedShape = shape.pinnedValue else {
+      preconditionFailure("Crowd entries must pin a concrete silhouette")
+    }
+    self.name = name
+    options = BlobatarOptions(
+      traits: ["shape": .pinned(pinnedShape)],
+      background: backdrop,
+      expression: expression
+    )
+  }
+}
+
 struct StudioConfiguration {
-  static let crowdNames = [
-    "Ada",
-    "Grace Hopper",
-    "Linus",
-    "Margaret Hamilton",
-    "Alan Turing",
-    "Katherine Johnson",
-    "Danielle",
-    "Matteo",
-    "Tim Berners-Lee",
-    "Brendan Eich",
-    "Hedy Lamarr",
-    "James Gosling",
+  static let crowdCatalog = [
+    StudioCrowdEntry(name: "Ada", shape: .round, backdrop: .none, expression: .idle),
+    StudioCrowdEntry(
+      name: "Grace Hopper", shape: .organic, backdrop: .circle, expression: .happy),
+    StudioCrowdEntry(name: "Linus", shape: .boxy, backdrop: .square, expression: .smug),
+    StudioCrowdEntry(
+      name: "Margaret Hamilton",
+      shape: .capsule,
+      backdrop: .squircle,
+      expression: .thinking
+    ),
+    StudioCrowdEntry(
+      name: "Alan Turing", shape: .nub, backdrop: .none, expression: .unsure),
+    StudioCrowdEntry(
+      name: "Katherine Johnson", shape: .cloud, backdrop: .circle, expression: .love),
+    StudioCrowdEntry(
+      name: "Danielle", shape: .droplet, backdrop: .square, expression: .shy),
+    StudioCrowdEntry(
+      name: "Matteo", shape: .hexagon, backdrop: .squircle, expression: .wink),
+    StudioCrowdEntry(
+      name: "Tim Berners-Lee", shape: .sun, backdrop: .none, expression: .surprised),
+    StudioCrowdEntry(
+      name: "Brendan Eich", shape: .triangle, backdrop: .circle, expression: .mad),
+    StudioCrowdEntry(
+      name: "Hedy Lamarr", shape: .round, backdrop: .square, expression: .sleepy),
+    StudioCrowdEntry(
+      name: "James Gosling", shape: .organic, backdrop: .squircle, expression: .sick),
   ]
 
   var name = "alain00"
@@ -104,6 +142,10 @@ struct StudioConfiguration {
   var usesPaletteOverride = false
   var normalize = true
   var contrast = true
+
+  var crowdEntries: [StudioCrowdEntry] {
+    Self.crowdCatalog
+  }
 
   var options: BlobatarOptions {
     var traits: [String: BlobatarTraitOverride] = [:]

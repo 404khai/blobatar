@@ -18,5 +18,7 @@ swift test --package-path packages/swift/Examples/BlobatarStudio
 
 The motion selector demonstrates static, pointer-hover, always-on, and system
 Reduced Motion activity policy using the public `AnimatedBlobatar` view. The
-crowd uses the same cached-geometry path, so timeline ticks update transforms
-and expression colors without resolving twelve new figures per frame.
+crowd is a separate static catalog: its twelve entries span every silhouette,
+all backdrop modes, and twelve expressions without inheriting preview controls
+or animation. Keeping that subtree independent also leaves control updates to
+resolve only the large preview.

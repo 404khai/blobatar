@@ -226,31 +226,8 @@ struct StudioView: View {
   }
 
   private var crowd: some View {
-    GroupBox("Crowd check") {
-      VStack(alignment: .leading, spacing: 14) {
-        Text("Twelve stable seeds rendered with the current public options.")
-          .font(.caption)
-          .foregroundStyle(.secondary)
-        LazyVGrid(columns: columns, spacing: 18) {
-          ForEach(StudioConfiguration.crowdNames, id: \.self) { name in
-            VStack(spacing: 7) {
-              AnimatedBlobatar(
-                name: name,
-                size: 78,
-                options: configuration.options,
-                animation: configuration.motion.animation,
-                active: configuration.motion != .staticPreview,
-                accessibilityLabel: "\(name) Blobatar"
-              )
-              Text(name)
-                .font(.caption)
-                .lineLimit(1)
-            }
-          }
-        }
-      }
-      .padding(.vertical, 8)
-    }
+    StudioCrowdView()
+      .equatable()
   }
 
   private var displayName: String {
@@ -292,6 +269,42 @@ struct StudioView: View {
           .monospacedDigit()
       }
       Slider(value: value, in: range)
+    }
+  }
+}
+
+private struct StudioCrowdView: View, Equatable {
+  private let columns = [
+    GridItem(.adaptive(minimum: 112, maximum: 150), spacing: 16)
+  ]
+
+  // This view intentionally has no preview inputs. Equality keeps control-state
+  // updates from traversing and reconstructing the static grid.
+  nonisolated static func == (_ lhs: Self, _ rhs: Self) -> Bool { true }
+
+  var body: some View {
+    GroupBox("Crowd check") {
+      VStack(alignment: .leading, spacing: 14) {
+        Text("Twelve stable, independent examples spanning every silhouette.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+        LazyVGrid(columns: columns, spacing: 18) {
+          ForEach(StudioConfiguration.crowdCatalog) { entry in
+            VStack(spacing: 7) {
+              Blobatar(
+                name: entry.name,
+                size: 78,
+                options: entry.options,
+                accessibilityLabel: "\(entry.name) Blobatar"
+              )
+              Text(entry.name)
+                .font(.caption)
+                .lineLimit(1)
+            }
+          }
+        }
+      }
+      .padding(.vertical, 8)
     }
   }
 }
