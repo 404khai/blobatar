@@ -78,6 +78,26 @@ describe("options", () => {
     expect(blobatar("a", { palette: { head: "#ff0000" } })).toContain("#ff0000");
   });
 
+  test("backgroundColor sets the backdrop fill", () => {
+    expect(
+      blobatar("a", { background: true, backgroundColor: "#123456" }),
+    ).toContain('fill="#123456"');
+  });
+
+  test("backgroundColor does nothing without a backdrop", () => {
+    expect(blobatar("a", { backgroundColor: "#123456" })).not.toContain("#123456");
+  });
+
+  test("an explicit palette.bg wins over backgroundColor", () => {
+    expect(
+      blobatar("a", {
+        background: true,
+        backgroundColor: "#123456",
+        palette: { bg: "#abcdef" },
+      }),
+    ).toContain('fill="#abcdef"');
+  });
+
   test("title is escaped", () => {
     expect(blobatar("a", { title: "<script>&" })).toContain("<title>&lt;script&gt;&amp;</title>");
   });

@@ -9,6 +9,12 @@ export interface BlobatarOptions {
   size?: number;
   /** Overrides the default backdrop. `false` renders transparent. */
   background?: boolean | "square" | "circle" | "squircle";
+  /**
+   * The backdrop's fill color. Shorthand for `palette: { bg }`; has no effect
+   * unless `background` also resolves truthy — there is no plate to color
+   * otherwise. `palette.bg` wins if both are given.
+   */
+  backgroundColor?: string;
   /** Overrides specific palette entries. Overridden colors bypass the contrast guarantee. */
   palette?: Palette;
   /** Locks the hue in degrees, so the name drives shape only. */
@@ -153,6 +159,7 @@ export function resolve(seed: string, opts: BlobatarOptions) {
         opts.contrast ?? true,
         opts.tone ?? t("tone"),
       ),
+      ...(opts.backgroundColor ? { bg: opts.backgroundColor } : {}),
       ...opts.palette,
     } as Palette,
   };

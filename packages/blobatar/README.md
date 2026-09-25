@@ -161,6 +161,7 @@ several hundred blobatars on one page cannot produce id collisions.
 | ------------ | ----------- | ----------------------------------------------------------------------- |
 | `size`       | —           | Emits `width`/`height`. Omit to let CSS size it.                        |
 | `background` | none        | `"squircle"`, `"circle"`, `"square"`, or `false`.                       |
+| `backgroundColor` | —      | The backdrop's fill color. Shorthand for `palette: { bg }`; needs `background` set too. |
 | `hue`        | —           | Locks hue in degrees; the name then drives shape only.                 |
 | `tone`       | —           | Locks the swatch as a 0–1 position in the set, pale to ink. `1` sits on the top edge and renders as `0`; use `0.999` for ink. |
 | `traits`     | —           | Pins individual traits as 0–1 positions, or a list to choose among. See below. |
