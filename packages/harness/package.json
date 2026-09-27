@@ -19,6 +19,7 @@
     "@babel/core": "^7",
     "@types/babel__core": "^7.20.5",
     "babel-preset-solid": "^1.9.15",
+    "@blobatar/angular": "workspace:*",
     "@blobatar/cli": "workspace:*",
     "@blobatar/preact": "workspace:*",
     "@blobatar/react": "workspace:*",
