@@ -216,8 +216,13 @@ export class BlobatarComponent implements OnDestroy {
 
   readonly animate = input<boolean | 'always' | 'hover' | undefined>(undefined);
   readonly animated = input<boolean | 'always' | 'hover' | undefined>(undefined);
-  readonly effectiveAnimate = computed(() => {
-    return this.animate() ?? this.animated() ?? this.config()?.animate ?? this.config()?.animated ?? false;
+  readonly effectiveAnimate = computed<boolean | 'always' | 'hover'>(() => {
+    const raw = this.animate() ?? this.animated() ?? this.config()?.animate ?? this.config()?.animated ?? false;
+    if (raw === false || (raw as unknown) === 'false') return false;
+    if (raw === 'hover') return 'hover';
+    if (raw === 'always') return 'always';
+    if (raw === true || (raw as unknown) === 'true' || (raw as unknown) === '') return true;
+    return false;
   });
 
   readonly expression = input<Expression | BlobatarExpressionName | string | undefined>(undefined);
@@ -322,7 +327,8 @@ export class BlobatarComponent implements OnDestroy {
   readonly parts: Signal<BlobatarParts | null> = computed(() => {
     if (!this.isAnimated()) return null;
     const anim = this.effectiveAnimate();
-    const animateMode: Animate = anim === 'hover' ? 'hover' : 'always';
+    const animateMode: Animate | undefined =
+      anim === 'hover' ? 'hover' : (anim === 'always' || anim === true) ? 'always' : undefined;
     return _parts(this.effectiveSeed(), {
       ...this.blobatarOptions(),
       animate: animateMode,
