@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { blobatar } from "../src/blobatar";
+import { _layout, blobatar } from "../src/blobatar";
 import { VERSION } from "../src/index";
 import { blobatarUri } from "../src/uri";
-import { palette } from "../src/color";
+import { contrast, fromHex, palette } from "../src/color";
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => `user-${i}`);
 
@@ -96,6 +96,53 @@ describe("options", () => {
         palette: { bg: "#abcdef" },
       }),
     ).toContain('fill="#abcdef"');
+  });
+
+  test("backgroundColor reaches the contrast floors", () => {
+    // The floors themselves are swept in `color.test.ts`; this is the wiring.
+    // A plate the exact color of the body is the worst case there is: without
+    // the floor the blobatar would be a face floating on a disc.
+    const opts = { background: "circle" } as const;
+    const head = _layout("a", opts).palette.head!;
+    const p = _layout("a", { ...opts, backgroundColor: head }).palette;
+    expect(p.bg).toBe(head);
+    expect(p.head).not.toBe(head);
+    // Read back from hex, so a hair under the floor the ramp clears exactly.
+    expect(contrast(fromHex(p.head!), fromHex(head))).toBeGreaterThan(1.24);
+  });
+
+  test("backgroundColor leaves the figure alone without a backdrop", () => {
+    // Not merely "the color is not drawn": a plate that is not on screen must
+    // not move the body either.
+    for (const s of SEEDS.slice(0, 50)) {
+      expect(blobatar(s, { backgroundColor: "#000000" })).toBe(blobatar(s));
+      expect(blobatar(s, { background: false, backgroundColor: "#000000" })).toBe(
+        blobatar(s, { background: false }),
+      );
+    }
+  });
+
+  test("backgroundColor follows contrast: false", () => {
+    const opts = { background: "circle", contrast: false } as const;
+    for (const s of SEEDS.slice(0, 50)) {
+      expect(_layout(s, { ...opts, backgroundColor: "#000000" }).palette.head).toBe(
+        _layout(s, opts).palette.head,
+      );
+    }
+  });
+
+  test("an unmeasurable backgroundColor is painted as given", () => {
+    const svg = blobatar("a", { background: "circle", backgroundColor: "var(--plate)" });
+    expect(svg).toContain('fill="var(--plate)"');
+    expect(_layout("a", { background: "circle", backgroundColor: "var(--plate)" }).palette.head).toBe(
+      _layout("a", { background: "circle" }).palette.head,
+    );
+  });
+
+  test("an empty backgroundColor is no backgroundColor", () => {
+    expect(blobatar("a", { background: "circle", backgroundColor: "" })).toBe(
+      blobatar("a", { background: "circle" }),
+    );
   });
 
   test("title is escaped", () => {

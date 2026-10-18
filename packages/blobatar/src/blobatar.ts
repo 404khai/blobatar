@@ -107,7 +107,7 @@ export function _marks(name: string, opts: BlobatarOptions = {}): {
   transform: string;
   marks: Mark[];
 } {
-  const { t, palette } = resolve(name, opts);
+  const { t, palette } = resolve(name, opts, style.background);
   const p = tinted(palette, opts.expression);
   const pose = posed(style.layout(t), opts);
   return {
@@ -167,7 +167,7 @@ export function _marks(name: string, opts: BlobatarOptions = {}): {
  * Underscored on the same terms as `_marks`, `_parts` and `_layout`.
  */
 export function _posed(name: string, opts: BlobatarOptions = {}) {
-  const { t, palette } = resolve(name, opts);
+  const { t, palette } = resolve(name, opts, style.background);
   const l = style.layout(t) as Layout;
   // Drawn with the *base* palette, because these fills are the start of the
   // travel and not its end. A tinting pose's endpoint rides in `hot`, and a
@@ -209,7 +209,7 @@ export function _posed(name: string, opts: BlobatarOptions = {}) {
  * the shape of this object is not public API.
  */
 export function _layout(name: string, opts: BlobatarOptions = {}) {
-  const { t, palette } = resolve(name, opts);
+  const { t, palette } = resolve(name, opts, style.background);
   // The cast is private and deliberately narrow: the package style has the
   // body/eyes shape the geometry tests inspect, while `Style` itself remains
   // generic for the renderer.

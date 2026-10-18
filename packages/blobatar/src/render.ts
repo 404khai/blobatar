@@ -10,9 +10,13 @@ export interface BlobatarOptions {
   /** Overrides the default backdrop. `false` renders transparent. */
   background?: boolean | "square" | "circle" | "squircle";
   /**
-   * The backdrop's fill color. Shorthand for `palette: { bg }`; has no effect
-   * unless `background` also resolves truthy — there is no plate to color
-   * otherwise. `palette.bg` wins if both are given.
+   * The backdrop's fill color. Has no effect unless a backdrop is drawn —
+   * there is no plate to color otherwise.
+   *
+   * Unlike `palette: { bg }`, this keeps the contrast guarantee: the body is
+   * pushed off this color the way it is pushed off the default plate. That
+   * needs a color it can measure, so it holds for `#rgb`/`#rrggbb` only; any
+   * other CSS color is painted as given. `palette.bg` wins if both are given.
    */
   backgroundColor?: string;
   /** Overrides specific palette entries. Overridden colors bypass the contrast guarantee. */
@@ -149,7 +153,17 @@ const escape = (s: string) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;",
   );
 
-export function resolve(seed: string, opts: BlobatarOptions) {
+/**
+ * `plate` is the style's default backdrop, needed here because `backgroundColor`
+ * only joins the contrast chain when a plate is actually drawn: pushing the body
+ * off a color that never reaches the screen would change the blobatar for
+ * nothing.
+ */
+export function resolve(
+  seed: string,
+  opts: BlobatarOptions,
+  plate: Style<unknown>["background"],
+) {
   const t = traits(seed, opts.normalize ?? true, opts.traits);
   return {
     t,
@@ -158,8 +172,8 @@ export function resolve(seed: string, opts: BlobatarOptions) {
         opts.hue ?? t.num("hue", 0, 360),
         opts.contrast ?? true,
         opts.tone ?? t("tone"),
+        (opts.background ?? plate) === false ? undefined : opts.backgroundColor,
       ),
-      ...(opts.backgroundColor ? { bg: opts.backgroundColor } : {}),
       ...opts.palette,
     } as Palette,
   };
@@ -238,7 +252,7 @@ export type MotionFactory = (t: Traits, p: Palette) => Motion;
 /** Binds one package major's frozen style into `blobatar(name, opts)`. */
 export function makeBlobatar<L>(style: Style<L>) {
   return (name: string, opts: BlobatarOptions = {}): string => {
-    const { t, palette } = resolve(name, opts);
+    const { t, palette } = resolve(name, opts, style.background);
     const p = tinted(palette, opts.expression);
     const dim = opts.size ? ` width="${opts.size}" height="${opts.size}"` : "";
     const pose = posed(style.layout(t), opts);
@@ -282,7 +296,7 @@ export function makeParts<L>(style: Style<L>) {
     opts: BlobatarOptions = {},
     motion?: MotionFactory,
   ) => {
-    const { t, palette: p } = resolve(name, opts);
+    const { t, palette: p } = resolve(name, opts, style.background);
     const mo = motion?.(t, p);
     const pose = posed(style.layout(t), opts, mo);
 

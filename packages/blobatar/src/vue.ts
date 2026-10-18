@@ -98,7 +98,7 @@ export const Blobatar = defineComponent({
       type: [Boolean, String] as PropType<BlobatarOptions["background"]>,
       default: undefined,
     },
-    /** The backdrop's fill color. Shorthand for `palette: { bg }`. */
+    /** The backdrop's fill color. Keeps the contrast guarantee for hex colors. */
     backgroundColor: { type: String },
     /** Overrides specific palette entries. */
     palette: { type: Object as PropType<Palette> },
