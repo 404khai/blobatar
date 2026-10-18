@@ -1,14 +1,15 @@
 {
-  "extends": "../../tsconfig.json",
+  "//": "For `ngc --noEmit`, which typechecks the templates as well as the TypeScript — plain `tsc` cannot see a binding to an input that does not exist. Paths alias `blobatar/*` to source, as every adapter's development config does; `@blobatar/angular` points back at this package so the gaze entry can import the component the way a consumer would.",
+  "extends": "./tsconfig.lib.json",
   "compilerOptions": {
-    "experimentalDecorators": true,
+    "noEmit": true,
     "paths": {
       "blobatar": ["../blobatar/src/index.ts"],
-      "blobatar/uri": ["../blobatar/src/uri.ts"],
-      "blobatar/internal": ["../blobatar/src/internal.ts"],
       "blobatar/gaze": ["../blobatar/src/gaze.ts"],
-      "blobatar/expression": ["../blobatar/src/expression.ts"]
+      "blobatar/internal": ["../blobatar/src/internal.ts"],
+      "blobatar/uri": ["../blobatar/src/uri.ts"],
+      "@blobatar/angular": ["./src/index.ts"]
     }
   },
-  "include": ["src", "scripts"]
+  "include": ["src", "gaze"]
 }

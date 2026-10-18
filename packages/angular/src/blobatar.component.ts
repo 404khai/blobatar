@@ -3,431 +3,196 @@ import {
   Component,
   ElementRef,
   PLATFORM_ID,
+  ViewEncapsulation,
   computed,
-  effect,
   inject,
   input,
   viewChild,
-  type OnDestroy,
+  type InputSignal,
   type Signal,
-} from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
-import { blobatarUri } from 'blobatar/uri';
-import { _parts, serializeVars, type Animate } from 'blobatar/internal';
-import { gaze as initGaze, type Gaze } from 'blobatar/gaze';
-import {
-  happy,
-  idle,
-  love,
-  mad,
-  sad,
-  scared,
-  shy,
-  sick,
-  sleepy,
-  smug,
-  surprised,
-  thinking,
-  unsure,
-  wink,
-  type Expression,
-} from 'blobatar/expression';
+} from "@angular/core";
+import { isPlatformBrowser } from "@angular/common";
+import { DomSanitizer, type SafeHtml } from "@angular/platform-browser";
+import { _parts, serializeVars, type Animate, type BlobatarOptions } from "blobatar/internal";
+import { blobatarUri } from "blobatar/uri";
 
-export interface BlobatarParts {
-  cls?: string;
-  bg?: { d: string; fill: string };
-  inner: string;
-  vars?: Record<string, string>;
-}
-
-export const BLOBATAR_EXPRESSIONS: Record<string, Expression> = {
-  happy,
-  idle,
-  love,
-  mad,
-  sad,
-  scared,
-  shy,
-  sick,
-  sleepy,
-  smug,
-  surprised,
-  thinking,
-  unsure,
-  wink,
-};
-
-export const EXPRESSIONS = BLOBATAR_EXPRESSIONS;
-
-export type BlobatarExpressionName = keyof typeof BLOBATAR_EXPRESSIONS;
-export type ExpressionName = BlobatarExpressionName;
-
-export type BlobatarBackgroundShape = 'squircle' | 'circle' | 'square' | boolean;
-
-export interface BlobatarPalette {
-  head?: string;
-  eye?: string;
-  bg?: string;
-}
-
-export interface BlobatarConfig {
-  seed?: string;
-  name?: string;
-  size?: number;
-  palette?: BlobatarPalette;
-  background?: BlobatarBackgroundShape;
-  hue?: number;
-  tone?: number;
-  traits?: Record<string, any>;
-  expression?: Expression | BlobatarExpressionName | string;
-  animated?: boolean | 'always' | 'hover';
-  animate?: boolean | 'always' | 'hover';
-  gazeTracking?: boolean | 'pointer';
-  gaze?: boolean | 'pointer';
-  drops?: boolean;
-  bgColor?: string;
-  bg?: string;
-  backgroundColor?: string;
-}
-
-export type BlobatarPreset = BlobatarConfig;
-export type BlobatarCustomConfig = BlobatarConfig;
-
+/**
+ * `<blobatar>` — the Angular adapter.
+ *
+ * The same component every other adapter is: one required `name`, core's
+ * options as inputs and nothing else, an `<img>` when still and an inline
+ * `<svg>` when `animate` is on. `packages/harness` renders it next to the React
+ * adapter and asserts the two produce the same blobatar, so an input that
+ * changed the picture here and nowhere else would fail there.
+ *
+ * Three things differ from the JSX adapters, all of them Angular's shape rather
+ * than a choice:
+ *
+ * - **There is a host element.** `<blobatar>` stays in the DOM around the
+ *   `<img>` or `<svg>`, so a `class` or `style` written on it lands on the host
+ *   rather than being spread onto the inner element. That is why `alt` is an
+ *   input: an `alt` attribute on the host would label nothing.
+ * - **The animated `<svg>` is written twice: as a template for the browser and
+ *   as a string for the server.** Angular's server DOM (domino) throws
+ *   `NotYetImplemented` for `innerHTML` on any SVG element, and core's figure
+ *   only exists as markup, so the template that works in a browser cannot run
+ *   during SSR at all. The server instead parses the whole `<svg>` as HTML
+ *   inside a `display: contents` wrapper, which domino does support, and the
+ *   host carries `ngSkipHydration` so the browser re-renders it rather than
+ *   trying to adopt markup its own template did not produce. Both paths build
+ *   the same three children from the same `_parts` call; `packages/harness`
+ *   compares the server's against React's.
+ * - **The gaze layer is a directive** at `@blobatar/angular/gaze`, the same
+ *   subpath bargain React makes, and it finds the `<svg>` through `svg` below.
+ */
 @Component({
-  selector: 'blobatar, app-blobatar, [blobatar]',
+  selector: "blobatar",
   standalone: true,
+  // No styles of its own, so nothing to encapsulate. Every rule an adapter
+  // could add here would be a difference from the other adapters' picture.
+  encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { ngSkipHydration: "true" },
+  // Three real children of the <svg> rather than one innerHTML blob, for the
+  // reason React's adapter gives: only the root <g> varies when the expression
+  // changes, and an innerHTML that included it would rebuild the subtree the
+  // morph runs in. <title> must be the first child to label the <svg>, and the
+  // backdrop sits outside the hover lift.
   template: `
-    @if (isBrowser) {
-      @if (isAnimated()) {
+    @if (parts(); as p) {
+      @if (browser) {
         <svg
-          #svgElement
+          #svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 100 100"
-          [attr.width]="effectiveSize()"
-          [attr.height]="effectiveSize()"
+          [attr.width]="size()"
+          [attr.height]="size()"
           [attr.role]="title() ? 'img' : null"
           [attr.aria-hidden]="title() ? null : 'true'"
-          [attr.style]="svgStyle()"
-          [attr.class]="svgClassesString()"
+          [attr.style]="style()"
         >
           @if (title()) {
             <title>{{ title() }}</title>
           }
-          @if (parts()?.bg; as bg) {
-            <path [attr.d]="bg.d" [attr.fill]="bg.fill" />
+          @if (p.bg) {
+            <path [attr.d]="p.bg.d" [attr.fill]="p.bg.fill" />
           }
-          @if (effectiveDrops()) {
-            <g class="canvas-paint-drops" opacity="0.95">
-              <circle cx="18" cy="22" r="3.6" fill="#ec4899" />
-              <path d="M18 16 C18 16 20.6 19.5 20.6 22 A2.6 2.6 0 0 1 15.4 22 C15.4 19.5 18 16 18 16 Z" fill="#ec4899" />
-              <circle cx="82" cy="24" r="3.2" fill="#0ea5e9" />
-              <path d="M82 19 C82 19 84.4 22 84.4 24 A2.4 2.4 0 0 1 79.6 24 C79.6 22 82 19 82 19 Z" fill="#0ea5e9" />
-              <circle cx="17" cy="78" r="2.8" fill="#f59e0b" />
-              <circle cx="23" cy="83" r="1.5" fill="#f59e0b" />
-              <circle cx="83" cy="76" r="3.5" fill="#10b981" />
-              <path d="M83 70 C83 70 86 73.5 86 76 A3 3 0 0 1 80 76 C80 73.5 83 70 83 70 Z" fill="#10b981" />
-            </g>
-          }
-          @if (parts(); as p) {
-            <g [class]="p.cls" [innerHTML]="sanitizedInner()"></g>
-          }
-          <ng-content />
+          <g [attr.class]="p.cls" [innerHTML]="inner()"></g>
         </svg>
       } @else {
-        <img
-          [src]="staticUri()"
-          [attr.width]="effectiveSize()"
-          [attr.height]="effectiveSize()"
-          [attr.alt]="alt() || title() || ''"
-          [attr.class]="svgClassesString()"
-        />
+        <span style="display: contents" [innerHTML]="serverSvg()"></span>
       }
     } @else {
-      <span
-        class="blobatar-ssr-frame"
-        style="display:inline-flex;line-height:0"
-        [innerHTML]="serverHtml()"
-      ></span>
+      <img
+        [attr.src]="src()"
+        [attr.width]="size()"
+        [attr.height]="size()"
+        [attr.alt]="alt() ?? title() ?? ''"
+      />
     }
   `,
-  styles: [`
-    :host {
-      display: inline-flex;
-      vertical-align: middle;
-      line-height: 0;
-    }
-
-    svg, img {
-      display: block;
-      flex-shrink: 0;
-      border-radius: var(--blobatar-radius, 50%);
-      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
-    }
-
-    .blobatar-square {
-      border-radius: var(--blobatar-radius, 10%);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), inset 0 0 0 1px rgba(0, 0, 0, 0.08);
-    }
-
-    .blobatar-squircle {
-      border-radius: var(--blobatar-radius, 22%);
-    }
-
-    .blobatar-circle {
-      border-radius: var(--blobatar-radius, 50%);
-    }
-
-    .blobatar-transparent {
-      border-radius: var(--blobatar-radius, 0);
-      overflow: visible;
-    }
-
-    .blobatar-animated:hover {
-      transform: scale(1.08) rotate(-2deg);
-    }
-
-    .blobatar-gaze {
-      --mo-track-travel: 6px;
-    }
-  `],
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class BlobatarComponent implements OnDestroy {
+export class Blobatar {
   private readonly sanitizer = inject(DomSanitizer);
-  private readonly platformId = inject(PLATFORM_ID);
-  readonly isBrowser = isPlatformBrowser(this.platformId);
-  private readonly svgElementRef = viewChild<ElementRef<SVGSVGElement>>('svgElement');
-  private gazeDriver?: Gaze;
+  protected readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  // Preset configuration input
-  readonly config = input<BlobatarCustomConfig | undefined>(undefined);
+  /**
+   * Who the blobatar is for. A username, a display name, an email, a user id —
+   * any string, and the same string always renders the same blobatar. The only
+   * required input.
+   */
+  readonly name = input.required<string>();
 
-  // Identity inputs
-  readonly name = input<string | undefined>(undefined);
-  readonly seed = input<string | undefined>(undefined);
-  readonly effectiveSeed = computed(() => {
-    return this.seed() ?? this.name() ?? this.config()?.seed ?? this.config()?.name ?? 'blobatar';
-  });
+  /**
+   * `"hover"` or `"always"` renders the animated `<svg>`; omitted or `false`
+   * renders the static `<img>`. Needs `blobatar/motion.css`.
+   */
+  readonly animate = input<Animate | false | undefined>(undefined);
 
-  // Presentation inputs
-  readonly size = input<number | undefined>(undefined);
-  readonly effectiveSize = computed(() => this.size() ?? this.config()?.size ?? 36);
+  // Core's options, one input each and no defaults: an omitted input is
+  // `undefined`, so core stays the only place a default is written down.
+  readonly size = input<BlobatarOptions["size"]>(undefined);
+  readonly background = input<BlobatarOptions["background"]>(undefined);
+  // Annotated, not inferred: the expanded type names core's internal `color`
+  // module, which a published declaration file cannot reach (TS2742).
+  readonly palette: InputSignal<BlobatarOptions["palette"]> = input<BlobatarOptions["palette"]>(undefined);
+  readonly hue = input<BlobatarOptions["hue"]>(undefined);
+  readonly tone = input<BlobatarOptions["tone"]>(undefined);
+  readonly normalize = input<BlobatarOptions["normalize"]>(undefined);
+  readonly contrast = input<BlobatarOptions["contrast"]>(undefined);
+  readonly title = input<BlobatarOptions["title"]>(undefined);
+  readonly expression = input<BlobatarOptions["expression"]>(undefined);
+  readonly traits = input<BlobatarOptions["traits"]>(undefined);
 
-  readonly animate = input<boolean | 'always' | 'hover' | undefined>(undefined);
-  readonly animated = input<boolean | 'always' | 'hover' | undefined>(undefined);
-  readonly effectiveAnimate = computed<boolean | 'always' | 'hover'>(() => {
-    const raw = this.animate() ?? this.animated() ?? this.config()?.animate ?? this.config()?.animated ?? false;
-    if (raw === false || (raw as unknown) === 'false') return false;
-    if (raw === 'hover') return 'hover';
-    if (raw === 'always') return 'always';
-    if (raw === true || (raw as unknown) === 'true' || (raw as unknown) === '') return true;
-    return false;
-  });
-
-  readonly expression = input<Expression | BlobatarExpressionName | string | undefined>(undefined);
-  readonly effectiveExpressionInput = computed(() => {
-    return this.expression() ?? this.config()?.expression;
-  });
-
-  readonly gaze = input<boolean | 'pointer' | undefined>(undefined);
-  readonly gazeTracking = input<boolean | 'pointer' | undefined>(undefined);
-  readonly effectiveGaze = computed(() => {
-    return this.gaze() ?? this.gazeTracking() ?? this.config()?.gaze ?? this.config()?.gazeTracking ?? false;
-  });
-
-  readonly bgColor = input<string | undefined>(undefined);
-  readonly bg = input<string | undefined>(undefined);
-  readonly backgroundColor = input<string | undefined>(undefined);
-  readonly effectiveBgColor = computed(() => {
-    return (
-      this.bgColor() ??
-      this.bg() ??
-      this.backgroundColor() ??
-      this.config()?.bgColor ??
-      this.config()?.bg ??
-      this.config()?.backgroundColor
-    );
-  });
-
-  readonly background = input<'squircle' | 'circle' | 'square' | boolean | undefined>(undefined);
-  readonly effectiveBackground = computed(() => {
-    const explicit = this.background() ?? this.config()?.background;
-    if (explicit !== undefined) return explicit;
-    if (this.effectiveBgColor()) return 'squircle';
-    return undefined;
-  });
-
-  readonly palette = input<{ head?: string; eye?: string; bg?: string } | undefined>(undefined);
-  readonly effectivePalette = computed(() => {
-    const base = this.palette() ?? this.config()?.palette;
-    const customBg = this.effectiveBgColor();
-    if (!customBg) return base;
-    return { ...base, bg: customBg };
-  });
-
-  readonly hue = input<number | undefined>(undefined);
-  readonly effectiveHue = computed(() => this.hue() ?? this.config()?.hue);
-
-  readonly tone = input<number | undefined>(undefined);
-  readonly effectiveTone = computed(() => this.tone() ?? this.config()?.tone);
-
-  readonly traits = input<Record<string, any> | undefined>(undefined);
-  readonly effectiveTraits = computed(() => this.traits() ?? this.config()?.traits);
-
-  readonly drops = input<boolean | undefined>(undefined);
-  readonly effectiveDrops = computed(() => this.drops() ?? this.config()?.drops ?? false);
-
-  readonly normalize = input<boolean | undefined>(undefined);
-  readonly contrast = input<number | undefined>(undefined);
-  readonly title = input<string | undefined>(undefined);
+  /** The `<img>`'s `alt`. Defaults to `title`, then to `""` (decorative). */
   readonly alt = input<string | undefined>(undefined);
 
-  readonly isAnimated = computed(() => {
-    return (
-      Boolean(this.effectiveAnimate()) ||
-      Boolean(this.effectiveGaze()) ||
-      Boolean(this.effectiveExpressionInput()) ||
-      Boolean(this.effectiveDrops()) ||
-      Boolean(this.effectivePalette()) ||
-      this.effectiveBackground() !== undefined ||
-      this.effectiveHue() !== undefined ||
-      this.effectiveTone() !== undefined ||
-      Boolean(this.effectiveTraits())
-    );
+  /**
+   * The rendered `<svg>`, or `undefined` while the blobatar is static. Public
+   * for `@blobatar/angular/gaze`, which needs an element to drive.
+   */
+  readonly svg = viewChild<ElementRef<SVGSVGElement>>("svg");
+
+  private readonly opts = computed<BlobatarOptions>(() => ({
+    size: this.size(),
+    background: this.background(),
+    palette: this.palette(),
+    hue: this.hue(),
+    tone: this.tone(),
+    normalize: this.normalize(),
+    contrast: this.contrast(),
+    title: this.title(),
+    expression: this.expression(),
+    traits: this.traits(),
+  }));
+
+  protected readonly src = computed(() =>
+    this.animate() ? null : blobatarUri(this.name(), this.opts()),
+  );
+
+  protected readonly parts: Signal<ReturnType<typeof _parts> | null> = computed(() => {
+    const animate = this.animate();
+    return animate ? _parts(this.name(), { ...this.opts(), animate }) : null;
   });
 
-  readonly resolvedExpression = computed<Expression | undefined>(() => {
-    const expr = this.effectiveExpressionInput();
-    if (!expr) return undefined;
-    return typeof expr === 'string' ? BLOBATAR_EXPRESSIONS[expr] : expr;
+  protected readonly style = computed(() => {
+    const vars = this.parts()?.vars;
+    return vars ? serializeVars(vars) : null;
   });
 
-  readonly blobatarOptions = computed<Record<string, any>>(() => {
-    const opts: Record<string, any> = {
-      size: this.effectiveSize(),
-      title: this.title(),
-      expression: this.resolvedExpression(),
-    };
-    if (this.effectiveBackground() !== undefined) opts['background'] = this.effectiveBackground();
-    if (this.effectivePalette() !== undefined) opts['palette'] = this.effectivePalette();
-    if (this.effectiveHue() !== undefined) opts['hue'] = this.effectiveHue();
-    if (this.tone() !== undefined) opts['tone'] = this.effectiveTone();
-    if (this.effectiveTraits() !== undefined) opts['traits'] = this.effectiveTraits();
-    if (this.normalize() !== undefined) opts['normalize'] = this.normalize();
-    if (this.contrast() !== undefined) opts['contrast'] = this.contrast();
-    return opts;
-  });
+  /**
+   * Core's markup, trusted as core's output. Angular's sanitizer would strip
+   * SVG from an `[innerHTML]` binding; what reaches here was built by
+   * `_parts`, which escapes every caller-supplied string itself — the same
+   * trust the React adapter extends through `dangerouslySetInnerHTML`.
+   */
+  protected readonly inner = computed<SafeHtml>(() =>
+    this.sanitizer.bypassSecurityTrustHtml(this.parts()?.inner ?? ""),
+  );
 
-  readonly staticUri = computed(() => {
-    if (this.isAnimated()) return '';
-    return blobatarUri(this.effectiveSeed(), this.blobatarOptions());
-  });
-
-  readonly parts: Signal<BlobatarParts | null> = computed(() => {
-    if (!this.isAnimated()) return null;
-    const anim = this.effectiveAnimate();
-    const animateMode: Animate | undefined =
-      anim === 'hover' ? 'hover' : (anim === 'always' || anim === true) ? 'always' : undefined;
-    return _parts(this.effectiveSeed(), {
-      ...this.blobatarOptions(),
-      animate: animateMode,
-    }) as BlobatarParts;
-  });
-
-  readonly sanitizedInner = computed<SafeHtml>(() => {
+  /**
+   * The browser template above, as the string the server parses instead. Every
+   * caller-supplied value is escaped here; `inner` is core's, escaped by core.
+   */
+  protected readonly serverSvg = computed<SafeHtml>(() => {
     const p = this.parts();
-    return p ? this.sanitizer.bypassSecurityTrustHtml(p.inner) : '';
+    if (!p) return "";
+    const size = this.size();
+    const title = this.title();
+    const style = this.style();
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"` +
+      (size !== undefined ? ` width="${escape(String(size))}" height="${escape(String(size))}"` : "") +
+      (title ? ` role="img"` : ` aria-hidden="true"`) +
+      (style ? ` style="${escape(style)}"` : "") +
+      `>` +
+      (title ? `<title>${escape(title)}</title>` : "") +
+      (p.bg ? `<path d="${escape(p.bg.d)}" fill="${escape(p.bg.fill)}"></path>` : "") +
+      (p.cls ? `<g class="${escape(p.cls)}">` : `<g>`) +
+      `${p.inner}</g></svg>`;
+    return this.sanitizer.bypassSecurityTrustHtml(svg);
   });
-
-  readonly svgStyle = computed(() => {
-    const p = this.parts();
-    return p?.vars ? serializeVars(p.vars) : null;
-  });
-
-  readonly svgClassesString = computed(() => {
-    const bg = this.effectiveBackground();
-    const anim = this.effectiveAnimate();
-    const classes: string[] = [];
-    if (bg === 'square') classes.push('blobatar-square');
-    if (bg === 'squircle') classes.push('blobatar-squircle');
-    if (bg === 'circle') classes.push('blobatar-circle');
-    if (bg === false) classes.push('blobatar-transparent');
-    if (anim === 'hover' || anim === true || anim === 'always') classes.push('blobatar-animated');
-    if (this.effectiveGaze()) classes.push('blobatar-gaze');
-    return classes.join(' ');
-  });
-
-  readonly svgClasses = computed(() => {
-    const bg = this.effectiveBackground();
-    const anim = this.effectiveAnimate();
-    return {
-      'blobatar-square': bg === 'square',
-      'blobatar-squircle': bg === 'squircle',
-      'blobatar-circle': bg === 'circle',
-      'blobatar-transparent': bg === false,
-      'blobatar-animated': anim === 'hover' || anim === true || anim === 'always',
-      'blobatar-gaze': Boolean(this.effectiveGaze()),
-    };
-  });
-
-  readonly serverHtml = computed<SafeHtml>(() => {
-    if (this.isBrowser) return '';
-    const sz = this.effectiveSize();
-    const titleVal = this.title();
-    const titleTag = titleVal ? `<title>${titleVal}</title>` : '';
-    const classes = this.svgClassesString();
-
-    if (!this.isAnimated()) {
-      const uri = this.staticUri();
-      const altVal = this.alt() || titleVal || '';
-      return this.sanitizer.bypassSecurityTrustHtml(
-        `<img src="${uri}" width="${sz}" height="${sz}" alt="${altVal}" class="${classes}" style="display:block;flex-shrink:0;border-radius:var(--blobatar-radius,50%)" />`
-      );
-    }
-
-    const p = this.parts();
-    if (!p) return '';
-    const bgTag = p.bg ? `<path d="${p.bg.d}" fill="${p.bg.fill}" />` : '';
-    const dropsTag = this.effectiveDrops()
-      ? `<g class="canvas-paint-drops" opacity="0.95">
-           <circle cx="18" cy="22" r="3.6" fill="#ec4899" />
-           <path d="M18 16 C18 16 20.6 19.5 20.6 22 A2.6 2.6 0 0 1 15.4 22 C15.4 19.5 18 16 18 16 Z" fill="#ec4899" />
-           <circle cx="82" cy="24" r="3.2" fill="#0ea5e9" />
-           <path d="M82 19 C82 19 84.4 22 84.4 24 A2.4 2.4 0 0 1 79.6 24 C79.6 22 82 19 82 19 Z" fill="#0ea5e9" />
-           <circle cx="17" cy="78" r="2.8" fill="#f59e0b" />
-           <circle cx="23" cy="83" r="1.5" fill="#f59e0b" />
-           <circle cx="83" cy="76" r="3.5" fill="#10b981" />
-           <path d="M83 70 C83 70 86 73.5 86 76 A3 3 0 0 1 80 76 C80 73.5 83 70 83 70 Z" fill="#10b981" />
-         </g>`
-      : '';
-    const styleAttr = this.svgStyle() ? `style="${this.svgStyle()}"` : '';
-    const rawSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${sz}" height="${sz}" ${titleVal ? 'role="img"' : 'aria-hidden="true"'} class="${classes}" ${styleAttr}>${titleTag}${bgTag}${dropsTag}<g class="${p.cls || ''}">${p.inner}</g></svg>`;
-    return this.sanitizer.bypassSecurityTrustHtml(rawSvg);
-  });
-
-  constructor() {
-    effect(() => {
-      const gazeEnabled = Boolean(this.effectiveGaze());
-      const svgEl = this.svgElementRef()?.nativeElement;
-
-      if (!this.isBrowser) return;
-
-      if (this.gazeDriver) {
-        this.gazeDriver.stop();
-        this.gazeDriver = undefined;
-      }
-
-      if (gazeEnabled && svgEl && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-        this.gazeDriver = initGaze(svgEl, { target: 'pointer' });
-      }
-    });
-  }
-
-  ngOnDestroy(): void {
-    if (this.gazeDriver) {
-      this.gazeDriver.stop();
-      this.gazeDriver = undefined;
-    }
-  }
 }
+
+const escape = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

@@ -1,53 +1,36 @@
 /**
  * Publish build for the Angular adapter.
  *
- * Nothing of `blobatar` is inlined. The external list is the whole point of the
- * split: core is a peer dependency resolved at the consumer's install, so an
- * Angular app and a React app on the same page share one renderer rather than
- * carrying a private copy each.
+ * ng-packagr rather than `Bun.build`, and this is the one adapter where that is
+ * not a choice. A component is only usable in an Angular app once Angular's own
+ * compiler has turned its decorator and its signal inputs into a definition the
+ * runtime reads. Transpiling the decorator as an ordinary function call — what
+ * every other adapter's `Bun.build` would do — ships a class that an AOT app
+ * refuses outright ("needs to be compiled using the JIT compiler") and whose
+ * `input()` fields no template can bind to. `compilationMode: "partial"` in
+ * `tsconfig.lib.json` is the library format: the consumer's build links it
+ * against whichever Angular it runs.
+ *
+ * Nothing of `blobatar` is inlined, the same as every adapter: core is a peer
+ * dependency, and ng-packagr externalizes every bare import by default.
+ *
+ * ng-packagr writes its own `package.json` into `dist`, expecting `npm publish
+ * dist`. This repository publishes every package from its own directory, so
+ * that file is removed and the root `package.json`'s `exports` point into the
+ * layout ng-packagr produces. A second manifest one directory down would be
+ * a second, unchecked answer to what this package exports.
  */
 
 import { rmSync } from "node:fs";
-import { $ } from "bun";
+import { ngPackagr } from "ng-packagr";
 
-rmSync("dist", { recursive: true, force: true });
+await ngPackagr()
+  .forProject("ng-package.json")
+  .withTsConfig("tsconfig.lib.json")
+  .build();
 
-const build = await Bun.build({
-  entrypoints: ["src/index.ts"],
-  outdir: "dist",
-  root: "src",
-  target: "browser",
-  format: "esm",
-  minify: true,
-  sourcemap: "linked",
-  external: [
-    "blobatar",
-    "blobatar/gaze",
-    "blobatar/internal",
-    "blobatar/uri",
-    "blobatar/expression",
-    "@angular/core",
-    "@angular/common",
-    "@angular/platform-browser",
-    "tslib",
-  ],
-  define: { "process.env.NODE_ENV": '"production"' },
-});
-
-if (!build.success) {
-  for (const log of build.logs) console.error(log);
-  process.exit(1);
-}
-
-for (const out of build.outputs) {
-  if (out.kind !== "sourcemap") continue;
-  const map = await Bun.file(out.path).json();
-  delete map.sourcesContent;
-  await Bun.write(out.path, JSON.stringify(map));
-}
-
-await $`bunx tsc -p tsconfig.build.json`;
-
-for (const out of build.outputs) {
-  if (out.kind === "entry-point") console.log(`✓ ${out.path.replace(process.cwd() + "/", "")}`);
-}
+rmSync("dist/package.json", { force: true });
+rmSync("dist/README.md", { force: true });
+rmSync("dist/LICENSE", { force: true });
+rmSync("dist/.npmignore", { force: true });
+rmSync("dist/gaze/package.json", { force: true });

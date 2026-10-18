@@ -1,8 +1,15 @@
 /**
- * Angular adapter for blobatar — deterministic geometric avatars.
+ * `@blobatar/angular` — the Angular adapter.
+ *
+ * ```ts
+ * import { Blobatar } from "@blobatar/angular";
+ *
+ * @Component({
+ *   imports: [Blobatar],
+ *   template: `<blobatar [name]="user.email" [size]="48" />`,
+ * })
+ * ```
  */
 
-export * from './blobatar.component';
-export { BlobatarComponent as Blobatar } from './blobatar.component';
-export type { Expression } from 'blobatar/expression';
-export type { BlobatarOptions } from 'blobatar';
+export { Blobatar } from "./blobatar.component";
+export type { Animate, BlobatarOptions, Expression } from "blobatar/internal";
