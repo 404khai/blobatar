@@ -157,8 +157,7 @@ Resolved resolve(String seed,
     Backdrop styleDefault = Backdrop.none]) {
   final String? bg = opts.backgroundColor;
   if (bg != null && bg.isNotEmpty && plateHex(bg) == null) {
-    throw ArgumentError.value(
-        bg, 'backgroundColor', 'must be #rgb or #rrggbb');
+    throw ArgumentError.value(bg, 'backgroundColor', 'must be #rgb or #rrggbb');
   }
   final bool plated = (opts.background ?? styleDefault) != Backdrop.none;
   final Traits t = traitsFor(

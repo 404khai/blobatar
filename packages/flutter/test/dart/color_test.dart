@@ -181,7 +181,7 @@ void main() {
     });
   });
 
-  group('a caller's plate', () {
+  group("a caller's plate", () {
     // Plates that sit on top of each part of the tone set, mirroring
     // `color.test.ts`.
     const plates = <String, String>{
@@ -200,8 +200,8 @@ void main() {
         for (var h = 0; h < 360; h += 3) {
           for (final double tone in tones) {
             final r = ramp(h.toDouble(), true, tone, p.key);
-            expect(contrast(r['head']!, plate),
-                greaterThanOrEqualTo(1.25 - 1e-6),
+            expect(
+                contrast(r['head']!, plate), greaterThanOrEqualTo(1.25 - 1e-6),
                 reason: 'head/${p.key} h=$h t=$tone');
             expect(contrast(r['eye']!, r['head']!),
                 greaterThanOrEqualTo(4.5 - 1e-9),
@@ -257,12 +257,11 @@ void main() {
 
     test('palette.bg still wins', () {
       final p = resolve(
-              'a',
-              const BlobatarOptions(
-                  background: Backdrop.circle,
-                  backgroundColor: '#123456',
-                  palette: {'bg': '#abcdef'}))
-          .palette;
+          'a',
+          const BlobatarOptions(
+              background: Backdrop.circle,
+              backgroundColor: '#123456',
+              palette: {'bg': '#abcdef'})).palette;
       expect(p['bg'], '#abcdef');
     });
   });

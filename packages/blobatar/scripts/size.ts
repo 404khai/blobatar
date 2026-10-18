@@ -86,14 +86,14 @@ const ENTRIES: {
     // the body ellipse. Measured against the arc-drawn single-outline version of
     // the same two shapes, which is a further 108 B for an identical render.
     //
-    // Raised from 4410 by 190 B for `backgroundColor`: ~18 B of option wiring
-    // and ~155 B for measuring the plate, so the body/backdrop floor holds
-    // against a caller's color rather than only against the authored one. That
-    // is the sRGB decode and a cube root — `fromHex` would have been ~370 B,
+    // Raised from 4410 by 70 B for `backgroundColor`: the option wiring and
+    // measuring the plate, so the body/backdrop floor holds against a caller's
+    // color rather than only against the authored one. That is the sRGB decode
+    // and a cube root — `fromHex` would have cost roughly twice as much again,
     // since nothing else in the core reaches the OKLab decode. Every entry
     // below that renders carries the same bytes for the same reason.
     name: "blob only",
-    budget: 4600,
+    budget: 4480,
     external: [] as string[],
     source: `import { blobatar } from "../../src/blob";
              globalThis.x = blobatar(String(globalThis.seed));`,
@@ -102,14 +102,14 @@ const ENTRIES: {
     // The barrel. Costs more than `blob only` above because it also carries the
     // colour and trait utilities, which a consumer who only renders never touches.
     name: "barrel",
-    budget: 4590,
+    budget: 4470,
     external: [],
     source: `import { blobatar } from "../../src/index";
              globalThis.x = blobatar(String(globalThis.seed));`,
   },
   {
     name: "uri",
-    budget: 4680,
+    budget: 4570,
     external: [],
     source: `import { blobatarUri } from "../../src/uri";
              globalThis.x = blobatarUri(String(globalThis.seed));`,
@@ -133,9 +133,9 @@ const ENTRIES: {
     // or not, so the stylesheet's `fill` rules always resolve to something
     // correct — a `var()` with nothing behind it makes `fill` inherit black.
     //
-    // Raised from 5370 by 195 B for `backgroundColor` — see "blob only".
+    // Raised from 5370 by 120 B for `backgroundColor` — see "blob only".
     name: "react",
-    budget: 5565,
+    budget: 5490,
     external: ["react"],
     source: `import { Blobatar } from "../../src/react";
              globalThis.x = Blobatar;`,
@@ -147,7 +147,7 @@ const ENTRIES: {
     // Measured: +343 B for the first expression (the shared serializer and bake,
     // paid once) and +36 B for each one after it. Importing all three is 4098.
     name: "blob + happy",
-    budget: 4930,
+    budget: 4810,
     external: [],
     source: `import { blobatar } from "../../src/blob";
              import { happy } from "../../src/expression";
@@ -172,10 +172,10 @@ const ENTRIES: {
     // likely to need a correction, and a gate that fails on a 20 B bug fix
     // teaches people to raise the number without reading it.
     //
-    // Raised from 5650 by 200 B for `backgroundColor` — see "blob only" — plus
+    // Raised from 5650 by 70 B for `backgroundColor` — see "blob only" — plus
     // the runtime prop declaration, keeping the slack described above.
     name: "vue",
-    budget: 5850,
+    budget: 5720,
     external: ["vue"],
     source: `import { Blobatar } from "../../src/vue";
              globalThis.x = Blobatar;`,
