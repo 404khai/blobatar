@@ -87,8 +87,10 @@ const ENTRIES: {
   // would be two crowds drifting apart, which is the one property in the whole
   // motion layer that a grid actually shows. The cost is a named object with
   // ten keys that minification cannot mangle.
+    // Raised for `backgroundColor` (the core cost, plus a little where the adapter
+    // forwards the prop) — see "blob only" in core's `scripts/size.ts`.
     name: "@blobatar/react",
-    budget: 5320,
+    budget: 5480,
     external: ["react"],
     source: `import { Blobatar } from "@blobatar/react";
              globalThis.x = Blobatar;`,
@@ -112,8 +114,10 @@ const ENTRIES: {
   // would be two crowds drifting apart, which is the one property in the whole
   // motion layer that a grid actually shows. The cost is a named object with
   // ten keys that minification cannot mangle.
+    // Raised for `backgroundColor` (the core cost, plus a little where the adapter
+    // forwards the prop) — see "blob only" in core's `scripts/size.ts`.
     name: "blobatar/react",
-    budget: 5300,
+    budget: 5480,
     external: ["react"],
     source: `import { Blobatar } from "blobatar/react";
              globalThis.x = Blobatar;`,
@@ -131,8 +135,10 @@ const ENTRIES: {
   // would be two crowds drifting apart, which is the one property in the whole
   // motion layer that a grid actually shows. The cost is a named object with
   // ten keys that minification cannot mangle.
+    // Raised for `backgroundColor` (the core cost, plus a little where the adapter
+    // forwards the prop) — see "blob only" in core's `scripts/size.ts`.
     name: "@blobatar/vue",
-    budget: 5500,
+    budget: 5680,
     external: ["vue"],
     ext: "ts",
     source: `import { Blobatar } from "@blobatar/vue";
@@ -147,8 +153,10 @@ const ENTRIES: {
   // would be two crowds drifting apart, which is the one property in the whole
   // motion layer that a grid actually shows. The cost is a named object with
   // ten keys that minification cannot mangle.
+    // Raised for `backgroundColor` (the core cost, plus a little where the adapter
+    // forwards the prop) — see "blob only" in core's `scripts/size.ts`.
     name: "blobatar/vue",
-    budget: 5470,
+    budget: 5670,
     external: ["vue"],
     ext: "ts",
     source: `import { Blobatar } from "blobatar/vue";
@@ -166,8 +174,10 @@ const ENTRIES: {
     // Raised from 6470 by `<Show>` replacing the branch's ternary — 19 B for an
     // `<svg>` that survives a prop change instead of being rebuilt on every
     // one. `@blobatar/solid alone` carries the same 17 B.
+    // Raised for `backgroundColor` (the core cost, plus a little where the adapter
+    // forwards the prop) — see "blob only" in core's `scripts/size.ts`.
     name: "@blobatar/solid",
-    budget: 6500,
+    budget: 6700,
     external: ["solid-js", "solid-js/web"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/solid";
@@ -180,8 +190,10 @@ const ENTRIES: {
     // adapter's own row and the only way `@blobatar/preact/gaze` can be handed
     // an element: Preact takes `ref` off a function component's props before
     // the component sees them.
+    // Raised for `backgroundColor` (the core cost, plus a little where the adapter
+    // forwards the prop) — see "blob only" in core's `scripts/size.ts`.
     name: "@blobatar/preact",
-    budget: 6100,
+    budget: 6300,
     external: ["preact", "preact/hooks", "preact/jsx-runtime"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/preact";
@@ -220,8 +232,10 @@ const ENTRIES: {
     // only the morph row is the morph; a change that moves only this one means
     // something the morph needs became reachable from the component that does
     // not.
+    // Raised for `backgroundColor` (the core cost, plus a little where the adapter
+    // forwards the prop) — see "blob only" in core's `scripts/size.ts`.
     name: "@blobatar/react-native",
-    budget: 4960,
+    budget: 5190,
     external: ["react", "react/jsx-runtime", "react-native", "react-native-svg"],
     ext: "tsx",
     source: `import { Blobatar } from "@blobatar/react-native";
@@ -259,8 +273,10 @@ const ENTRIES: {
     // this component is for. A consumer who does not want the bytes or the
     // native dependency imports one of the two rows above and links none of it,
     // which is why this lives behind `/animated` rather than at the root.
+    // Raised for `backgroundColor` (the core cost, plus a little where the adapter
+    // forwards the prop) — see "blob only" in core's `scripts/size.ts`.
     name: "@blobatar/react-native animated",
-    budget: 10_200,
+    budget: 10_370,
     // Reanimated and worklets are external for the reason the native modules
     // already here are: they are a JavaScript half bolted to a native half that
     // the consumer's app links once. Their bytes are not this package's to
@@ -300,8 +316,10 @@ const ENTRIES: {
     // component owns: interrupt handling has exactly one subtle rule in it, and
     // a second copy of that rule in the animated component is a worse trade
     // than 170 B. The alternative was measured, not assumed.
+    // Raised for `backgroundColor` (the core cost, plus a little where the adapter
+    // forwards the prop) — see "blob only" in core's `scripts/size.ts`.
     name: "@blobatar/react-native morph",
-    budget: 6080,
+    budget: 6290,
     external: ["react", "react/jsx-runtime", "react-native", "react-native-svg"],
     ext: "tsx",
     source: `import { MorphingBlobatar } from "@blobatar/react-native";
