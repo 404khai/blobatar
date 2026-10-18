@@ -150,6 +150,7 @@ jobs:
           npm pack --workspace @blobatar/svelte --pack-destination /tmp
           npm pack --workspace @blobatar/solid --pack-destination /tmp
           npm pack --workspace @blobatar/preact --pack-destination /tmp
+          npm pack --workspace @blobatar/angular --pack-destination /tmp
           npm pack --workspace blobatar-codemod --pack-destination /tmp
           npm pack --workspace @blobatar/cli --pack-destination /tmp
 
