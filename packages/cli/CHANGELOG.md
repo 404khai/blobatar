@@ -1,5 +1,12 @@
 # @blobatar/cli
 
+## 2.8.0
+
+### Patch Changes
+
+- Updated dependencies [5b47179]
+  - blobatar@2.8.0
+
 ## 2.7.0
 
 ### Patch Changes
