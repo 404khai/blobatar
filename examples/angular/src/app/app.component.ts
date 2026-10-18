@@ -31,6 +31,7 @@ import type { Animate, Expression } from '@blobatar/angular';
         <div class="row">
           <figure><blobatar name="alain" [size]="64" background="circle" /><figcaption>circle</figcaption></figure>
           <figure><blobatar name="alain" [size]="64" background="squircle" /><figcaption>squircle</figcaption></figure>
+          <figure><blobatar name="alain" [size]="64" background="circle" backgroundColor="#ff8800" /><figcaption>backgroundColor</figcaption></figure>
           <figure><blobatar name="alain" [size]="64" [hue]="210" /><figcaption>hue 210</figcaption></figure>
           <figure><blobatar name="alain" [size]="64" [tone]="0.2" /><figcaption>tone 0.2</figcaption></figure>
           <figure><blobatar name="alain" [size]="64" title="Alain <script>" /><figcaption>title (escaped)</figcaption></figure>

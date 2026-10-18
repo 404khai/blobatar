@@ -113,6 +113,7 @@ export class Blobatar {
   // `undefined`, so core stays the only place a default is written down.
   readonly size = input<BlobatarOptions["size"]>(undefined);
   readonly background = input<BlobatarOptions["background"]>(undefined);
+  readonly backgroundColor = input<BlobatarOptions["backgroundColor"]>(undefined);
   // Annotated, not inferred: the expanded type names core's internal `color`
   // module, which a published declaration file cannot reach (TS2742).
   readonly palette: InputSignal<BlobatarOptions["palette"]> = input<BlobatarOptions["palette"]>(undefined);
@@ -136,6 +137,7 @@ export class Blobatar {
   private readonly opts = computed<BlobatarOptions>(() => ({
     size: this.size(),
     background: this.background(),
+    backgroundColor: this.backgroundColor(),
     palette: this.palette(),
     hue: this.hue(),
     tone: this.tone(),

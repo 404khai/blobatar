@@ -19,8 +19,17 @@ import { $ } from "bun";
 const root = join(import.meta.dir, "..", "..", "..");
 const vendor = join(import.meta.dir, "..", "vendor");
 
+const example = join(import.meta.dir, "..");
+
 rmSync(vendor, { recursive: true, force: true });
 mkdirSync(vendor);
+
+// The tarball names never change, so npm treats a repack as already installed:
+// the lockfile pins the old integrity and `node_modules` keeps the old copy.
+// Clearing both is what makes the next `npm install` pick the new build up.
+rmSync(join(example, "package-lock.json"), { force: true });
+rmSync(join(example, "node_modules", "blobatar"), { recursive: true, force: true });
+rmSync(join(example, "node_modules", "@blobatar", "angular"), { recursive: true, force: true });
 
 for (const [dir, name] of [
   ["packages/blobatar", "blobatar.tgz"],
