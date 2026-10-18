@@ -66,6 +66,7 @@ export function Blobatar({
   name: seed,
   size,
   background,
+  backgroundColor,
   palette,
   hue,
   tone,
@@ -84,6 +85,7 @@ export function Blobatar({
   const opts = {
     size,
     background,
+    backgroundColor,
     palette,
     hue,
     tone,

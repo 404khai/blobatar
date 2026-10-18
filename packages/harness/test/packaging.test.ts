@@ -118,6 +118,22 @@ const ADAPTERS: [string, string[]][] = [
   // `index.js` names nothing in `gaze.js`, and a Svelte toolchain that resolves
   // this package resolves that entry only when something imports it.
   ["@blobatar/svelte", ["blobatar", "blobatar/gaze", "blobatar/internal", "blobatar/uri", "svelte", "svelte/elements"]],
+  // Built by ng-packagr rather than `Bun.build`, so the one thing worth
+  // pinning is that it still externalizes core and Angular. `@blobatar/angular`
+  // is the gaze entry importing the component the way a consumer would, which
+  // keeps the component one class rather than a copy per entry.
+  [
+    "@blobatar/angular",
+    [
+      "blobatar/gaze",
+      "blobatar/internal",
+      "blobatar/uri",
+      "@angular/core",
+      "@angular/common",
+      "@angular/platform-browser",
+      "@blobatar/angular",
+    ],
+  ],
   // Two entries, and the second one's imports are the point: `blobatar/idle`
   // and `react-native-reanimated` are reachable only from `./animated`, which
   // is exactly the promise that subpath makes: a consumer drawing a still

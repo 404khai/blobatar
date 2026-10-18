@@ -1,0 +1,26 @@
+{
+  "//": "Standalone rather than extending the root config. ng-packagr drives its own TypeScript (5.6, pinned in devDependencies because Angular's compiler supports no newer), and the root's `module: Preserve`, `allowImportingTsExtensions` and `types: [bun, react]` are a Bun workspace's settings, not a library emit's. No `paths` either: like every adapter's `tsconfig.build.json`, the published declarations must resolve `blobatar` through its real `exports` map.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "importHelpers": false
+  },
+  "angularCompilerOptions": {
+    "compilationMode": "partial",
+    "strictTemplates": true,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true
+  }
+}

@@ -145,6 +145,8 @@ generation, so the ordinary API remains just `blobatar(name, options)`.
 verified at 1° resolution in the test suite. Polarity flips automatically, so
 the near-black tone gets light eyes rather than an invisible face.
 Colors passed via the `palette` option bypass all of this, by definition.
+A hex `backgroundColor` does not: the body is pushed off it the same way it is
+pushed off the default backdrop.
 
 **Name normalization.** Names are NFC-normalized, trimmed and lowercased before
 hashing, so `Alain@Example.com` and `alain@example.com` agree, as do the
@@ -157,19 +159,20 @@ several hundred blobatars on one page cannot produce id collisions.
 
 ## Options
 
-| Option       | Default     | Notes                                                                   |
-| ------------ | ----------- | ----------------------------------------------------------------------- |
-| `size`       | —           | Emits `width`/`height`. Omit to let CSS size it.                        |
-| `background` | none        | `"squircle"`, `"circle"`, `"square"`, or `false`.                       |
-| `hue`        | —           | Locks hue in degrees; the name then drives shape only.                 |
-| `tone`       | —           | Locks the swatch as a 0–1 position in the set, pale to ink. `1` sits on the top edge and renders as `0`; use `0.999` for ink. |
-| `traits`     | —           | Pins individual traits as 0–1 positions, or a list to choose among. See below. |
-| `palette`    | —           | Per-key hex overrides. Bypasses the contrast guarantee.                 |
-| `normalize`  | `true`      | NFC + trim + lowercase.                                                 |
-| `contrast`   | `true`      | Enforce the contrast floors.                                            |
-| `title`      | —           | Adds a `<title>` for screen readers.                                    |
-| `animate`    | —           | `"hover"` or `"always"`. See below — it changes how the blobatar renders. |
-| `expression` | `idle`      | One of fourteen poses, imported as a value. See below.                  |
+| Option            | Default | Notes                                                                   |
+| ----------------- | ------- | ----------------------------------------------------------------------- |
+| `size`            | —       | Emits `width`/`height`. Omit to let CSS size it.                        |
+| `background`      | none    | `"squircle"`, `"circle"`, `"square"`, or `false`.                       |
+| `backgroundColor` | —       | The backdrop's fill color; needs a `background`. Keeps the contrast guarantee for `#rgb`/`#rrggbb`; other CSS colors are painted as given. |
+| `hue`             | —       | Locks hue in degrees; the name then drives shape only.                 |
+| `tone`            | —       | Locks the swatch as a 0–1 position in the set, pale to ink. `1` sits on the top edge and renders as `0`; use `0.999` for ink. |
+| `traits`          | —       | Pins individual traits as 0–1 positions, or a list to choose among. See below. |
+| `palette`         | —       | Per-key hex overrides. Bypasses the contrast guarantee.                 |
+| `normalize`       | `true`  | NFC + trim + lowercase.                                                 |
+| `contrast`        | `true`  | Enforce the contrast floors.                                            |
+| `title`           | —       | Adds a `<title>` for screen readers.                                    |
+| `animate`         | —       | `"hover"` or `"always"`. See below — it changes how the blobatar renders. |
+| `expression`      | `idle`  | One of fourteen poses, imported as a value. See below.                  |
 
 ## Configuring
 

@@ -21,6 +21,7 @@ export const CASES: [string, Record<string, unknown>][] = [
   ["a size", { name: "alain", size: 48 }],
   ["a backdrop", { name: "alain", background: "circle" }],
   ["a suppressed backdrop", { name: "alain", background: false }],
+  ["a backdrop color", { name: "alain", background: "circle", backgroundColor: "#ff8800" }],
   ["a pinned hue", { name: "alain", hue: 210 }],
   ["a pinned tone", { name: "alain", tone: 0.2 }],
   ["pinned traits", { name: "alain", traits: { "body.r": 0.9 } }],

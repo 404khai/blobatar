@@ -40,7 +40,8 @@ export 'src/color.dart'
         darkSurface,
         surfaceFloor,
         ramp,
-        palette;
+        palette,
+        plateHex;
 export 'src/hash.dart' show normalizeSeed, seedState, stream, imul, toInt32;
 export 'src/motion.dart'
     show

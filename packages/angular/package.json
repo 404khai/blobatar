@@ -1,0 +1,76 @@
+{
+  "name": "@blobatar/angular",
+  "version": "2.8.0",
+  "description": "Angular adapter for blobatar — deterministic geometric avatars.",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src",
+    "gaze/index.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "//exports": "Into ng-packagr's layout rather than the flat `dist/index.js` every other adapter has, because ng-packagr is what builds this one — see `scripts/build.ts`. `module` is there for the Angular CLI's older resolvers; `exports` is what everything current reads. `./package.json` is written as an object, which means the same as the string form every other package uses: ng-packagr merges these entries into the manifest it generates by adding conditions to each, and a string has none to add to.",
+  "module": "./dist/fesm2022/blobatar-angular.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/fesm2022/blobatar-angular.mjs"
+    },
+    "./gaze": {
+      "types": "./dist/gaze/index.d.ts",
+      "default": "./dist/fesm2022/blobatar-angular-gaze.mjs"
+    },
+    "./package.json": {
+      "default": "./package.json"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "typecheck": "ngc -p tsconfig.json --noEmit",
+    "check": "bun run typecheck",
+    "prepack": "bun run build"
+  },
+  "//peerDependencies": "`blobatar` is pinned to an exact major, not `^2` — see `@blobatar/vue`'s note for the full account (ADR-0008: the major names the generation, so a mixed pair is the wrong picture, not a version skew). Angular's floor is 17.3: signal inputs, `viewChild()` and built-in control flow are all this component is written in, and partial compilation links against any later major.",
+  "peerDependencies": {
+    "@angular/common": ">=17.3.0",
+    "@angular/core": ">=17.3.0",
+    "@angular/platform-browser": ">=17.3.0",
+    "blobatar": "2.x"
+  },
+  "//devDependencies": "`typescript` is pinned to the range Angular 19's compiler supports, independently of the workspace's. Bun's isolated linker gives this package its own copy, so ng-packagr and `ngc` resolve it rather than the root's.",
+  "devDependencies": {
+    "@angular/common": "^19.0.0",
+    "@angular/compiler": "^19.0.0",
+    "@angular/compiler-cli": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "@angular/platform-browser": "^19.0.0",
+    "blobatar": "workspace:*",
+    "ng-packagr": "^19.0.0",
+    "rxjs": "^7.8.0",
+    "typescript": "~5.6.0"
+  },
+  "keywords": [
+    "blobatar",
+    "avatar",
+    "identicon",
+    "angular",
+    "svg",
+    "signals",
+    "deterministic"
+  ],
+  "license": "MIT",
+  "author": "Andre",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alain00/blobatar.git",
+    "directory": "packages/angular"
+  },
+  "homepage": "https://github.com/Alain00/blobatar#readme",
+  "bugs": "https://github.com/Alain00/blobatar/issues"
+}
