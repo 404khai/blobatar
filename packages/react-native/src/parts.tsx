@@ -342,6 +342,7 @@ function split({
   name: seed,
   size,
   background,
+  backgroundColor,
   palette,
   hue,
   tone,
@@ -356,7 +357,7 @@ function split({
     seed,
     size,
     title,
-    opts: { background, palette, hue, tone, normalize, contrast, expression, traits },
+    opts: { background, backgroundColor, palette, hue, tone, normalize, contrast, expression, traits },
     rest,
   };
 }

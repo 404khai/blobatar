@@ -61,6 +61,67 @@ describe("the ramp", () => {
   });
 });
 
+describe("a caller's plate", () => {
+  // Plates that sit on top of each part of the tone set: the dark ones would
+  // swallow the ink swatch, the light ones the pale swatches, and the saturated
+  // and mid-grey ones land in between. `#888` is there for the shorthand.
+  const PLATES: [string, string][] = [
+    ["#000000", "#000000"],
+    ["#0a0a0b", "#0a0a0b"],
+    ["#ffffff", "#ffffff"],
+    ["#F5F5F5", "#f5f5f5"],
+    ["#3b82f6", "#3b82f6"],
+    ["#888", "#888888"],
+  ];
+  const TONES = [0.1, 0.3, 0.5, 0.7, 0.88, 0.97];
+
+  test.each(PLATES)("the floors hold against %s at every hue and tone", (bg, full) => {
+    const plate = fromHex(full);
+    for (const h of HUES) {
+      for (const tone of TONES) {
+        const r = ramp(h, true, tone, bg);
+        expect(contrast(r.head!, plate)).toBeGreaterThanOrEqual(1.25 - 1e-6);
+        expect(contrast(r.eye!, r.head!)).toBeGreaterThanOrEqual(4.5 - 1e-9);
+      }
+    }
+  });
+
+  test("is measured as a grey of the same luminance", () => {
+    // Which is what lets `ramp` reuse `ensureContrast` as-is: the stand-in
+    // has to sit on the plate's luminance, or the floors measure the wrong one.
+    for (const [bg, full] of PLATES) {
+      expect(contrast(ramp(0, true, 0, bg).bg!, fromHex(full))).toBeCloseTo(1, 3);
+    }
+  });
+
+  test("comes back out of the palette as given", () => {
+    expect(palette(0, true, 0, "#F5F5F5").bg).toBe("#F5F5F5");
+  });
+
+  test("a plate the ramp already clears changes nothing else", () => {
+    // The authored plate is a near-white, so plain white should leave every
+    // pale-to-ink body where it was.
+    for (const h of HUES) {
+      const { bg: _, ...base } = palette(h, true, 0.5);
+      const { bg: __, ...plated } = palette(h, true, 0.5, "#ffffff");
+      expect(plated).toEqual(base);
+    }
+  });
+
+  test("an unmeasurable color is painted as given and moves nothing", () => {
+    for (const bg of ["var(--plate)", "rebeccapurple", "#12345678", "rgb(0 0 0)"]) {
+      expect(ramp(0, true, 0.97, bg)).toEqual(ramp(0, true, 0.97));
+      expect(palette(0, true, 0.97, bg).bg).toBe(bg);
+    }
+  });
+
+  test("contrast: false leaves the body alone", () => {
+    for (const h of HUES) {
+      expect(ramp(h, false, 0.97, "#000000").head).toEqual(ramp(h, false, 0.97).head);
+    }
+  });
+});
+
 describe("the palette", () => {
   test("fills the slots the renderer uses", () => {
     expect(Object.keys(palette(0)).sort()).toEqual([

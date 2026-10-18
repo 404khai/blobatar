@@ -435,13 +435,45 @@ const FLOORS: [string, string, number][] = [
 
 export { FLOORS };
 
-/** The palette in OKLCh, before hex encoding. The test suite asserts against this. */
+/**
+ * A caller's `#rgb`/`#rrggbb` plate, as the neutral grey of the same WCAG
+ * luminance — or `undefined` for a color that cannot be measured here, such as
+ * a named color or a `var(--x)`.
+ *
+ * Grey, because luminance is all the floors read, and an achromatic OKLCh color
+ * has luminance exactly `l³`: the matrix rows in `toLinear` each sum to one. So
+ * this is the sRGB decode and a cube root, where an honest `fromHex` would pull
+ * the whole OKLab decode into the core bundle for a hue nothing looks at.
+ */
+function plate(color: string): Oklch | undefined {
+  const hex = color.replace(/^#(\w)(\w)(\w)$/, "#$1$1$2$2$3$3");
+  if (!/^#[\da-f]{6}$/i.test(hex)) return;
+  let y = 0;
+  [0.2126, 0.7152, 0.0722].map((w, i) => {
+    const s = parseInt(hex.substr(1 + 2 * i, 2), 16) / 255;
+    y += w * (s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4);
+  });
+  return { l: Math.cbrt(y), c: 0, h: 0 };
+}
+
+
+/**
+ * The palette in OKLCh, before hex encoding. The test suite asserts against this.
+ *
+ * `bg` is a caller's plate color (`BlobatarOptions.backgroundColor`). When it
+ * can be measured it stands in for the authored `bg` *before* the floors run,
+ * so the body is pushed off the plate that is actually drawn. It comes back as
+ * its stand-in grey (see `plate`); `palette` paints the caller's string.
+ */
 export function ramp(
   hue: number,
   enforce = true,
   tone = 0,
+  bg?: string,
 ): Record<string, Oklch> {
   const r = RAMP(hue, tone);
+  const p = bg && plate(bg);
+  if (p) r.bg = p;
   if (enforce) {
     for (const [fg, bg, min] of FLOORS) {
       r[fg] = ensureContrast(r[fg]!, r[bg]!, min);
@@ -450,9 +482,17 @@ export function ramp(
   return r;
 }
 
-export function palette(hue: number, enforce = true, tone = 0): Palette {
-  const r = ramp(hue, enforce, tone);
+export function palette(
+  hue: number,
+  enforce = true,
+  tone = 0,
+  bg?: string,
+): Palette {
+  const r = ramp(hue, enforce, tone, bg);
   const out: Palette = {};
   for (const k in r) out[k as ColorKey] = toHex(r[k]!);
+  // The caller's string as given: `#FFF` comes back out as `#FFF`, and a color
+  // that could not be measured is still the color to paint.
+  if (bg) out.bg = bg;
   return out;
 }

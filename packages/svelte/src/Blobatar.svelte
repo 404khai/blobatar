@@ -25,6 +25,7 @@
     name: seed,
     size,
     background,
+    backgroundColor,
     palette,
     hue,
     tone,
@@ -42,6 +43,7 @@
   let opts = $derived({
     size,
     background,
+    backgroundColor,
     palette,
     hue,
     tone,

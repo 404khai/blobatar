@@ -399,9 +399,53 @@ const List<(String, String, double)> floors = [
   (colorEye, colorHead, 4.5),
 ];
 
+/// A `#rgb`/`#rrggbb` plate color expanded to `#rrggbb`, or `null` for
+/// anything else.
+String? plateHex(String color) {
+  final RegExpMatch? m =
+      RegExp(r'^#([0-9a-f])([0-9a-f])([0-9a-f])$', caseSensitive: false)
+          .firstMatch(color);
+  final String hex =
+      m == null ? color : '#${m[1]}${m[1]}${m[2]}${m[2]}${m[3]}${m[3]}';
+  return RegExp(r'^#[0-9a-f]{6}$', caseSensitive: false).hasMatch(hex)
+      ? hex
+      : null;
+}
+
+/// A caller's plate, as the neutral grey of the same WCAG luminance.
+///
+/// Grey, because luminance is all the floors read, and an achromatic OKLCh
+/// color has luminance exactly `l³`. Mirrors `plate` in `color.ts`, which
+/// avoids `fromHex` for bundle size; here it keeps the two ports measuring the
+/// same stand-in.
+Oklch plateGrey(String hex) {
+  final int n = int.parse(hex.substring(1), radix: 16);
+  double y = 0;
+  for (final (int shift, double w) in const [
+    (16, 0.2126),
+    (8, 0.7152),
+    (0, 0.0722),
+  ]) {
+    final double s = ((n >> shift) & 255) / 255;
+    y += w *
+        (s <= 0.04045
+            ? s / 12.92
+            : math.pow((s + 0.055) / 1.055, 2.4).toDouble());
+  }
+  return Oklch(math.pow(y, 1 / 3).toDouble(), 0, 0);
+}
+
 /// The palette in OKLCh, before hex encoding.
-Map<String, Oklch> ramp(double hue, [bool enforce = true, double tone = 0]) {
+///
+/// [bg] is a caller's plate color (`BlobatarOptions.backgroundColor`), as
+/// `#rgb`/`#rrggbb`. It stands in for the authored `bg` *before* the floors
+/// run, so the body is pushed off the plate that is actually drawn. It comes
+/// back as its stand-in grey (see [plateGrey]); [palette] paints the hex.
+Map<String, Oklch> ramp(double hue,
+    [bool enforce = true, double tone = 0, String? bg]) {
   final Map<String, Oklch> r = _ramp(hue, tone);
+  final String? hex = bg == null ? null : plateHex(bg);
+  if (hex != null) r[colorBg] = plateGrey(hex);
   if (enforce) {
     for (final (String fg, String bg, double min) in floors) {
       r[fg] = ensureContrast(r[fg]!, r[bg]!, min);
@@ -411,10 +455,16 @@ Map<String, Oklch> ramp(double hue, [bool enforce = true, double tone = 0]) {
 }
 
 /// The authored ramp: the seed picks a hue and a tone, and everything follows.
-Palette palette(double hue, [bool enforce = true, double tone = 0]) {
-  final Map<String, Oklch> r = ramp(hue, enforce, tone);
+///
+/// [bg] comes back out as the caller wrote it, expanded from `#rgb` so the
+/// renderer can parse it.
+Palette palette(double hue,
+    [bool enforce = true, double tone = 0, String? bg]) {
+  final Map<String, Oklch> r = ramp(hue, enforce, tone, bg);
+  final String? hex = bg == null ? null : plateHex(bg);
   return {
     for (final MapEntry<String, Oklch> entry in r.entries)
       entry.key: toHex(entry.value),
+    if (hex != null) colorBg: hex,
   };
 }

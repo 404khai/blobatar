@@ -59,6 +59,7 @@ const OPTIONS = [
   "name",
   "size",
   "background",
+  "backgroundColor",
   "palette",
   "hue",
   "tone",
@@ -76,6 +77,7 @@ export function Blobatar(props: BlobatarProps) {
   const opts = createMemo<BlobatarOptions>(() => ({
     size: own.size,
     background: own.background,
+    backgroundColor: own.backgroundColor,
     palette: own.palette,
     hue: own.hue,
     tone: own.tone,
