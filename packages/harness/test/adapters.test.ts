@@ -16,6 +16,14 @@ import { Blobatar as Vue_ } from "@blobatar/vue";
 import { Blobatar as Solid_ } from "@blobatar/solid";
 import { Blobatar as Preact_ } from "@blobatar/preact";
 import { Blobatar as Svelte_ } from "@blobatar/svelte";
+// Before anything Angular: the adapter ships partially compiled (ng-packagr's
+// library format), and outside an Angular CLI build it is the JIT compiler that
+// links it, along with the host component `angular` below declares.
+import "@angular/compiler";
+import { Component, provideExperimentalZonelessChangeDetection } from "@angular/core";
+import { bootstrapApplication } from "@angular/platform-browser";
+import { provideServerRendering, renderApplication } from "@angular/platform-server";
+import { Blobatar as Angular_ } from "@blobatar/angular";
 import { CASES } from "./cases";
 
 /**
@@ -96,6 +104,56 @@ const preact = (props: Record<string, unknown>) =>
 const svelte = (props: Record<string, unknown>) =>
   artifacts(normalize(renderSvelte(Svelte_ as never, { props } as never).body));
 
+/**
+ * Angular renders a whole application, not a component, so this bootstraps one
+ * whose only template is the `<blobatar>` with each passed prop bound — and
+ * only the passed ones, so an omitted input stays omitted exactly as it does in
+ * the other renderers.
+ *
+ * Then it takes the markup back out of everything Angular put around it: the
+ * document and the host element, the `display: contents` wrapper the server
+ * path parses its `<svg>` inside (see the adapter's own note on why that path
+ * exists), and the explicit closing tags its server DOM writes where core wrote
+ * `/>` — the same parse-and-reserialize difference as the entities above.
+ */
+const angular = async (props: Record<string, unknown>) => {
+  const bindings = Object.keys(props)
+    .map((k) => `[${k}]="p.${k}"`)
+    .join(" ");
+  const Host = Component({
+    selector: "app-root",
+    standalone: true,
+    imports: [Angular_],
+    template: `<blobatar ${bindings} />`,
+  })(
+    class {
+      p = props;
+    },
+  );
+  const html = await renderApplication(
+    // The context is required on the server since Angular's 19.2 security
+    // patches (NG0401); typed loosely because older 19.x had no such parameter.
+    (context?: unknown) =>
+      bootstrapApplication(
+        Host as never,
+        { providers: [provideServerRendering(), provideExperimentalZonelessChangeDetection()] },
+        context as never,
+      ),
+    { document: "<app-root></app-root>" },
+  );
+  const inner = html.match(/<blobatar\b[^>]*>([\s\S]*)<\/blobatar>/)?.[1] ?? "";
+  const svg = inner.replace(/<span style="display: contents;">([\s\S]*)<\/span>/, "$1");
+  // Only from the root `<g>` on: that subtree is core's string, which React
+  // passes through verbatim, while the backdrop before it is an element React
+  // itself serialized — with an explicit closing tag, as domino writes it.
+  const root = svg.indexOf("<g");
+  const ours = root < 0 ? svg : svg.slice(0, root);
+  const core = root < 0 ? "" : svg.slice(root);
+  return artifacts(
+    normalize(ours + core.replace(/><\/(path|circle|ellipse|rect|line|polyline|polygon)>/g, "/>")),
+  );
+};
+
 /** The blobatar itself, out of whichever element carried it. */
 const picture = (markup: string) => {
   const src = markup.match(/src="([^"]*)"/);
@@ -139,6 +197,7 @@ const ADAPTERS: [string, Render][] = [
   ["@blobatar/solid", solid],
   ["@blobatar/preact", preact],
   ["@blobatar/svelte", svelte],
+  ["@blobatar/angular", angular],
 ];
 
 const OTHERS = ADAPTERS.filter(([name]) => name !== "@blobatar/react");
@@ -182,7 +241,13 @@ describe("attrs the caller passes win, in both modes", () => {
   // props derived. Both adapters spread caller attrs last, so both agree.
   const OVERRIDE = { name: "alain", size: 48, width: 96, height: 96, role: "presentation" };
 
-  for (const [name, render] of OTHERS) {
+  // Not Angular, which has nothing to spread: a component keeps its host
+  // element, so an attribute the caller writes lands on `<blobatar>` itself and
+  // never reaches the `<img>` or `<svg>` inside. Binding `[width]` there is a
+  // template error (NG0303), not an override.
+  const SPREADING = OTHERS.filter(([name]) => name !== "@blobatar/angular");
+
+  for (const [name, render] of SPREADING) {
     test(`static — ${name}`, async () => {
       const a = await render(OVERRIDE);
       const b = react(OVERRIDE);
