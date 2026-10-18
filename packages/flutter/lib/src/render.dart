@@ -54,6 +54,16 @@ class BlobatarOptions {
   /// own, which for gen-2 is none.
   final Backdrop? background;
 
+  /// The backdrop's fill color, as `#rgb` or `#rrggbb`. Has no effect unless
+  /// a [background] is drawn.
+  ///
+  /// Unlike `palette: {'bg': ...}`, this keeps the contrast guarantee: the
+  /// body is pushed off this color the way it is pushed off the default
+  /// plate. `palette['bg']` wins if both are given. Any other string throws
+  /// an [ArgumentError] — the web port paints CSS colors it cannot measure,
+  /// but a Flutter canvas has nothing to paint them with.
+  final String? backgroundColor;
+
   /// The static pose to apply. Omitted and [idle] are equivalent.
   final Expression? expression;
 
@@ -65,6 +75,7 @@ class BlobatarOptions {
     this.normalize = true,
     this.contrast = true,
     this.background,
+    this.backgroundColor,
     this.expression,
   });
 
@@ -81,6 +92,7 @@ class BlobatarOptions {
         hue == other.hue &&
         tone == other.tone &&
         background == other.background &&
+        backgroundColor == other.backgroundColor &&
         expression == other.expression &&
         _mapEquals(palette, other.palette, _scalarEquals) &&
         _mapEquals(traits, other.traits, _scalarEquals);
@@ -93,6 +105,7 @@ class BlobatarOptions {
         hue,
         tone,
         background,
+        backgroundColor,
         expression,
         Object.hashAllUnordered(palette?.entries ?? const []),
         Object.hashAllUnordered(traits?.entries ?? const []),
@@ -134,8 +147,20 @@ class Resolved {
 /// Normalizes and hashes the name once, builds the trait reader, and resolves
 /// the palette — including the `hue`/`tone` friendly units and the palette
 /// overrides. `hue`/`tone` win over `traits` entries for the same two traits.
+///
+/// [styleDefault] is the style's own backdrop, needed because
+/// `backgroundColor` only joins the contrast chain when a plate is actually
+/// drawn: pushing the body off a color that never reaches the screen would
+/// change the blobatar for nothing.
 Resolved resolve(String seed,
-    [BlobatarOptions opts = const BlobatarOptions()]) {
+    [BlobatarOptions opts = const BlobatarOptions(),
+    Backdrop styleDefault = Backdrop.none]) {
+  final String? bg = opts.backgroundColor;
+  if (bg != null && bg.isNotEmpty && plateHex(bg) == null) {
+    throw ArgumentError.value(
+        bg, 'backgroundColor', 'must be #rgb or #rrggbb');
+  }
+  final bool plated = (opts.background ?? styleDefault) != Backdrop.none;
   final Traits t = traitsFor(
     seed,
     normalize: opts.normalize,
@@ -145,6 +170,7 @@ Resolved resolve(String seed,
     opts.hue ?? t.numIn('hue', 0, 360),
     opts.contrast,
     opts.tone ?? t('tone'),
+    plated && bg != null && bg.isNotEmpty ? bg : null,
   );
   if (opts.palette != null) {
     p.addAll(opts.palette!);

@@ -180,4 +180,90 @@ void main() {
       }
     });
   });
+
+  group('a caller's plate', () {
+    // Plates that sit on top of each part of the tone set, mirroring
+    // `color.test.ts`.
+    const plates = <String, String>{
+      '#000000': '#000000',
+      '#0a0a0b': '#0a0a0b',
+      '#ffffff': '#ffffff',
+      '#F5F5F5': '#F5F5F5',
+      '#3b82f6': '#3b82f6',
+      '#888': '#888888',
+    };
+    const tones = <double>[0.1, 0.3, 0.5, 0.7, 0.88, 0.97];
+
+    test('the floors hold against every plate at every hue and tone', () {
+      for (final MapEntry<String, String> p in plates.entries) {
+        final Oklch plate = fromHex(p.value);
+        for (var h = 0; h < 360; h += 3) {
+          for (final double tone in tones) {
+            final r = ramp(h.toDouble(), true, tone, p.key);
+            expect(contrast(r['head']!, plate),
+                greaterThanOrEqualTo(1.25 - 1e-6),
+                reason: 'head/${p.key} h=$h t=$tone');
+            expect(contrast(r['eye']!, r['head']!),
+                greaterThanOrEqualTo(4.5 - 1e-9),
+                reason: 'eye/head ${p.key} h=$h t=$tone');
+          }
+        }
+      }
+    });
+
+    test('is measured as a grey of the same luminance', () {
+      for (final MapEntry<String, String> p in plates.entries) {
+        expect(contrast(ramp(0, true, 0, p.key)['bg']!, fromHex(p.value)),
+            closeTo(1, 1e-3));
+      }
+    });
+
+    test('comes back out of the palette as hex', () {
+      expect(palette(0, true, 0, '#F5F5F5')['bg'], '#F5F5F5');
+      expect(palette(0, true, 0, '#888')['bg'], '#888888');
+    });
+
+    test('a non-hex plate is rejected', () {
+      expect(
+        () => resolve(
+            'a',
+            const BlobatarOptions(
+                background: Backdrop.circle, backgroundColor: 'red')),
+        throwsArgumentError,
+      );
+    });
+
+    test('a plate that is not drawn moves nothing', () {
+      for (var i = 0; i < 50; i++) {
+        expect(
+          resolve('user-$i', const BlobatarOptions(backgroundColor: '#000'))
+              .palette,
+          resolve('user-$i').palette,
+        );
+      }
+    });
+
+    test('a body-colored plate pushes the body off it', () {
+      const opts = BlobatarOptions(background: Backdrop.circle);
+      final String head = resolve('a', opts).palette['head']!;
+      final p = resolve(
+              'a',
+              BlobatarOptions(
+                  background: Backdrop.circle, backgroundColor: head))
+          .palette;
+      expect(p['bg'], head);
+      expect(p['head'], isNot(head));
+    });
+
+    test('palette.bg still wins', () {
+      final p = resolve(
+              'a',
+              const BlobatarOptions(
+                  background: Backdrop.circle,
+                  backgroundColor: '#123456',
+                  palette: {'bg': '#abcdef'}))
+          .palette;
+      expect(p['bg'], '#abcdef');
+    });
+  });
 }

@@ -98,6 +98,7 @@ BlobatarOptions(
 | Option | Dart value | Behavior |
 | --- | --- | --- |
 | `background` | `Backdrop.none`, `.squircle`, `.circle`, `.square` | Draws the matching backdrop plate. |
+| `backgroundColor` | `#rgb` or `#rrggbb` | Fills the backdrop; needs a `background`. Keeps the contrast floors, unlike `palette['bg']`. |
 | `hue` | degrees | Pins color while the name continues to drive other traits. |
 | `tone` | `0 <= value < 1` | Selects an authored lightness/chroma band. |
 | `palette` | `Map<String, String>` | Overrides selected `bg`, `head`, or `eye` colors. |
