@@ -14,19 +14,16 @@ private func isJavaScriptWhitespace(_ scalar: Unicode.Scalar) -> Bool {
   }
 }
 
+// Final_Sigma context, as ECMAScript's `toLowerCase` defines it, reads the
+// Unicode Cased and Case_Ignorable properties. Hand-written ranges miss
+// ignorables such as U+0027 and U+2019 and cased scripts such as Armenian,
+// which changed the hash of names like "AΣ'A".
 private func isCaseIgnorable(_ scalar: Unicode.Scalar) -> Bool {
-  (0x0300...0x036F).contains(scalar.value) || scalar.value == 0x00AD
-    || scalar.value == 0x200B
+  scalar.properties.isCaseIgnorable
 }
 
 private func isCased(_ scalar: Unicode.Scalar) -> Bool {
-  let value = scalar.value
-  return (0x41...0x5A).contains(value)
-    || (0x61...0x7A).contains(value)
-    || ((0xC0...0x24F).contains(value) && value != 0xD7 && value != 0xF7)
-    || (0x370...0x3FF).contains(value)
-    || (0x400...0x4FF).contains(value)
-    || (0x1E00...0x1FFF).contains(value)
+  scalar.properties.isCased
 }
 
 private func isPrecededByCased(_ scalars: [Unicode.Scalar], at index: Int) -> Bool {

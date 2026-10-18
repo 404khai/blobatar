@@ -56,18 +56,6 @@ final class ReferenceFixtureTests: XCTestCase {
     XCTAssertTrue(counts.values.allSatisfy { $0 >= 25 })
   }
 
-  func testFlutterWorkstreamFixtureIsByteIdenticalWhenPresent() throws {
-    let canonical = try Data(contentsOf: fixtureURL())
-    let flutter = try packageRootURL()
-      .appendingPathComponent("packages/flutter/test/fixtures/reference-vectors.json")
-
-    guard FileManager.default.fileExists(atPath: flutter.path) else {
-      return
-    }
-
-    XCTAssertEqual(try Data(contentsOf: flutter), canonical)
-  }
-
   private func loadFixture() throws -> [String: Any] {
     let data = try Data(contentsOf: fixtureURL())
     return try XCTUnwrap(

@@ -50,6 +50,15 @@ public struct BlobatarOptions: Sendable {
   public let normalize: Bool
   public let contrast: Bool
   public let background: BlobatarBackdrop?
+  /// The backdrop's fill color, as `#rgb` or `#rrggbb`.
+  ///
+  /// Has no effect unless a ``background`` is drawn. Unlike
+  /// ``BlobatarPaletteOverride/background``, this keeps the contrast
+  /// guarantee: the body is pushed off this color the way it is pushed off the
+  /// default plate. A palette override wins if both are given. An empty string
+  /// is the same as omitting it, and any other notation is a precondition
+  /// failure, since a native canvas cannot paint an arbitrary CSS color.
+  public let backgroundColor: String?
   public let expression: BlobatarExpression?
 
   public init(
@@ -60,6 +69,7 @@ public struct BlobatarOptions: Sendable {
     normalize: Bool = true,
     contrast: Bool = true,
     background: BlobatarBackdrop? = nil,
+    backgroundColor: String? = nil,
     expression: BlobatarExpression? = nil
   ) {
     self.palette = palette
@@ -69,6 +79,7 @@ public struct BlobatarOptions: Sendable {
     self.normalize = normalize
     self.contrast = contrast
     self.background = background
+    self.backgroundColor = backgroundColor
     self.expression = expression
   }
 }

@@ -231,7 +231,54 @@ private let tones = [
 let darkSurface = Oklch(lightness: 0.145, chroma: 0, hue: 0)
 let surfaceContrastFloor = 1.5
 
-func makeRamp(hue: Double, tone: Double, enforceContrast: Bool) -> [String: Oklch] {
+private func isHexDigit(_ character: Character) -> Bool {
+  character.isASCII && character.isHexDigit
+}
+
+/// A `#rgb` or `#rrggbb` plate color expanded to `#rrggbb`, or `nil` for
+/// anything else.
+func plateHex(_ color: String) -> String? {
+  let characters = Array(color)
+  guard characters.first == "#", characters.dropFirst().allSatisfy(isHexDigit) else {
+    return nil
+  }
+  switch characters.count {
+  case 4:
+    return "#" + characters.dropFirst().map { "\($0)\($0)" }.joined()
+  case 7:
+    return color
+  default:
+    return nil
+  }
+}
+
+/// A caller's plate, as the neutral grey of the same WCAG luminance.
+///
+/// Grey, because luminance is all the floors read, and an achromatic OKLCh
+/// color has luminance exactly `l³`. Mirrors `plate` in the TypeScript
+/// `color.ts` so every port measures the same stand-in.
+func plateGrey(_ hex: String) -> Oklch {
+  let value = UInt32(hex.dropFirst(), radix: 16)!
+  var luminance = 0.0
+  for (shift, weight) in [(16, 0.2126), (8, 0.7152), (0, 0.0722)] {
+    let encoded = Double((value >> UInt32(shift)) & 0xff) / 255
+    let linear = encoded <= 0.04045 ? encoded / 12.92 : pow((encoded + 0.055) / 1.055, 2.4)
+    luminance += weight * linear
+  }
+  return Oklch(lightness: cbrt(luminance), chroma: 0, hue: 0)
+}
+
+/// The palette in OKLCh, before hex encoding.
+///
+/// `plate` is a caller's `#rrggbb` backdrop color. It stands in for the
+/// authored background *before* the floors run, so the body is pushed off the
+/// plate that is actually drawn.
+func makeRamp(
+  hue: Double,
+  tone: Double,
+  enforceContrast: Bool,
+  plate: String? = nil
+) -> [String: Oklch] {
   let selected = tones.first(where: { tone < $0.edge }) ?? tones[0]
   let body = ensureContrast(
     Oklch(lightness: selected.lightness, chroma: selected.chroma, hue: hue),
@@ -246,6 +293,9 @@ func makeRamp(hue: Double, tone: Double, enforceContrast: Bool) -> [String: Oklc
       ? Oklch(lightness: 0.17, chroma: 0.02, hue: hue)
       : Oklch(lightness: 0.97, chroma: 0.012, hue: hue),
   ]
+  if let plate {
+    ramp["bg"] = plateGrey(plate)
+  }
   if enforceContrast {
     ramp["head"] = ensureContrast(ramp["head"]!, against: ramp["bg"]!, minimum: 1.25)
     ramp["eye"] = ensureContrast(ramp["eye"]!, against: ramp["head"]!, minimum: 4.5)
@@ -253,10 +303,17 @@ func makeRamp(hue: Double, tone: Double, enforceContrast: Bool) -> [String: Oklc
   return ramp
 }
 
-func makePalette(hue: Double, tone: Double, enforceContrast: Bool) -> BlobatarPalette {
-  let ramp = makeRamp(hue: hue, tone: tone, enforceContrast: enforceContrast)
+/// The authored ramp as hex. A `plate` comes back out as the caller's color
+/// rather than its stand-in grey.
+func makePalette(
+  hue: Double,
+  tone: Double,
+  enforceContrast: Bool,
+  plate: String? = nil
+) -> BlobatarPalette {
+  let ramp = makeRamp(hue: hue, tone: tone, enforceContrast: enforceContrast, plate: plate)
   return BlobatarPalette(
-    background: toHex(ramp["bg"]!),
+    background: plate ?? toHex(ramp["bg"]!),
     head: toHex(ramp["head"]!),
     eye: toHex(ramp["eye"]!)
   )

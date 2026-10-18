@@ -162,7 +162,7 @@ Dart calculation API.
 
 ### Swift and SwiftUI
 
-In Xcode, add `https://github.com/Alain00/blobatar.git` from version `2.8.0`,
+In Xcode, add `https://github.com/Alain00/blobatar.git` from version `2.9.0`,
 then link `BlobatarSwiftUI` to the application target.
 
 ```swift

@@ -3,13 +3,15 @@
 All notable changes to the native Swift SDK are documented here. Blobatar's
 JavaScript packages keep their release history in the repository root.
 
-## 2.8.0
+## 2.9.0
 
 The first official native Swift release.
 
 - Add the UI-independent `BlobatarCore` product with generation-2
   normalization, hashing, traits, palette, geometry, expressions, and seeded
   elapsed-time motion.
+- Support `backgroundColor`, which fills the backdrop and keeps the contrast
+  floors, matching the TypeScript and Dart ports.
 - Add the `BlobatarSwiftUI` product with native `Canvas` rendering, static and
   animated views, accessibility labels, pointer hover, Reduce Motion support,
   scene-aware pausing, and application-controlled off-screen activity.

@@ -181,6 +181,7 @@ struct BlobatarRequestKey: Hashable {
   let normalize: Bool
   let contrast: Bool
   let background: BlobatarBackdrop?
+  let backgroundColor: String?
   let expression: BlobatarExpression?
 
   init(name: String, options: BlobatarOptions, includeExpression: Bool = true) {
@@ -194,6 +195,7 @@ struct BlobatarRequestKey: Hashable {
     normalize = options.normalize
     contrast = options.contrast
     background = options.background
+    backgroundColor = options.backgroundColor
     expression = includeExpression ? options.expression : nil
   }
 }

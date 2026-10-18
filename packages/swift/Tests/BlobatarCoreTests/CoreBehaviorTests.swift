@@ -14,6 +14,83 @@ final class CoreBehaviorTests: XCTestCase {
     XCTAssertEqual(normalizeSeed("\u{FEFF}"), "")
   }
 
+  func testFinalSigmaUsesUnicodeCasedAndCaseIgnorableProperties() {
+    // Expected states come from the TypeScript `seedState`, where the
+    // JavaScript engine's own Final_Sigma handling decides the mapping.
+    let cases: [(String, String, UInt32)] = [
+      ("AΣ'A", "aσ'a", 300_958_747),
+      ("AΣ\u{2019}A", "aσ\u{2019}a", 33_739_173),
+      ("AΣ.A", "aσ.a", 3_270_872_828),
+      ("AΣ:A", "aσ:a", 50_477_190),
+      ("\u{531}Σ", "\u{561}ς", 782_133_757),
+      ("\u{FF21}Σ", "\u{FF41}ς", 3_630_730_654),
+      ("AΣ\u{5B0}", "aς\u{5B0}", 3_492_215_416),
+      ("\u{AB70}Σ", "\u{AB70}ς", 3_321_446_600),
+      ("ΑΣ'", "ας'", 3_585_492_738),
+      ("A\u{2019}Σ", "a\u{2019}ς", 225_370_491),
+    ]
+    for (name, normalized, state) in cases {
+      XCTAssertEqual(normalizeSeed(name), normalized, name)
+      XCTAssertEqual(seedState(name), state, name)
+    }
+  }
+
+  func testBackgroundColorJoinsContrastFloorsLikeTypeScript() throws {
+    // Expected palettes come from the TypeScript `palette(hue, true, tone, bg)`.
+    // The plate comes back expanded to `#rrggbb`, which the renderer requires.
+    let cases: [(Double, Double, String, String, String)] = [
+      (0, 0, "#000", "#ffbbcf", "#170c0f"),
+      (137.5, 0.5, "#000000", "#7dbb64", "#0b1109"),
+      (210, 0.7, "#ffffff", "#0097aa", "#051214"),
+      (300, 0.95, "#1a1a2e", "#3b3448", "#f6f3fc"),
+      (45, 0.85, "#F5C518", "#ffe1d3", "#170d08"),
+      (90, 0.3, "#808080", "#e5deca", "#130f06"),
+    ]
+    for (hue, tone, plate, head, eye) in cases {
+      let expanded = try XCTUnwrap(plateHex(plate))
+      XCTAssertEqual(
+        makePalette(hue: hue, tone: tone, enforceContrast: true, plate: expanded),
+        BlobatarPalette(background: expanded, head: head, eye: eye),
+        plate
+      )
+    }
+    XCTAssertEqual(plateHex("#AbC"), "#AAbbCC")
+    XCTAssertNil(plateHex("red"))
+    XCTAssertNil(plateHex("#abcd"))
+    XCTAssertNil(plateHex("#+12345"))
+  }
+
+  func testBackgroundColorOnlyAppliesToADrawnBackdrop() {
+    let plain = resolveBlobatar("alain")
+    XCTAssertEqual(
+      resolveBlobatar("alain", options: BlobatarOptions(backgroundColor: "#000")).palette,
+      plain.palette
+    )
+    XCTAssertEqual(
+      resolveBlobatar("alain", options: BlobatarOptions(background: .circle, backgroundColor: ""))
+        .palette,
+      resolveBlobatar("alain", options: BlobatarOptions(background: .circle)).palette
+    )
+
+    let plated = resolveBlobatar(
+      "alain",
+      options: BlobatarOptions(background: .squircle, backgroundColor: "#000")
+    )
+    XCTAssertEqual(plated.palette.background, "#000000")
+    XCTAssertEqual(plated.backdrop?.color, "#000000")
+
+    let overridden = resolveBlobatar(
+      "alain",
+      options: BlobatarOptions(
+        palette: BlobatarPaletteOverride(background: "#123456"),
+        background: .square,
+        backgroundColor: "#000"
+      )
+    )
+    XCTAssertEqual(overridden.palette.background, "#123456")
+    XCTAssertEqual(overridden.palette.head, plated.palette.head)
+  }
+
   func testRawNamesAndAstralPlaneNamesRetainJavaScriptHashSemantics() {
     XCTAssertNotEqual(seedState("Alain", normalize: false), seedState("alain", normalize: false))
     XCTAssertEqual(seedState("café"), seedState("cafe\u{301}"))

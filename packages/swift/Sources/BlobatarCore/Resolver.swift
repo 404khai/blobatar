@@ -20,10 +20,23 @@ func resolveBlobatar(
   options: BlobatarOptions,
   expression: BlobatarExpression?
 ) -> BlobatarDrawing {
+  // The plate only joins the contrast chain when a backdrop is drawn: pushing
+  // the body off a color that never reaches the screen would change the
+  // Blobatar for nothing.
+  var plate: String?
+  if let color = options.backgroundColor, !color.isEmpty {
+    guard let hex = plateHex(color) else {
+      preconditionFailure("Blobatar backgroundColor must use #rgb or #rrggbb notation")
+    }
+    // Spelled out because a bare `.none` beside an optional reads as `nil`.
+    let drawn = (options.background ?? BlobatarBackdrop.none) != BlobatarBackdrop.none
+    plate = drawn ? hex : nil
+  }
   var palette = makePalette(
     hue: options.hue ?? traits.number("hue", min: 0, max: 360),
     tone: options.tone ?? traits.value("tone"),
-    enforceContrast: options.contrast
+    enforceContrast: options.contrast,
+    plate: plate
   )
   if let override = options.palette {
     palette = BlobatarPalette(

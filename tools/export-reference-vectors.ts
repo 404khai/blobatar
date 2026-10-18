@@ -4,14 +4,17 @@
  * Runs the generation-2 TypeScript implementation at a pinned release and
  * writes the cross-language fixture the Dart and Swift packages check against.
  * The source of truth is the tree at `BLOBATAR_TS_SRC` (default: a v2.4.0
- * checkout). Motion uses `BLOBATAR_MOTION_SRC` because the pure TypeScript
- * evaluator was extracted from that release's stylesheet. Neither source is a
- * port's generated output. The fixture's `meta` object and package READMEs
- * document the schema and comparison rules.
+ * checkout). Motion uses `BLOBATAR_MOTION_SRC` (default: a checkout of
+ * 6958577, the fixture's `meta.motionExportedWith`) because the pure TypeScript
+ * evaluator was extracted from that release's stylesheet after 2.4.0. Both are
+ * pinned checkouts rather than this working tree, so regenerating cannot pick
+ * up later motion changes. Neither source is a port's generated output. The
+ * fixture's `meta` object and package READMEs document the schema and
+ * comparison rules.
  *
- *   BLOBATAR_TS_SRC=/tmp/blobatar-v240/packages/blobatar/src \
- *     BLOBATAR_MOTION_SRC=packages/blobatar/src \
- *     bun tools/export-reference-vectors.ts
+ *   git worktree add --detach /tmp/blobatar-v240 v2.4.0
+ *   git worktree add --detach /tmp/blobatar-motion 6958577
+ *   bun tools/export-reference-vectors.ts
  */
 
 import { execSync } from "node:child_process";
@@ -21,8 +24,7 @@ import { resolve } from "node:path";
 const SRC =
   process.env.BLOBATAR_TS_SRC ?? "/tmp/blobatar-v240/packages/blobatar/src";
 const MOTION_SRC =
-  process.env.BLOBATAR_MOTION_SRC ??
-  resolve(import.meta.dir, "../packages/blobatar/src");
+  process.env.BLOBATAR_MOTION_SRC ?? "/tmp/blobatar-motion/packages/blobatar/src";
 
 const { normalizeSeed, seedState, stream } = await import(`${SRC}/hash.ts`);
 const { traits } = await import(`${SRC}/traits.ts`);

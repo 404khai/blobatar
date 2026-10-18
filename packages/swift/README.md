@@ -19,14 +19,14 @@ In Xcode, choose **File > Add Package Dependencies** and enter:
 https://github.com/Alain00/blobatar.git
 ```
 
-Select version `2.8.0` or later within major version 2, then add
+Select version `2.9.0` or later within major version 2, then add
 `BlobatarSwiftUI` to an application target. For a manifest-based package:
 
 ```swift
 dependencies: [
   .package(
     url: "https://github.com/Alain00/blobatar.git",
-    from: "2.8.0"
+    from: "2.9.0"
   )
 ]
 ```
@@ -106,16 +106,17 @@ let options = BlobatarOptions(
 )
 ```
 
-| Option       | Swift value                                | Behavior                                                                                          |
-| ------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `background` | `.none`, `.squircle`, `.circle`, `.square` | Draws the selected backdrop plate.                                                                |
-| `hue`        | `Double?` in degrees                       | Pins color while the name continues to drive other traits.                                        |
-| `tone`       | `Double?` in `0..<1`                       | Selects an authored lightness and chroma band.                                                    |
-| `palette`    | `BlobatarPaletteOverride?`                 | Replaces selected background, head, or eye colors verbatim.                                       |
-| `traits`     | `[String: BlobatarTraitOverride]`          | Pins or narrows hash-space trait positions; omitted traits stay name-driven.                      |
-| `normalize`  | `Bool`                                     | Applies NFC normalization, trimming, and lowercase when true.                                     |
-| `contrast`   | `Bool`                                     | Enforces generated-palette contrast floors when true. Explicit palette overrides remain verbatim. |
-| `expression` | `BlobatarExpression?`                      | Applies one of the fourteen generation-2 poses and optional tint.                                 |
+| Option            | Swift value                                | Behavior                                                                                          |
+| ----------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `background`      | `.none`, `.squircle`, `.circle`, `.square` | Draws the selected backdrop plate.                                                                |
+| `backgroundColor` | `String?`, `#rgb` or `#rrggbb`             | Fills the backdrop; needs a `background`. Keeps the contrast floors, unlike `palette`.            |
+| `hue`             | `Double?` in degrees                       | Pins color while the name continues to drive other traits.                                        |
+| `tone`            | `Double?` in `0..<1`                       | Selects an authored lightness and chroma band.                                                    |
+| `palette`         | `BlobatarPaletteOverride?`                 | Replaces selected background, head, or eye colors verbatim.                                       |
+| `traits`          | `[String: BlobatarTraitOverride]`          | Pins or narrows hash-space trait positions; omitted traits stay name-driven.                      |
+| `normalize`       | `Bool`                                     | Applies NFC normalization, trimming, and lowercase when true.                                     |
+| `contrast`        | `Bool`                                     | Enforces generated-palette contrast floors when true. Explicit palette overrides remain verbatim. |
+| `expression`      | `BlobatarExpression?`                      | Applies one of the fourteen generation-2 poses and optional tint.                                 |
 
 The expression roster is `idle`, `happy`, `sad`, `mad`, `surprised`, `wink`,
 `sleepy`, `smug`, `unsure`, `scared`, `love`, `shy`, `sick`, and `thinking`.
